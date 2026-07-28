@@ -1,8 +1,20 @@
-# Mot-à-Mot Design Documentation (V1.0)
+# Mot-à-Mot Design Documentation
 
-This folder preserves all product and design specifications for **Mot-à-Mot V1.0**.
+Product and design specifications for **Mot-à-Mot**.
 
-## Markdown specs (searchable, version-controlled)
+## V1.1 (delta — extends V1.0)
+
+| Document | Description |
+|----------|-------------|
+| [../V1.1.md](../V1.1.md) | V1.1 implementation snapshot |
+| PRD v1.1 | Meaning Clarification, Context-Aware Suggestions, My French Toolbox |
+| UX Spec v1.1 | Updated journey, Results hierarchy, vocabulary screen |
+| UI Style Guide v1.1 | Dual suggestion cards, toolbox dashboard, clarification panel |
+| Component Library v1.1 | C-11–C-16, updated S-01/S-03, new S-04 |
+
+V1.1 design deltas were provided as addendum documents (parent: V1.0 specs below).
+
+## V1.0
 
 | Document | Description |
 |----------|-------------|

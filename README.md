@@ -1,15 +1,17 @@
-# Mot-à-Mot V1.0
+# Mot-à-Mot V1.1
 
 An AI messaging assistant for beginner French learners (A1–B1). Check your French sentences before you send them — get corrections, explanations, and confidence.
 
 **Run locally:** frontend at `http://localhost:5173/` · API at `http://localhost:3001/`  
 **Host free online:** [Deploy on Vercel](docs/VERCEL-DEPLOY.md) (Gemini API key required)
 
-## Features (V1.0)
+## Features (V1.1)
 
 - French sentence analysis with structured feedback
-- **Your Sentence** → **What I Understood** (literal + everyday meaning) → **Ready to Send**
-- Side-by-side change comparison with educational rationale
+- **Informal & Formal French** suggestions for different communication contexts
+- **That's Not What I Meant** — clarify intent without restarting
+- **My French Toolbox** — auto-built personal vocabulary from your corrections
+- Side-by-side change comparison across informal and formal versions
 - Grammar & naturalness scores for **your original sentence**
 - Voice input (Chrome/Edge, French `fr-FR`)
 - Multiple AI providers: **Gemini** (free tier), **Ollama** (local/free), **OpenAI** (paid)
@@ -74,6 +76,7 @@ MOt -aMot/
 | Doc | Description |
 |-----|-------------|
 | [docs/V1.0.md](docs/V1.0.md) | V1.0 iteration snapshot — scope, features, decisions |
+| [docs/V1.1.md](docs/V1.1.md) | **V1.1 features** — clarification, dual suggestions, toolbox |
 | [docs/design/](docs/design/) | **PRD, UX spec, style guide, component library** + PDF originals |
 | [docs/PROMPTS.md](docs/PROMPTS.md) | Full AI system prompt & JSON schema |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Version history |

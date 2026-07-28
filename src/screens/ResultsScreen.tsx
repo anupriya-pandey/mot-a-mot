@@ -1,24 +1,36 @@
-import { Copy, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { ClarificationPanel } from '../components/ClarificationPanel';
 import { ComparisonTable } from '../components/ComparisonTable';
-import { StatusBanner } from '../components/StatusBanner';
 import { InformationCard } from '../components/InformationCard';
-import { PrimaryButton } from '../components/PrimaryButton';
 import { RatingBar } from '../components/RatingBar';
 import { SecondaryButton } from '../components/SecondaryButton';
-import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
-import type { AnalysisResult } from '../types/analysis';
+import { SectionHeader } from '../components/SectionHeader';
+import { SuggestedMessageCard } from '../components/SuggestedMessageCard';
+import type { AnalysisResult, ClarificationInput } from '../types/analysis';
 
 interface ResultsScreenProps {
   result: AnalysisResult;
   originalSentence: string;
   onCheckAnother: () => void;
+  onClarify: (clarification: ClarificationInput) => Promise<boolean>;
+  isClarifying: boolean;
+  clarificationError: string | null;
 }
 
-export function ResultsScreen({ result, originalSentence, onCheckAnother }: ResultsScreenProps) {
-  const { copied, error: copyError, copy } = useCopyToClipboard();
+export function ResultsScreen({
+  result,
+  originalSentence,
+  onCheckAnother,
+  onClarify,
+  isClarifying,
+  clarificationError,
+}: ResultsScreenProps) {
+  const [showClarification, setShowClarification] = useState(false);
 
-  const handleCopy = () => {
-    void copy(result.correctedSentence);
+  const handleClarifySubmit = async (clarification: ClarificationInput) => {
+    const success = await onClarify(clarification);
+    if (success) setShowClarification(false);
   };
 
   return (
@@ -29,51 +41,49 @@ export function ResultsScreen({ result, originalSentence, onCheckAnother }: Resu
         </InformationCard>
 
         <InformationCard icon="🇬🇧" title="What I Understood">
-          <div className="space-y-s">
-            <p>
-              <span className="font-medium text-text-secondary">Literal: </span>
-              {result.understood}
-            </p>
-            {result.everydayMeaning && (
-              <p>
-                <span className="font-medium text-text-secondary">In everyday French: </span>
-                {result.everydayMeaning}
-              </p>
+          <div className="space-y-m">
+            <p>{result.understood}</p>
+            {!showClarification && (
+              <SecondaryButton onClick={() => setShowClarification(true)}>
+                That&apos;s Not What I Meant
+              </SecondaryButton>
             )}
           </div>
         </InformationCard>
 
-        <InformationCard
-          icon="✅"
-          title="Ready to Send"
-          highlight="success"
-          action={
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="rounded-full p-1 text-text-secondary transition-colors hover:text-primary"
-              aria-label="Copy corrected sentence"
-            >
-              <Copy className="h-4 w-4" />
-            </button>
-          }
-        >
-          {result.correctedSentence}
-        </InformationCard>
+        {showClarification && (
+          <ClarificationPanel
+            onSubmit={handleClarifySubmit}
+            isSubmitting={isClarifying}
+            error={clarificationError}
+          />
+        )}
 
-        <PrimaryButton onClick={handleCopy} success={copied}>
-          Copy Message
-        </PrimaryButton>
-
-        {copyError && <StatusBanner type="error" message={copyError} />}
+        <section aria-labelledby="suggested-messages">
+          <SectionHeader icon="💬" title="Suggested Messages" />
+          <div className="space-y-l">
+            <SuggestedMessageCard
+              variant="informal"
+              sentence={result.suggestions.informal.sentence}
+            />
+            <SuggestedMessageCard variant="formal" sentence={result.suggestions.formal.sentence} />
+          </div>
+        </section>
 
         <ComparisonTable changes={result.changes} />
 
-        {result.grammarNotes && (
-          <InformationCard icon="📚" title="Why These Changes?">
-            {result.grammarNotes}
-          </InformationCard>
-        )}
+        <InformationCard icon="📚" title="Why These Changes?">
+          <div className="space-y-m">
+            <div>
+              <h3 className="mb-xs font-semibold text-text-primary">Informal Explanation</h3>
+              <p className="whitespace-pre-line">{result.explanations.informal}</p>
+            </div>
+            <div>
+              <h3 className="mb-xs font-semibold text-text-primary">Formal Explanation</h3>
+              <p className="whitespace-pre-line">{result.explanations.formal}</p>
+            </div>
+          </div>
+        </InformationCard>
 
         <section className="space-y-m" aria-labelledby="your-sentence-scores">
           <div>
@@ -81,7 +91,7 @@ export function ResultsScreen({ result, originalSentence, onCheckAnother }: Resu
               Your Sentence Scores
             </h2>
             <p className="mt-xs text-sm text-text-secondary">
-              These ratings score what you wrote — not the corrected version above.
+              These ratings score what you wrote — not the corrected versions above.
             </p>
           </div>
           <RatingBar label="Grammar" value={result.ratings.grammar} />

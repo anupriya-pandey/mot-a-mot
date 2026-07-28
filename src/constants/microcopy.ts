@@ -19,8 +19,15 @@ export const ERRORS = {
   voiceLanguage:
     'French voice input is not supported in this browser. Try Chrome or Edge, or type your sentence.',
   aiRequestFailed: "We couldn't check your sentence right now. Please try again.",
+  clarificationFailed: "We couldn't update your correction right now. Please try again.",
+  clarificationEmpty: 'Please tell us what you intended to say.',
   copyFailed: 'Unable to copy. Please try again.',
 } as const;
+
+export const HISTORY_EMPTY =
+  'No searches yet.\nCheck a French sentence — your history will appear here.';
+export const TOOLBOX_EMPTY =
+  'Your French Toolbox is empty.\nStart checking sentences to build your vocabulary.';
 
 export const VOICE_HINT =
   'Click the mic, wait until it turns blue, then speak your French sentence right away.';

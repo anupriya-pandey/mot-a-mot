@@ -1,13 +1,13 @@
-import type { AnalysisResult } from '../types/analysis';
+import type { AnalysisResult, AnalyzeRequest } from '../types/analysis';
 
-export async function analyzeFrench(sentence: string): Promise<AnalysisResult> {
+export async function analyzeFrench(request: AnalyzeRequest): Promise<AnalysisResult> {
   let response: Response;
 
   try {
     response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sentence }),
+      body: JSON.stringify(request),
     });
   } catch {
     throw new Error(

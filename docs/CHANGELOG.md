@@ -2,6 +2,25 @@
 
 All notable changes to Mot-à-Mot are documented here.
 
+## [1.1.0] — V1.1 — 2026-07-28
+
+### Added
+
+- **Meaning Clarification:** "That's Not What I Meant" with English or French clarification input; re-analysis without returning to Landing
+- **Context-Aware Suggestions:** Informal and Formal French messages with independent copy actions
+- **Updated comparison table:** Your Sentence | Informal French | Formal French
+- **Dual explanations:** Separate informal and formal "Why These Changes?" content
+- **My French Toolbox:** Two-step AI — correction then separate linguistic vocabulary extraction; lemma + surface storage
+- Vercel serverless + Gemini high-demand retry improvements
+
+### Changed
+
+- AI response schema: `suggestions`, `explanations`; vocabulary uses `lemma`, `surface`, `meaning`, `example`
+- Two separate AI prompts: correction task + vocabulary extraction task
+- Default Gemini model: `gemini-2.0-flash` with expanded fallback chain
+
+---
+
 ## [1.0.0] — V1.0 — 2026-07-21
 
 First public iteration. Tag: `v1.0.0`.

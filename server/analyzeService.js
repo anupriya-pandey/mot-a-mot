@@ -1,54 +1,70 @@
-import OpenAI from 'openai';
+import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
+import { sanitizeVocabulary } from './vocabularySanitizer.js';
 
-const SYSTEM_PROMPT = `You are Mot-à-Mot, an AI messaging assistant for beginner French learners (A1–B1).
+const CORRECTION_SYSTEM_PROMPT = `You are Mot-à-Mot, an AI messaging assistant for beginner French learners (A1–B1).
 
-Your job: help users verify, improve, and confidently send everyday French messages before they press Send.
+Your ONLY job in this task is sentence correction and explanation — NOT vocabulary extraction.
 
 Rules:
-- Prioritize natural conversational French over literal translations
-- Explain mistakes in simple, beginner-friendly language (avoid heavy grammar jargon)
-- Every correction must include a brief "why" with real reasoning
-- grammarNotes: 3–5 short lines. Teach the underlying rule or pattern behind the changes — explain WHY French works this way, with a concrete example if helpful. Never say things like "because it's always done this way" or "that's just how French is." Give fundamentals a beginner can reuse.
-- If the sentence is already natural and correct, say so with minimal changes
+- Provide TWO corrected French versions: informal (friends, family, texts) and formal (teachers, professional, exams)
+- Both versions must be natural and correct — neither is "wrong"; they differ by communication context
+- For "understood": a clear natural English explanation confirming what the learner intended to say
+- explanations.informal: 3–5 lines on conversational shortcuts, spoken French, texting conventions
+- explanations.formal: 3–5 lines on complete grammar, standard written conventions, professional use
+- changes: show how the original sentence evolves in informal vs formal French (one row per meaningful change)
 - Ratings are 0–100 integers for grammar and naturalness of the ORIGINAL user sentence
-- For "understood": literal, word-for-word English of exactly what they wrote — faithful to their wording, not a paraphrase
-- For "everydayMeaning": how French speakers actually use this in real conversation — the practical meaning or social function (e.g. "Ça va?" literally "It goes?" but used to ask "How are you?")
+- If the learner provides a clarification of their intent, prioritize that meaning over a literal reading
+- Never say "that's just how French works" — explain the underlying rule or pattern
 - Return ONLY valid JSON matching the schema
 
 Tone: friendly, calm, encouraging — like a patient French friend, never judgmental.`;
 
-const RESPONSE_SCHEMA = {
+const CORRECTION_SCHEMA = {
   type: 'object',
   properties: {
     understood: {
       type: 'string',
-      description: 'Literal word-for-word English translation of the user sentence',
+      description: 'Natural English explanation confirming the learner intended message',
     },
-    everydayMeaning: {
-      type: 'string',
-      description:
-        'How this phrase is used in everyday conversational French — practical meaning, not literal translation',
+    suggestions: {
+      type: 'object',
+      properties: {
+        informal: {
+          type: 'object',
+          properties: {
+            sentence: { type: 'string' },
+          },
+          required: ['sentence'],
+        },
+        formal: {
+          type: 'object',
+          properties: {
+            sentence: { type: 'string' },
+          },
+          required: ['sentence'],
+        },
+      },
+      required: ['informal', 'formal'],
     },
-    correctedSentence: { type: 'string' },
     changes: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
           youWrote: { type: 'string' },
-          betterFrench: { type: 'string' },
-          why: {
-            type: 'string',
-            description: 'Clear reason for this change — explain the rule or pattern, not just that it sounds better',
-          },
+          informalFrench: { type: 'string' },
+          formalFrench: { type: 'string' },
         },
-        required: ['youWrote', 'betterFrench', 'why'],
+        required: ['youWrote', 'informalFrench', 'formalFrench'],
       },
     },
-    grammarNotes: {
-      type: 'string',
-      description:
-        'Educational explanation of the grammar or usage pattern behind the changes — 3–5 lines, teach the underlying rule with clear rationale',
+    explanations: {
+      type: 'object',
+      properties: {
+        informal: { type: 'string' },
+        formal: { type: 'string' },
+      },
+      required: ['informal', 'formal'],
     },
     ratings: {
       type: 'object',
@@ -59,84 +75,86 @@ const RESPONSE_SCHEMA = {
       required: ['grammar', 'naturalness'],
     },
   },
-  required: ['understood', 'everydayMeaning', 'correctedSentence', 'changes', 'grammarNotes', 'ratings'],
+  required: ['understood', 'suggestions', 'changes', 'explanations', 'ratings'],
 };
 
-function isValidKey(key) {
-  return Boolean(key?.trim() && !/^your_.*_here$/i.test(key.trim()));
-}
+const VOCABULARY_SYSTEM_PROMPT = `You are a French linguistics assistant for beginner learners (A1–B1).
 
-function isVercel() {
-  return Boolean(process.env.VERCEL);
-}
+Your ONLY job is complete vocabulary extraction — NOT sentence correction.
 
-function geminiErrorMessage(error) {
-  return String(error?.message ?? '').toLowerCase();
-}
+Perform a full linguistic analysis of every French sentence provided. Extract ALL meaningful vocabulary items, including:
+- unchanged words
+- corrected words
+- function words learners need (je, ne, pas, me, etc.)
+- multi-word expressions (keep as single items)
 
-function isGeminiHighDemand(error) {
-  const message = geminiErrorMessage(error);
-  return (
-    message.includes('high demand') ||
-    message.includes('overloaded') ||
-    message.includes('temporarily unavailable') ||
-    error?.status === 503
-  );
-}
+Lemma rules (dictionary form):
+- Verbs: infinitive (laver, not lave; être, not suis)
+- Adjectives: masculine singular lemma (fatigué, not fatiguée unless lemma differs)
+- Nouns: singular form
+- For multi-word expressions, lemma = the full expression (parce que, est-ce que, il y a, tout de suite, avoir besoin de, prendre soin de)
 
-function isGeminiRetryableError(error) {
-  const message = geminiErrorMessage(error);
-  return (
-    error?.status === 429 ||
-    error?.status === 503 ||
-    error?.status === 404 ||
-    error?.status === 500 ||
-    message.includes('quota') ||
-    message.includes('high demand') ||
-    message.includes('overloaded') ||
-    message.includes('temporarily unavailable') ||
-    message.includes('resource exhausted') ||
-    message.includes('not found') ||
-    message.includes('not supported') ||
-    message.includes('no longer available') ||
-    error?.isNetworkError
-  );
-}
+Surface form:
+- The exact form as it appeared in the sentences (suis, lave, parce que, etc.)
 
-function getRuntimeConfig() {
-  const openaiKey = process.env.OPENAI_API_KEY?.trim();
-  const geminiKey = process.env.GEMINI_API_KEY?.trim();
-  const hasOpenAiKey = isValidKey(openaiKey);
-  const hasGeminiKey = isValidKey(geminiKey);
+Multi-word expressions must NEVER be split (never separate "parce" and "que").
 
-  let configuredProvider =
-    process.env.AI_PROVIDER?.trim().toLowerCase() ??
-    (hasGeminiKey ? 'gemini' : hasOpenAiKey ? 'openai' : null);
+CRITICAL negation rules:
+- "ne" and "pas" are ALWAYS separate Negation Particle entries — never combine them
+- NEVER create a verb entry for negated phrases (wrong: lemma "ne ... pas", surface "n'assiste pas")
+- The verb in "Je n'assiste pas" is assister (lemma: assister, surface: assiste or n'assiste) — NOT a negation wrapper
 
-  if (configuredProvider === 'ollama' && isVercel()) {
-    configuredProvider = hasGeminiKey ? 'gemini' : hasOpenAiKey ? 'openai' : null;
-  }
+Uniqueness:
+- Exactly ONE entry per lemma + part of speech (never duplicate pouvoir or cours with different meanings)
+- Meaning: concise dictionary-style (e.g. "to be able to" for pouvoir, "course; class" for cours)
 
-  const geminiModel = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
-  const geminiFallbackModels = [
-    geminiModel,
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-3.1-flash-lite',
-  ].filter((model, index, models) => models.indexOf(model) === index);
+Adjectives — REQUIRED four forms in adjectiveForms:
+- masculineSingular, feminineSingular, masculinePlural, femininePlural
+- Example: fatigué / fatiguée / fatigués / fatiguées
 
-  return {
-    configuredProvider,
-    hasOpenAiKey,
-    hasGeminiKey,
-    openaiKey,
-    geminiKey,
-    openai: hasOpenAiKey ? new OpenAI({ apiKey: openaiKey }) : null,
-    geminiFallbackModels,
-    ollamaModel: process.env.OLLAMA_MODEL?.trim() || 'llama3.2',
-    ollamaUrl: process.env.OLLAMA_URL?.trim() || 'http://127.0.0.1:11434',
-  };
+Part of speech — use one of:
+Noun, Verb, Adjective, Adverb, Pronoun, Article / Determiner, Preposition, Conjunction, Expression, Negation Particle, Reflexive Pronoun
+
+Example field: a short French example using the word (from the sentences when possible).
+
+Extract comprehensively from ALL sentences provided. Return ONLY valid JSON matching the schema.`;
+
+const VOCABULARY_SCHEMA = {
+  type: 'object',
+  properties: {
+    vocabulary: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          lemma: { type: 'string', description: 'Dictionary form' },
+          surface: { type: 'string', description: 'Form as it appeared in the text' },
+          meaning: { type: 'string', description: 'English meaning' },
+          partOfSpeech: { type: 'string' },
+          example: { type: 'string', description: 'Short French example sentence' },
+          adjectiveForms: {
+            type: 'object',
+            properties: {
+              masculineSingular: { type: 'string' },
+              feminineSingular: { type: 'string' },
+              masculinePlural: { type: 'string' },
+              femininePlural: { type: 'string' },
+            },
+          },
+        },
+        required: ['lemma', 'surface', 'meaning', 'partOfSpeech', 'example'],
+      },
+    },
+  },
+  required: ['vocabulary'],
+};
+
+export function isConfigured() {
+  const { configuredProvider, hasGeminiKey, hasOpenAiKey } = getRuntimeConfig();
+  if (configuredProvider === 'ollama') return !isVercel();
+  if (configuredProvider === 'gemini') return hasGeminiKey;
+  if (configuredProvider === 'openai') return hasOpenAiKey;
+  return false;
 }
 
 export function getHealthStatus() {
@@ -146,14 +164,6 @@ export function getHealthStatus() {
     provider: configuredProvider,
     configured: isConfigured(),
   };
-}
-
-export function isConfigured() {
-  const { configuredProvider, hasGeminiKey, hasOpenAiKey } = getRuntimeConfig();
-  if (configuredProvider === 'ollama') return !isVercel();
-  if (configuredProvider === 'gemini') return hasGeminiKey;
-  if (configuredProvider === 'openai') return hasOpenAiKey;
-  return false;
 }
 
 function configurationMessage() {
@@ -188,8 +198,8 @@ function mapAnalysisError(error) {
     return 'Gemini rate limit reached. Wait a minute and try again.';
   }
 
-  if (error?.provider === 'gemini' && isGeminiHighDemand(error)) {
-    return "Google's AI servers are busy right now. Wait 30 seconds and try again — we automatically try backup models when this happens.";
+  if (error?.provider === 'gemini' && error.message?.includes('high demand')) {
+    return "Google's AI servers are busy right now. Wait 30 seconds and try again.";
   }
 
   if (error?.provider === 'ollama') {
@@ -215,166 +225,72 @@ function mapAnalysisError(error) {
     return 'Could not reach Gemini. Check your internet connection and try again in a moment.';
   }
 
-  if (String(error?.message).includes('no longer available')) {
-    return 'This Gemini model is unavailable on your account. Try again or set GEMINI_MODEL=gemini-3.5-flash.';
-  }
-
   return error?.message ?? "We couldn't check your sentence right now. Please try again.";
 }
 
-async function analyzeWithOpenAI(sentence, config) {
-  const completion = await config.openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    temperature: 0.4,
-    response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: 'french_analysis',
-        strict: true,
-        schema: { ...RESPONSE_SCHEMA, additionalProperties: false },
-      },
-    },
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: `Analyze this French message and return structured feedback:\n\n"${sentence}"`,
-      },
-    ],
+function buildCorrectionPrompt(sentence, clarification) {
+  let prompt = `Correct this French message and return structured feedback:\n\n"${sentence}"`;
+
+  const clarificationText = clarification?.text?.trim();
+  if (clarificationText) {
+    if (clarification.mode === 'english') {
+      prompt += `\n\nThe learner clarified their intended meaning in English:\n"${clarificationText}"\n\nUse this to interpret what they meant.`;
+    } else {
+      prompt += `\n\nThe learner rewrote what they meant in French:\n"${clarificationText}"\n\nUse this to interpret their intent.`;
+    }
+  }
+
+  return prompt;
+}
+
+function buildVocabularyPrompt(originalSentence, informalSentence, formalSentence) {
+  return `Extract ALL meaningful vocabulary from these French sentences.
+
+Original (learner wrote):
+"${originalSentence}"
+
+Corrected (informal):
+"${informalSentence}"
+
+Corrected (formal):
+"${formalSentence}"
+
+Include every meaningful item from all three sentences. Use lemma (dictionary) form for storage. Preserve surface forms. Keep multi-word expressions together.`;
+}
+
+async function runCorrection(config, sentence, clarification) {
+  return generateStructured(config, {
+    systemPrompt: CORRECTION_SYSTEM_PROMPT,
+    userPrompt: buildCorrectionPrompt(sentence, clarification),
+    schema: CORRECTION_SCHEMA,
+    schemaName: 'french_correction',
+    ollamaSchemaHint:
+      'Keys: understood, suggestions ({informal: {sentence}, formal: {sentence}}), changes (array of {youWrote, informalFrench, formalFrench}), explanations ({informal, formal}), ratings ({grammar, naturalness}).',
   });
-
-  const content = completion.choices[0]?.message?.content;
-  if (!content) throw new Error('Empty AI response');
-  return JSON.parse(content);
 }
 
-async function analyzeWithGeminiModel(sentence, model, config, attempt = 1) {
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': config.geminiKey,
-        },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Analyze this French message and return structured feedback:\n\n"${sentence}"`,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            responseMimeType: 'application/json',
-            responseSchema: RESPONSE_SCHEMA,
-          },
-        }),
-      },
-    );
-
-    const payload = await response.json();
-    if (!response.ok) {
-      const message = payload?.error?.message ?? 'Gemini request failed';
-      const error = new Error(message);
-      error.status = response.status;
-      error.provider = 'gemini';
-      error.model = model;
-      if (isGeminiHighDemand(error) && attempt < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
-        return analyzeWithGeminiModel(sentence, model, config, attempt + 1);
-      }
-      throw error;
-    }
-
-    const content = payload.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) throw new Error('Empty AI response');
-    return JSON.parse(content);
-  } catch (error) {
-    const isNetworkError =
-      error?.cause?.code === 'ECONNRESET' ||
-      error?.cause?.code === 'ETIMEDOUT' ||
-      String(error?.message).includes('fetch failed');
-
-    if (isNetworkError && attempt < 3) {
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-      return analyzeWithGeminiModel(sentence, model, config, attempt + 1);
-    }
-
-    if (isNetworkError) {
-      const networkError = new Error('Could not reach Gemini. Check your internet and try again.');
-      networkError.provider = 'gemini';
-      networkError.isNetworkError = true;
-      throw networkError;
-    }
-
-    throw error;
-  }
-}
-
-async function analyzeWithGemini(sentence, config) {
-  let lastError;
-
-  for (const model of config.geminiFallbackModels) {
-    try {
-      return await analyzeWithGeminiModel(sentence, model, config);
-    } catch (error) {
-      lastError = error;
-      const message = String(error.message ?? '');
-
-      if (!isGeminiRetryableError(error)) throw error;
-      console.warn(`Gemini model ${model} unavailable:`, message);
-    }
-  }
-
-  throw lastError ?? new Error('All Gemini models unavailable');
-}
-
-async function analyzeWithOllama(sentence, config) {
-  const response = await fetch(`${config.ollamaUrl}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: config.ollamaModel,
-      stream: false,
-      format: 'json',
-      messages: [
-        {
-          role: 'system',
-          content: `${SYSTEM_PROMPT}\n\nReturn JSON with keys: understood, everydayMeaning, correctedSentence, changes (array of {youWrote, betterFrench, why}), grammarNotes, ratings ({grammar, naturalness}).`,
-        },
-        {
-          role: 'user',
-          content: `Analyze this French message and return structured feedback:\n\n"${sentence}"`,
-        },
-      ],
-    }),
+async function runVocabularyExtraction(config, originalSentence, informalSentence, formalSentence) {
+  return generateStructured(config, {
+    systemPrompt: VOCABULARY_SYSTEM_PROMPT,
+    userPrompt: buildVocabularyPrompt(originalSentence, informalSentence, formalSentence),
+    schema: VOCABULARY_SCHEMA,
+    schemaName: 'french_vocabulary',
+    ollamaSchemaHint:
+      'Keys: vocabulary (array of {lemma, surface, meaning, partOfSpeech, example}).',
   });
-
-  const payload = await response.json();
-  if (!response.ok) {
-    const message = payload?.error ?? 'Ollama request failed';
-    const error = new Error(message);
-    error.status = response.status;
-    error.provider = 'ollama';
-    throw error;
-  }
-
-  const content = payload.message?.content;
-  if (!content) throw new Error('Empty AI response');
-  return JSON.parse(content);
 }
 
-export async function analyzeSentence(sentence) {
+export async function analyzeSentence(input) {
+  const sentence = typeof input === 'string' ? input : input?.sentence;
+  const clarification = typeof input === 'object' ? input?.clarification : undefined;
   const trimmed = typeof sentence === 'string' ? sentence.trim() : '';
 
   if (!trimmed) {
     return { status: 400, body: { message: 'Please enter a French sentence.' } };
+  }
+
+  if (clarification && !clarification.text?.trim()) {
+    return { status: 400, body: { message: 'Please tell us what you intended to say.' } };
   }
 
   if (!isConfigured()) {
@@ -384,12 +300,30 @@ export async function analyzeSentence(sentence) {
   const config = getRuntimeConfig();
 
   try {
-    let parsed;
-    if (config.configuredProvider === 'gemini') parsed = await analyzeWithGemini(trimmed, config);
-    else if (config.configuredProvider === 'ollama') parsed = await analyzeWithOllama(trimmed, config);
-    else parsed = await analyzeWithOpenAI(trimmed, config);
+    // Task 1: Sentence correction (informal + formal + explanations)
+    const correction = await runCorrection(config, trimmed, clarification);
 
-    return { status: 200, body: parsed };
+    // Task 2: Linguistic vocabulary extraction (both original + corrected sentences)
+    let vocabulary = [];
+    try {
+      const vocabResult = await runVocabularyExtraction(
+        config,
+        trimmed,
+        correction.suggestions.informal.sentence,
+        correction.suggestions.formal.sentence,
+      );
+      vocabulary = sanitizeVocabulary(vocabResult.vocabulary ?? []);
+    } catch (vocabError) {
+      console.warn('Vocabulary extraction failed (correction still returned):', vocabError);
+    }
+
+    return {
+      status: 200,
+      body: {
+        ...correction,
+        vocabulary,
+      },
+    };
   } catch (error) {
     console.error('Analysis error:', error);
     return { status: 500, body: { message: mapAnalysisError(error) } };

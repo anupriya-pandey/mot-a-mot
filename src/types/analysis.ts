@@ -1,21 +1,55 @@
+export interface AdjectiveForms {
+  masculineSingular: string;
+  feminineSingular: string;
+  masculinePlural: string;
+  femininePlural: string;
+}
+
 export interface CorrectionChange {
   youWrote: string;
-  betterFrench: string;
-  why: string;
+  informalFrench: string;
+  formalFrench: string;
+}
+
+export interface VocabularyItem {
+  lemma: string;
+  surface: string;
+  meaning: string;
+  partOfSpeech: string;
+  example: string;
+  surfaces?: string[];
+  examples?: string[];
+  adjectiveForms?: AdjectiveForms;
 }
 
 export interface AnalysisResult {
   understood: string;
-  everydayMeaning?: string;
-  correctedSentence: string;
+  suggestions: {
+    informal: { sentence: string };
+    formal: { sentence: string };
+  };
   changes: CorrectionChange[];
-  grammarNotes: string;
+  explanations: {
+    informal: string;
+    formal: string;
+  };
+  vocabulary: VocabularyItem[];
   ratings: {
     grammar: number;
     naturalness: number;
   };
 }
 
-export type AppScreen = 'landing' | 'loading' | 'results';
+export interface ClarificationInput {
+  mode: 'english' | 'french';
+  text: string;
+}
+
+export interface AnalyzeRequest {
+  sentence: string;
+  clarification?: ClarificationInput;
+}
+
+export type AppScreen = 'landing' | 'loading' | 'results' | 'vocabulary' | 'history';
 
 export type BannerType = 'success' | 'warning' | 'error';
