@@ -70,6 +70,39 @@ function isVercel() {
   return Boolean(process.env.VERCEL);
 }
 
+function geminiErrorMessage(error) {
+  return String(error?.message ?? '').toLowerCase();
+}
+
+function isGeminiHighDemand(error) {
+  const message = geminiErrorMessage(error);
+  return (
+    message.includes('high demand') ||
+    message.includes('overloaded') ||
+    message.includes('temporarily unavailable') ||
+    error?.status === 503
+  );
+}
+
+function isGeminiRetryableError(error) {
+  const message = geminiErrorMessage(error);
+  return (
+    error?.status === 429 ||
+    error?.status === 503 ||
+    error?.status === 404 ||
+    error?.status === 500 ||
+    message.includes('quota') ||
+    message.includes('high demand') ||
+    message.includes('overloaded') ||
+    message.includes('temporarily unavailable') ||
+    message.includes('resource exhausted') ||
+    message.includes('not found') ||
+    message.includes('not supported') ||
+    message.includes('no longer available') ||
+    error?.isNetworkError
+  );
+}
+
 function getRuntimeConfig() {
   const openaiKey = process.env.OPENAI_API_KEY?.trim();
   const geminiKey = process.env.GEMINI_API_KEY?.trim();
@@ -84,9 +117,11 @@ function getRuntimeConfig() {
     configuredProvider = hasGeminiKey ? 'gemini' : hasOpenAiKey ? 'openai' : null;
   }
 
-  const geminiModel = process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash';
+  const geminiModel = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
   const geminiFallbackModels = [
     geminiModel,
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
     'gemini-3.5-flash',
     'gemini-3.1-flash-lite',
   ].filter((model, index, models) => models.indexOf(model) === index);
@@ -151,6 +186,10 @@ function mapAnalysisError(error) {
       return 'Your Google account has no free Gemini quota for this model. Create a new API key at https://aistudio.google.com/apikey';
     }
     return 'Gemini rate limit reached. Wait a minute and try again.';
+  }
+
+  if (error?.provider === 'gemini' && isGeminiHighDemand(error)) {
+    return "Google's AI servers are busy right now. Wait 30 seconds and try again — we automatically try backup models when this happens.";
   }
 
   if (error?.provider === 'ollama') {
@@ -246,6 +285,10 @@ async function analyzeWithGeminiModel(sentence, model, config, attempt = 1) {
       error.status = response.status;
       error.provider = 'gemini';
       error.model = model;
+      if (isGeminiHighDemand(error) && attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+        return analyzeWithGeminiModel(sentence, model, config, attempt + 1);
+      }
       throw error;
     }
 
@@ -283,16 +326,8 @@ async function analyzeWithGemini(sentence, config) {
     } catch (error) {
       lastError = error;
       const message = String(error.message ?? '');
-      const isRetryable =
-        error?.status === 429 ||
-        error?.status === 404 ||
-        message.includes('quota') ||
-        message.includes('not found') ||
-        message.includes('not supported') ||
-        message.includes('no longer available') ||
-        error?.isNetworkError;
 
-      if (!isRetryable) throw error;
+      if (!isGeminiRetryableError(error)) throw error;
       console.warn(`Gemini model ${model} unavailable:`, message);
     }
   }
