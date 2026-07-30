@@ -16,7 +16,8 @@ All notable changes to Mot-à-Mot are documented here.
 
 - **CEFR/DELF philosophy:** formal suggestions preserve the same meaning at every level — no inventing new ideas or over-elaborating simple messages
 - Levels may show **“No changes recommended”** when phrasing is already natural (identical sentences across A1–C2 are allowed)
-- AI prompts recalibrated to DELF/DALF production norms: higher levels do not mean fancier sentences
+- AI prompts recalibrated to DELF/DALF production norms: higher levels do not mean fancier sentences; level-appropriate vocabulary upgrades allowed when meaning stays the same
+- **noChangeNeeded** shown only when a level's sentence is identical to the previous level (server-enforced)
 - **What Changed** supports empty formal fix phrases per level when no change is needed
 
 ---

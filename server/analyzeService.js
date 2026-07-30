@@ -30,22 +30,27 @@ Your job is to express the SAME intended meaning using language appropriate for 
 RULE 1 — Preserve meaning:
 Never invent new ideas. If the user says "Hello, how are you?" do NOT produce "I am writing to inquire about your well-being" or "Please accept my distinguished greetings." Those are different messages with different intentions.
 
-RULE 2 — Preserve naturalness:
-If the simplest polite version is already what a native French speaker would say, LEAVE IT ALONE at that level and set noChangeNeeded: true.
-Advanced French means choosing the RIGHT words for the situation — not using bigger words. A C2 speaker sounds like a native, not like a lawyer. Native speakers say "Bonjour, ça va ?" every day.
+RULE 2 — Preserve naturalness (do not over-elaborate):
+Do NOT add length, new clauses, or bureaucratic phrasing just because the level is higher. A C2 speaker sounds like a native, not like a lawyer.
 
-RULE 3 — Only change when it adds genuine value:
-Progress may come from clearer grammar, smoother phrasing, more natural collocations, slightly richer but appropriate vocabulary, or polite register (vous) where fitting.
-Do NOT escalate complexity just because the level is higher. Higher levels do NOT require longer or more elaborate sentences.
+RULE 3 — Level-appropriate upgrades (same meaning, more proficiency):
+When moving from one level to the next, ask: does this diploma level enable a small, natural upgrade that shows more proficiency WITHOUT changing meaning?
+Allowed upgrades: a more precise verb, richer but appropriate synonym, smoother grammar, natural collocation, or a tense/structure credited at that DELF/DALF level — ONLY when it fits the same message.
+Example — "Je suis fatigué": A1/A2 may stay the same → B1 optional "Je suis très fatigué" → B2 "Je suis épuisé" (stronger word, same meaning) → C1/C2 may repeat B2 if nothing better fits.
+Example — "Bonjour, ça va?": one simple A1 formal version may be identical through C2 when no upgrade adds value.
+
+RULE 4 — noChangeNeeded flag (STRICT):
+- noChangeNeeded: true ONLY when this level's sentence is IDENTICAL to the previous level's sentence (B1 vs A2, B2 vs B1, etc.) — nothing more to gain at this level.
+- noChangeNeeded: false whenever the sentence differs from the previous level — even one word (verb, adjective, connector). If A2 and B1 use different verbs, B1 MUST have noChangeNeeded: false.
+- A1 always has noChangeNeeded: false (it is the first formal recommendation).
 
 WHEN TO SET noChangeNeeded: true:
-- The recommended phrasing is already perfectly appropriate for this diploma level
-- No meaningful improvement exists without changing meaning or sounding unnatural or over-formal
-- A simpler version from a lower level already works — repeat it exactly
+- Sentence is word-for-word the same as the previous level AND no level-appropriate improvement exists
 
-WHEN TO PROVIDE A DIFFERENT SENTENCE (noChangeNeeded: false):
-- A specific grammar fix, politeness upgrade, or vocabulary improvement is genuinely available at this level
-- The change stays within the SAME meaning — a greeting stays a greeting, fatigue stays fatigue
+WHEN TO SET noChangeNeeded: false:
+- Any word differs from the previous level's sentence
+- This level introduces a level-appropriate vocabulary or grammar upgrade (same meaning)
+- A1 (always)
 
 DELF A1 — basic user:
 - Very short phrases; present tense; high-frequency vocabulary; basic politeness (Bonjour, s'il vous plaît)
@@ -59,16 +64,15 @@ DELF B1 — threshold:
 - Imparfait/passé composé; opinions; relative pronouns qui/que; structured short text
 
 DELF B2 — upper intermediate:
-- Subjunctive in common triggers; complex sentences when the message warrants them
-- Simple greetings and everyday phrases often need NO change from A1/A2 versions
+- Subjunctive in common triggers when the message warrants them; complex sentences only when needed
+- Simple greetings and everyday phrases often repeat the A1/A2 version
 
 DALF C1 — advanced:
-- Controlled formal French; stylistic choices only when the message warrants them
-- Simple messages may remain identical to lower levels
+- Stylistic precision only when the message warrants it — simple messages may repeat lower levels
 
 DALF C2 — mastery:
 - Near-native natural phrasing — NOT rhetorical over-elaboration
-- Identical to lower levels is common and correct for simple everyday messages
+- Identical to a lower level is correct when the message is simple
 
 FORMAL REGISTER:
 - All versions stay polite/formal (teachers, professionals) — use vous where appropriate
@@ -84,7 +88,7 @@ Each entry MUST include:
 - level: exactly one of A1, A2, B1, B2, C1, C2
 - sentence: the recommended polite French (may match a lower level when noChangeNeeded)
 - english: natural English translation (concise, learner-friendly)
-- noChangeNeeded: boolean — true when this level needs no meaningful change from what is already natural
+- noChangeNeeded: boolean — true ONLY when sentence is identical to the previous level; false when any word differs or this level adds a proficiency upgrade
 - limitation: neutral scope note — for noChangeNeeded, explain why (e.g. "Already natural at this level")
 - explanation: 2–3 lines — if noChangeNeeded, explain why no change is educational (e.g. "Native speakers use this daily; advanced proficiency means knowing when not to over-complicate")
 
@@ -102,7 +106,7 @@ METHOD — follow in order:
 3. youWrote MUST be an exact verbatim substring copied from the learner's ORIGINAL (same spelling, accents, punctuation as they wrote). If you cannot find it in the original, do not invent it.
 4. informalFrench MUST be the replacement phrase at the same meaning slot — a contiguous substring of the informal sentence.
 5. byLevel: for each level, the replacement at that same meaning slot — a contiguous substring copied from THAT level's formal sentence. When levels restructure grammar, pick the phrase in that sentence that carries the same idea (not the same word position).
-6. If a level's formal sentence has noChangeNeeded or the learner's phrasing is already correct at that level for this meaning slot, set byLevel[level] to "" (empty string) and explain why in explanationsByLevel[level].
+6. If a level's formal sentence is identical to the previous level (noChangeNeeded: true), set byLevel[level] to "" for that meaning slot. If the sentence DIFFERS from the previous level (even one word), byLevel[level] MUST contain the differing phrase from that level's sentence — never empty.
 7. Verify every non-empty byLevel and informalFrench value actually appears inside its target sentence before returning.
 
 Each row fields:
@@ -434,8 +438,9 @@ function getUserFrenchForVocabulary(originalSentence, clarification) {
 
 function buildFormalLevelsPrompt(sentence, understood, informalSentence, clarification, retry = false) {
   let prompt = `Generate six polite/formal French versions (A1 through C2) for this message.
-Express the SAME intended meaning at each level — do NOT add new ideas or make sentences fancier just because the level is higher.
-Use noChangeNeeded: true when the phrasing is already natural for that diploma level (identical sentences across levels are fine).
+Express the SAME intended meaning at every level — never add or remove ideas.
+At each level step, use a more DELF-appropriate word or structure ONLY when it shows proficiency without changing meaning (e.g. a better verb, richer synonym).
+Set noChangeNeeded: true ONLY when the sentence is identical to the previous level. If B1 differs from A2 even by one verb, B1 must have noChangeNeeded: false.
 
 Original learner message: "${sentence}"
 Intended meaning: ${understood}
@@ -505,7 +510,26 @@ function mapFormalLevelsArray(levels) {
     explanationsByLevel[level] = item.explanation?.trim() || '';
   }
 
+  normalizeNoChangeNeededFlags(byLevel);
+
   return { byLevel, explanationsByLevel };
+}
+
+function normalizeNoChangeNeededFlags(byLevel) {
+  if (byLevel.A1) {
+    byLevel.A1.noChangeNeeded = false;
+  }
+
+  for (let i = 1; i < CEFR_LEVELS.length; i += 1) {
+    const level = CEFR_LEVELS[i];
+    const prevLevel = CEFR_LEVELS[i - 1];
+    if (!byLevel[level] || !byLevel[prevLevel]) continue;
+
+    const currSentence = normalizeForMatch(byLevel[level].sentence);
+    const prevSentence = normalizeForMatch(byLevel[prevLevel].sentence);
+
+    byLevel[level].noChangeNeeded = currSentence === prevSentence;
+  }
 }
 
 function hasCompleteByLevel(byLevel) {
@@ -530,8 +554,10 @@ function hasAllLevelKeys(source, { allowEmpty = false } = {}) {
   });
 }
 
-function allLevelsNoChangeNeeded(byLevel) {
-  return CEFR_LEVELS.every((level) => byLevel[level]?.noChangeNeeded === true);
+function allFormalSentencesIdentical(byLevel) {
+  const baseline = normalizeForMatch(byLevel.A1?.sentence ?? '');
+  if (!baseline) return false;
+  return CEFR_LEVELS.every((level) => normalizeForMatch(byLevel[level]?.sentence ?? '') === baseline);
 }
 
 function mapFormalLevelsChanges(changes) {
@@ -574,7 +600,7 @@ function phraseAppearsInSentence(phrase, sentence) {
 
 function changesArePersonalized(changes, byLevel, informalSentence, originalSentence) {
   if (!changes.length) {
-    return allLevelsNoChangeNeeded(byLevel);
+    return allFormalSentencesIdentical(byLevel);
   }
 
   for (const change of changes) {
