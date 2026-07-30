@@ -1,3 +1,7 @@
+import type { CefrLevel } from '../constants/cefrLevels';
+
+export type { CefrLevel };
+
 export interface AdjectiveForms {
   masculineSingular: string;
   feminineSingular: string;
@@ -8,8 +12,22 @@ export interface AdjectiveForms {
 export interface CorrectionChange {
   youWrote: string;
   informalFrench: string;
-  formalFrench: string;
+  /** Buddy-style explanation for the informal phrasing */
+  informalExplanation?: string;
+  byLevel: Record<CefrLevel, string>;
+  /** Buddy-style explanation per DELF/DALF level for this change */
+  explanationsByLevel?: Record<CefrLevel, string>;
+  /** @deprecated Legacy B1-only field from saved history */
+  formalFrench?: string;
 }
+
+export interface LevelSuggestion {
+  sentence: string;
+  english?: string;
+  limitation: string;
+}
+
+export type FormalByLevel = Record<CefrLevel, LevelSuggestion>;
 
 export interface VocabularyItem {
   lemma: string;
@@ -25,20 +43,23 @@ export interface VocabularyItem {
 export interface AnalysisResult {
   understood: string;
   suggestions: {
-    informal: { sentence: string };
-    formal: { sentence: string };
+    informal: { sentence: string; english?: string };
+    byLevel: FormalByLevel;
   };
   changes: CorrectionChange[];
   explanations: {
     informal: string;
-    formal: string;
+    byLevel: Record<CefrLevel, string>;
   };
-  vocabulary: VocabularyItem[];
+  userVocabulary: VocabularyItem[];
+  suggestedAdditions: VocabularyItem[];
   ratings: {
     grammar: number;
     naturalness: number;
   };
 }
+
+export type SentenceLanguage = 'french' | 'english';
 
 export interface ClarificationInput {
   mode: 'english' | 'french';

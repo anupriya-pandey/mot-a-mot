@@ -24,6 +24,10 @@ export const ERRORS = {
   copyFailed: 'Unable to copy. Please try again.',
 } as const;
 
+export const SCORES_ENGLISH_CLARIFICATION =
+  'Grammar and naturalness scores apply to French writing only. You clarified your meaning in English, so both scores are 0.';
+export const SCORES_FRENCH_NOTE =
+  'These ratings score what you wrote — not the corrected versions above.';
 export const HISTORY_EMPTY =
   'No searches yet.\nCheck a French sentence — your history will appear here.';
 export const TOOLBOX_EMPTY =
@@ -32,3 +36,5 @@ export const TOOLBOX_EMPTY =
 export const VOICE_HINT =
   'Click the mic, wait until it turns blue, then speak your French sentence right away.';
 export const VOICE_LISTENING = 'Listening… speak your French sentence now.';
+export const NEW_VOCAB_HINT =
+  'See a word you do not recognise in the suggestions below? Scroll to Add to your French toolkit at the bottom of this page — tap + to save words with their English meanings.';

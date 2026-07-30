@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { analyzeFrench } from './api/analyzeFrench';
+import { normalizeAnalysisResult } from './lib/normalizeAnalysisResult';
 import { AppTabs } from './components/AppTabs';
 import { StatusBanner } from './components/StatusBanner';
 import { ERRORS } from './constants/microcopy';
@@ -10,7 +11,13 @@ import { LandingScreen } from './screens/LandingScreen';
 import { LoadingScreen } from './screens/LoadingScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { VocabularyScreen } from './screens/VocabularyScreen';
-import type { AnalysisResult, AppScreen, ClarificationInput } from './types/analysis';
+import type {
+  AnalysisResult,
+  AppScreen,
+  ClarificationInput,
+  SentenceLanguage,
+  VocabularyItem,
+} from './types/analysis';
 import type { AppTab, SearchHistoryEntry } from './types/history';
 import type { PartOfSpeech } from './types/toolbox';
 
@@ -18,6 +25,8 @@ export default function App() {
   const [screen, setScreen] = useState<AppScreen>('landing');
   const [activeTab, setActiveTab] = useState<AppTab>('check');
   const [sentence, setSentence] = useState('');
+  const [displaySentence, setDisplaySentence] = useState('');
+  const [sentenceLanguage, setSentenceLanguage] = useState<SentenceLanguage>('french');
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,27 +42,30 @@ export default function App() {
     (
       analysis: AnalysisResult,
       options?: {
-        addToToolbox?: boolean;
+        display?: string;
+        language?: SentenceLanguage;
         saveToHistory?: boolean;
         historyId?: string | null;
       },
     ) => {
-      const trimmed = sentence.trim();
-      setResult(analysis);
+      const shown = options?.display ?? sentence.trim();
+      const language = options?.language ?? 'french';
 
-      if (options?.addToToolbox !== false) {
-        toolbox.addFromAnalysis(analysis.vocabulary);
-      }
+      setResult(analysis);
+      setDisplaySentence(shown);
+      setSentenceLanguage(language);
+
+      toolbox.addUserVocabulary(analysis.userVocabulary ?? []);
 
       if (options?.saveToHistory === false) return;
 
       if (options?.historyId) {
-        history.updateSearch(options.historyId, trimmed, analysis);
+        history.updateSearch(options.historyId, shown, sentence.trim(), analysis, language);
         setCurrentHistoryId(options.historyId);
         return;
       }
 
-      const id = history.saveSearch(trimmed, analysis);
+      const id = history.saveSearch(shown, sentence.trim(), analysis, language);
       setCurrentHistoryId(id);
     },
     [history, sentence, toolbox],
@@ -70,8 +82,8 @@ export default function App() {
     setScreen('loading');
 
     try {
-      const analysis = await analyzeFrench({ sentence: trimmed });
-      applyAnalysis(analysis);
+      const analysis = normalizeAnalysisResult(await analyzeFrench({ sentence: trimmed }));
+      applyAnalysis(analysis, { display: trimmed, language: 'french' });
       setActiveTab('check');
       setScreen('results');
     } catch (err) {
@@ -92,9 +104,18 @@ export default function App() {
       setIsClarifying(true);
       setScreen('loading');
 
+      const clarifiedText = clarification.text.trim();
+      const language: SentenceLanguage = clarification.mode === 'english' ? 'english' : 'french';
+
       try {
-        const analysis = await analyzeFrench({ sentence: trimmed, clarification });
-        applyAnalysis(analysis, { historyId: currentHistoryId ?? undefined });
+        const analysis = normalizeAnalysisResult(
+          await analyzeFrench({ sentence: trimmed, clarification }),
+        );
+        applyAnalysis(analysis, {
+          display: clarifiedText,
+          language,
+          historyId: currentHistoryId ?? undefined,
+        });
         setScreen('results');
         return true;
       } catch (err) {
@@ -112,6 +133,8 @@ export default function App() {
 
   const handleCheckAnother = useCallback(() => {
     setSentence('');
+    setDisplaySentence('');
+    setSentenceLanguage('french');
     setResult(null);
     setError(null);
     setClarificationError(null);
@@ -145,14 +168,24 @@ export default function App() {
   }, []);
 
   const handleOpenHistoryEntry = useCallback((entry: SearchHistoryEntry) => {
-    setSentence(entry.sentence);
-    setResult(entry.result);
+    const normalized = normalizeAnalysisResult(entry.result);
+    setSentence(entry.sourceSentence ?? entry.sentence);
+    setDisplaySentence(entry.sentence);
+    setSentenceLanguage(entry.sentenceLanguage ?? 'french');
+    setResult(normalized);
     setCurrentHistoryId(entry.id);
     setError(null);
     setClarificationError(null);
     setActiveTab('history');
     setScreen('results');
   }, []);
+
+  const handleAddToToolbox = useCallback(
+    (item: VocabularyItem) => {
+      toolbox.addSingleItem(item);
+    },
+    [toolbox],
+  );
 
   if (screen === 'loading') {
     return <LoadingScreen />;
@@ -176,11 +209,14 @@ export default function App() {
         {showTabs && <AppTabs active={activeTab} onChange={handleTabChange} />}
         <ResultsScreen
           result={result}
-          originalSentence={sentence.trim()}
+          displaySentence={displaySentence}
+          sentenceLanguage={sentenceLanguage}
           onCheckAnother={handleCheckAnother}
           onClarify={handleClarify}
           isClarifying={isClarifying}
           clarificationError={clarificationError}
+          isInToolbox={toolbox.isInToolbox}
+          onAddToToolbox={handleAddToToolbox}
         />
       </div>
     );

@@ -1,4 +1,4 @@
-import type { AnalysisResult } from '../types/analysis';
+import type { AnalysisResult, SentenceLanguage } from '../types/analysis';
 import type { SearchHistoryEntry } from '../types/history';
 
 const STORAGE_KEY = 'mot-a-mot-history-v1';
@@ -23,10 +23,17 @@ function saveHistory(entries: SearchHistoryEntry[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)));
 }
 
-export function addHistoryEntry(sentence: string, result: AnalysisResult): SearchHistoryEntry {
+export function addHistoryEntry(
+  sentence: string,
+  sourceSentence: string,
+  result: AnalysisResult,
+  sentenceLanguage: SentenceLanguage = 'french',
+): SearchHistoryEntry {
   const entry: SearchHistoryEntry = {
     id: generateId(),
     sentence: sentence.trim(),
+    sourceSentence: sourceSentence.trim(),
+    sentenceLanguage,
     result,
     createdAt: new Date().toISOString(),
   };
@@ -39,7 +46,9 @@ export function addHistoryEntry(sentence: string, result: AnalysisResult): Searc
 export function updateHistoryEntry(
   id: string,
   sentence: string,
+  sourceSentence: string,
   result: AnalysisResult,
+  sentenceLanguage: SentenceLanguage = 'french',
 ): SearchHistoryEntry | null {
   const existing = loadHistory();
   const index = existing.findIndex((entry) => entry.id === id);
@@ -49,6 +58,8 @@ export function updateHistoryEntry(
   const updated: SearchHistoryEntry = {
     ...existing[index],
     sentence: sentence.trim(),
+    sourceSentence: sourceSentence.trim(),
+    sentenceLanguage,
     result,
     createdAt: new Date().toISOString(),
   };

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   addVocabulary,
+  addVocabularyItem,
   getCategoryCounts,
   getVocabularyByCategory,
+  isVocabularyInToolbox,
   loadToolbox,
+  normalizePartOfSpeech,
 } from '../lib/toolboxStorage';
 import type { VocabularyItem } from '../types/analysis';
 import type { CategoryCounts, PartOfSpeech, VocabularyEntry } from '../types/toolbox';
@@ -21,7 +24,7 @@ export function useFrenchToolbox() {
     refresh();
   }, [refresh]);
 
-  const addFromAnalysis = useCallback(
+  const addUserVocabulary = useCallback(
     (items: VocabularyItem[]) => {
       const added = addVocabulary(items);
       if (added > 0) refresh();
@@ -29,6 +32,21 @@ export function useFrenchToolbox() {
     },
     [refresh],
   );
+
+  const addSingleItem = useCallback(
+    (item: VocabularyItem) => {
+      const added = addVocabularyItem(item);
+      if (added) refresh();
+      return added;
+    },
+    [refresh],
+  );
+
+  const isInToolbox = useCallback((lemma: string, partOfSpeech: string) => {
+    const pos = normalizePartOfSpeech(partOfSpeech);
+    if (!pos) return false;
+    return isVocabularyInToolbox(lemma, pos);
+  }, []);
 
   const getByCategory = useCallback((category: PartOfSpeech) => {
     return getVocabularyByCategory(category);
@@ -38,7 +56,9 @@ export function useFrenchToolbox() {
     entries,
     counts,
     totalCount: entries.length,
-    addFromAnalysis,
+    addUserVocabulary,
+    addSingleItem,
+    isInToolbox,
     getByCategory,
     refresh,
   };

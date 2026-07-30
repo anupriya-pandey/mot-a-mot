@@ -4,7 +4,7 @@ import {
   loadHistory,
   updateHistoryEntry,
 } from '../lib/historyStorage';
-import type { AnalysisResult } from '../types/analysis';
+import type { AnalysisResult, SentenceLanguage } from '../types/analysis';
 import type { SearchHistoryEntry } from '../types/history';
 
 export function useSearchHistory() {
@@ -19,8 +19,13 @@ export function useSearchHistory() {
   }, [refresh]);
 
   const saveSearch = useCallback(
-    (sentence: string, result: AnalysisResult) => {
-      const entry = addHistoryEntry(sentence, result);
+    (
+      sentence: string,
+      sourceSentence: string,
+      result: AnalysisResult,
+      sentenceLanguage: SentenceLanguage = 'french',
+    ) => {
+      const entry = addHistoryEntry(sentence, sourceSentence, result, sentenceLanguage);
       refresh();
       return entry.id;
     },
@@ -28,8 +33,14 @@ export function useSearchHistory() {
   );
 
   const updateSearch = useCallback(
-    (id: string, sentence: string, result: AnalysisResult) => {
-      updateHistoryEntry(id, sentence, result);
+    (
+      id: string,
+      sentence: string,
+      sourceSentence: string,
+      result: AnalysisResult,
+      sentenceLanguage: SentenceLanguage = 'french',
+    ) => {
+      updateHistoryEntry(id, sentence, sourceSentence, result, sentenceLanguage);
       refresh();
     },
     [refresh],

@@ -179,6 +179,18 @@ function saveToolbox(entries: VocabularyEntry[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(consolidateEntries(entries)));
 }
 
+export function isVocabularyInToolbox(lemma: string, partOfSpeech: PartOfSpeech): boolean {
+  const key = entryKey({ lemma, partOfSpeech });
+  return loadToolbox().some((entry) => entryKey(entry) === key);
+}
+
+export function addVocabularyItem(item: VocabularyItem): boolean {
+  addVocabulary([item]);
+  const pos = normalizePartOfSpeech(item.partOfSpeech);
+  if (!pos) return false;
+  return isVocabularyInToolbox(item.lemma, pos);
+}
+
 export function addVocabulary(items: VocabularyItem[]): number {
   const existing = consolidateEntries(loadToolbox());
   const indexByKey = new Map(existing.map((entry, index) => [entryKey(entry), index]));

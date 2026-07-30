@@ -2,22 +2,46 @@
 
 All notable changes to Mot-à-Mot are documented here.
 
-## [1.1.0] — V1.1 — 2026-07-28
+## [1.1.0] — V1.1 — 2026-07-30
+
+Everything after V1.0 is included in this release.
 
 ### Added
 
-- **Meaning Clarification:** "That's Not What I Meant" with English or French clarification input; re-analysis without returning to Landing
-- **Context-Aware Suggestions:** Informal and Formal French messages with independent copy actions
-- **Updated comparison table:** Your Sentence | Informal French | Formal French
-- **Dual explanations:** Separate informal and formal "Why These Changes?" content
-- **My French Toolbox:** Two-step AI — correction then separate linguistic vocabulary extraction; lemma + surface storage
-- Vercel serverless + Gemini high-demand retry improvements
+- **Meaning Clarification:** "That's Not What I Meant" on Results — clarify in English or rewrite in French; re-analysis without returning to Landing; English clarification sets grammar/naturalness scores to 0
+- **Suggested Messages:** Informal French plus **Formal French by DELF/DALF level** (A1, A2, B1, B2, C1, C2) with independent copy buttons
+- **English translations** under informal and every formal level sentence
+- **What Changed:** level-by-level breakdown (A1–C2) with aligned cards, English buddy-style explanations per change and per level
+- **In-scope notes** at each formal level (neutral DELF/DALF scope wording)
+- **Grammar intros** on every French Toolbox category page (Nouns, Verbs, Adverbs, etc.)
+- **My French Toolbox:** dashboard on Landing, category browser, lemma + surface storage, adjective forms grid, localStorage (`mot-a-mot-toolbox-v3`)
+- **Add to your French toolkit?** opt-in section on Results; scans new vocab from informal + all formal levels A1–C2; hides words already saved
+- **Top-of-page vocab hint** on Results when new words are detected
+- **Search History:** Check / History tabs; last 50 checks in localStorage; reopen past results
+- New screens: Vocabulary, History — new components: ClarificationPanel, SuggestedMessageCard, LevelFormalSuggestions, SuggestedToolkitAdditions, FrenchToolboxDashboard, VocabularyListItem, AppTabs
+- **`server/aiClient.js`** — Gemini model fallback chain and high-demand retries
+- **`server/vocabularySanitizer.js`** — dedupe, filter bad entries, merge meanings
+- **`src/lib/normalizeAnalysisResult.ts`** — backward-compatible API response shaping
+- Docs: `docs/V1.1.md`, updated deploy and design references
 
 ### Changed
 
-- AI response schema: `suggestions`, `explanations`; vocabulary uses `lemma`, `surface`, `meaning`, `example`
-- Two separate AI prompts: correction task + vocabulary extraction task
-- Default Gemini model: `gemini-2.0-flash` with expanded fallback chain
+- Replaced single "Ready to Send" with informal + multi-level formal suggestions
+- **Multi-step AI pipeline:** correction → formal levels (A1–C2) → level-aligned changes → combined vocabulary extraction
+- AI schema: `suggestions.byLevel`, `explanations.byLevel`, `userVocabulary`, `suggestedAdditions`; informal includes `english`; each level includes `english`, `limitation`, `sentence`
+- Changes validation: `youWrote` must match learner original; level phrases must match each target sentence; retry on failed alignment
+- Vocabulary extraction compares learner baseline against informal + all six formal sentences
+- `POST /api/analyze` accepts optional `clarification` object
+- Results layout: Suggested Messages → What Changed → Why These Changes (informal overview) → scores → toolkit additions
+- Default Gemini models: `gemini-2.5-flash-lite` first with expanded fallback chain
+
+### Fixed
+
+- Gemini quota, rate-limit, and high-demand error handling
+- Server crash / ECONNRESET on analyze errors (`server/index.js` try/catch)
+- Toolbox duplicates and bad entries (e.g. negation merged with verbs)
+- Suggested vocab no longer listed when already in toolbox
+- Formal level changes no longer duplicated across A1–C2 when sentences differ
 
 ---
 
@@ -54,4 +78,4 @@ First public iteration. Tag: `v1.0.0`.
 
 ### [1.2.0] — V1.2
 
-Future modifications after V1.0. See [VERSIONING.md](./VERSIONING.md).
+Future modifications. See [VERSIONING.md](./VERSIONING.md).

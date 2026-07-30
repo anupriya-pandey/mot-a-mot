@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { VocabularyListItem } from '../components/VocabularyListItem';
+import { GRAMMAR_GUIDES } from '../constants/grammarGuides';
 import { TOOLBOX_EMPTY } from '../constants/microcopy';
 import type { PartOfSpeech, VocabularyEntry } from '../types/toolbox';
 
@@ -11,6 +12,8 @@ interface VocabularyScreenProps {
 }
 
 export function VocabularyScreen({ category, entries, onBack }: VocabularyScreenProps) {
+  const guide = GRAMMAR_GUIDES[category];
+
   return (
     <div className="mx-auto min-h-screen w-full max-w-content px-m py-xl">
       <SecondaryButton onClick={onBack} className="mb-l">
@@ -24,6 +27,9 @@ export function VocabularyScreen({ category, entries, onBack }: VocabularyScreen
         <h1 className="text-2xl font-semibold text-text-primary">{category}</h1>
         <p className="mt-xs text-sm text-text-secondary">
           {entries.length} {entries.length === 1 ? 'word' : 'words'} in your toolbox
+        </p>
+        <p className="mt-m rounded-card bg-surface p-m text-sm leading-relaxed text-text-secondary shadow-card">
+          {guide.summary}
         </p>
       </header>
 

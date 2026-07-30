@@ -6,9 +6,10 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 interface SuggestedMessageCardProps {
   variant: 'informal' | 'formal';
   sentence: string;
+  english?: string;
 }
 
-export function SuggestedMessageCard({ variant, sentence }: SuggestedMessageCardProps) {
+export function SuggestedMessageCard({ variant, sentence, english }: SuggestedMessageCardProps) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
   const title = variant === 'informal' ? '🇫🇷 Informal French' : '🇫🇷 Formal French';
   const copyLabel =
@@ -17,7 +18,10 @@ export function SuggestedMessageCard({ variant, sentence }: SuggestedMessageCard
   return (
     <div className="space-y-m">
       <InformationCard icon="✅" title={title} highlight="success">
-        {sentence}
+        <p className="leading-relaxed">{sentence}</p>
+        {english?.trim() && (
+          <p className="mt-s text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
+        )}
       </InformationCard>
       <PrimaryButton
         onClick={() => void copy(sentence)}

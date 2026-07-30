@@ -11,12 +11,27 @@ const port = process.env.PORT ?? 3001;
 app.use(cors());
 app.use(express.json());
 
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
+
 app.post('/api/analyze', async (req, res) => {
-  const result = await analyzeSentence({
-    sentence: req.body?.sentence,
-    clarification: req.body?.clarification,
-  });
-  return res.status(result.status).json(result.body);
+  try {
+    const result = await analyzeSentence({
+      sentence: req.body?.sentence,
+      clarification: req.body?.clarification,
+    });
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('POST /api/analyze failed:', error);
+    return res.status(500).json({
+      message: "We couldn't check your sentence right now. Please try again.",
+    });
+  }
 });
 
 app.get('/', (_req, res) => {
