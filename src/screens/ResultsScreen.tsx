@@ -8,6 +8,7 @@ import { SecondaryButton } from '../components/SecondaryButton';
 import { SectionHeader } from '../components/SectionHeader';
 import { LevelFormalSuggestions } from '../components/LevelFormalSuggestions';
 import { SuggestedMessageCard } from '../components/SuggestedMessageCard';
+import { WhyTheseChangesSection } from '../components/WhyTheseChangesSection';
 import { SuggestedToolkitAdditions } from '../components/SuggestedToolkitAdditions';
 import { SCORES_ENGLISH_CLARIFICATION, SCORES_FRENCH_NOTE, NEW_VOCAB_HINT } from '../constants/microcopy';
 import type { AnalysisResult, ClarificationInput, SentenceLanguage, VocabularyItem } from '../types/analysis';
@@ -97,18 +98,11 @@ export function ResultsScreen({
 
         <ComparisonTable changes={result.changes} />
 
-        <InformationCard icon="📚" title="Why These Changes?">
-          <div className="space-y-m">
-            <p className="text-sm text-text-secondary">
-              The big picture for your informal version. Each specific fix — with level-by-level buddy
-              notes — is in What Changed above.
-            </p>
-            <div>
-              <h3 className="mb-xs font-semibold text-text-primary">Informal overview</h3>
-              <p className="whitespace-pre-line leading-relaxed">{result.explanations.informal}</p>
-            </div>
-          </div>
-        </InformationCard>
+        <WhyTheseChangesSection
+          informalExplanation={result.explanations.informal}
+          formalByLevel={result.suggestions.byLevel}
+          explanationsByLevel={result.explanations.byLevel}
+        />
 
         <section className="space-y-m" aria-labelledby="your-sentence-scores">
           <div>

@@ -1,8 +1,8 @@
 {
   "name": "mot-a-mot",
   "private": false,
-  "version": "1.1.0",
-  "description": "AI French messaging assistant for beginner learners — Mot-à-Mot V1.1",
+  "version": "1.2.0",
+  "description": "AI French messaging assistant for beginner learners — Mot-à-Mot V1.2",
   "license": "MIT",
   "type": "module",
   "scripts": {

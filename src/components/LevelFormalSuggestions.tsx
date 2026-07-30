@@ -3,13 +3,14 @@ import type { CefrLevel, FormalByLevel } from '../types/analysis';
 import { PrimaryButton } from './PrimaryButton';
 import { SectionHeader } from './SectionHeader';
 import { StatusBanner } from './StatusBanner';
+import { SwipeCarousel } from './SwipeCarousel';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 
 interface LevelFormalSuggestionsProps {
   byLevel: FormalByLevel;
 }
 
-function LevelCard({
+function LevelSlideContent({
   level,
   sentence,
   english,
@@ -23,13 +24,7 @@ function LevelCard({
   const { copied, error: copyError, copy } = useCopyToClipboard();
 
   return (
-    <div className="rounded-card bg-surface p-m shadow-card space-y-s">
-      <div className="flex flex-wrap items-center gap-s">
-        <span className="inline-flex rounded-full bg-primary/10 px-s py-xs text-xs font-semibold text-primary">
-          {level}
-        </span>
-        <span className="text-xs text-text-secondary">{CEFR_LEVEL_LABELS[level]}</span>
-      </div>
+    <div className="rounded-card bg-surface p-m shadow-card space-y-s mx-1">
       <p className="leading-relaxed text-text-primary">{sentence}</p>
       {english?.trim() && (
         <p className="text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
@@ -51,21 +46,25 @@ function LevelCard({
 }
 
 export function LevelFormalSuggestions({ byLevel }: LevelFormalSuggestionsProps) {
+  const slides = CEFR_LEVELS.map((level) => ({
+    key: level,
+    badge: level,
+    subtitle: CEFR_LEVEL_LABELS[level],
+    content: (
+      <LevelSlideContent
+        level={level}
+        sentence={byLevel[level].sentence}
+        english={byLevel[level].english}
+        limitation={byLevel[level].limitation}
+      />
+    ),
+  }));
+
   return (
     <section aria-labelledby="formal-by-level">
       <SectionHeader icon="🇫🇷" title="Formal French by DELF/DALF Level" />
       <p className="mb-m text-sm text-text-secondary">{FORMAL_BY_LEVEL_INTRO}</p>
-      <div className="space-y-m">
-        {CEFR_LEVELS.map((level) => (
-          <LevelCard
-            key={level}
-            level={level}
-            sentence={byLevel[level].sentence}
-            english={byLevel[level].english}
-            limitation={byLevel[level].limitation}
-          />
-        ))}
-      </div>
+      <SwipeCarousel slides={slides} ariaLabel="Formal French by level" />
     </section>
   );
 }

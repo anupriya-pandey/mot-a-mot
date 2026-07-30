@@ -2,6 +2,17 @@
 
 All notable changes to Mot-à-Mot are documented here.
 
+## [1.2.0] — V1.2 — 2026-07-30
+
+### Added
+
+- **Swipe carousel** for Formal French by DELF/DALF level (A1 → C2) — one level visible; swipe or tap → for next
+- Swipe carousel for **What Changed** formal breakdown per change (informal stays visible; formal levels swipe)
+- **Why These Changes?** formal overview by level (informal static + swipeable formal A1–C2)
+- Reusable `SwipeCarousel` component with dots, arrows, and “Swipe for next level” hint
+
+---
+
 ## [1.1.0] — V1.1 — 2026-07-30
 
 Everything after V1.0 is included in this release.
