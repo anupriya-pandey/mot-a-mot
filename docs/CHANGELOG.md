@@ -10,6 +10,7 @@ All notable changes to Mot-à-Mot are documented here.
 - Swipe carousel for **What Changed** formal breakdown per change (informal stays visible; formal levels swipe)
 - **Why These Changes?** formal overview by level (informal static + swipeable formal A1–C2)
 - Reusable `SwipeCarousel` component with dots, arrows, and “Swipe for next level” hint
+- **Listening chime** when the mic is ready — two-tone sound plus updated voice hints
 
 ---
 

@@ -34,7 +34,7 @@ export const TOOLBOX_EMPTY =
   'Your French Toolbox is empty.\nStart checking sentences to build your vocabulary.';
 
 export const VOICE_HINT =
-  'Click the mic, wait until it turns blue, then speak your French sentence right away.';
-export const VOICE_LISTENING = 'Listening… speak your French sentence now.';
+  'Tap the mic — you\'ll hear a short chime when it\'s ready, then speak your French sentence.';
+export const VOICE_LISTENING = 'Listening… speak now.';
 export const NEW_VOCAB_HINT =
   'See a word you do not recognise in the suggestions below? Scroll to Add to your French toolkit at the bottom of this page — tap + to save words with their English meanings.';

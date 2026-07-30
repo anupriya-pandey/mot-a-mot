@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ERRORS } from '../constants/microcopy';
+import { playListeningStartSound, prepareListeningSound } from '../lib/listeningSound';
 
 type SpeechRecognitionCtor = new () => SpeechRecognition;
 type MicPermissionState = PermissionState | 'unsupported' | 'unknown';
@@ -164,6 +165,7 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
       recognition.onstart = () => {
         setIsListening(true);
         setInterimTranscript('');
+        playListeningStartSound();
         clearListenTimeout();
         listenTimeoutRef.current = window.setTimeout(() => {
           userStoppedRef.current = true;
@@ -263,6 +265,7 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
 
     setError(null);
     setInterimTranscript('');
+    prepareListeningSound();
     gotResultRef.current = false;
     userStoppedRef.current = false;
     isRetryingRef.current = false;
