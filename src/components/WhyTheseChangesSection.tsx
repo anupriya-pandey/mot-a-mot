@@ -1,5 +1,5 @@
 import { CEFR_LEVELS, CEFR_LEVEL_LABELS } from '../constants/cefrLevels';
-import { NO_CHANGE_AT_LEVEL } from '../constants/microcopy';
+import { NO_CHANGE_AT_LEVEL, PARTIAL_MEANING_AT_LEVEL } from '../constants/microcopy';
 import type { CefrLevel, FormalByLevel } from '../types/analysis';
 import { InformationCard } from './InformationCard';
 import { SwipeCarousel } from './SwipeCarousel';
@@ -21,6 +21,9 @@ export function WhyTheseChangesSection({
     subtitle: CEFR_LEVEL_LABELS[level],
     content: (
       <div className="rounded-lg bg-background/60 p-m space-y-s min-h-[8rem]">
+        {formalByLevel[level].coversFullMeaning === false && (
+          <p className="text-sm font-medium text-text-primary">{PARTIAL_MEANING_AT_LEVEL}</p>
+        )}
         {formalByLevel[level].noChangeNeeded && (
           <p className="text-sm font-medium text-success">✓ {NO_CHANGE_AT_LEVEL}</p>
         )}

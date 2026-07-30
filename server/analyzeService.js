@@ -10,7 +10,8 @@ Your ONLY job in this task is sentence correction and explanation — NOT vocabu
 Rules:
 - Provide ONE informal version (friends, family, texts) — natural spoken/texting French
 - suggestions.informal.english: a natural English translation of the informal French sentence (small, clear, not word-for-word if unnatural)
-- For "understood": a clear natural English explanation confirming what the learner intended to say
+- For "understood": a clear natural English explanation confirming what the learner intended to say — include EVERY clause and reason they expressed
+- When the learner clarifies in ENGLISH, suggestions.informal MUST express the COMPLETE intended meaning in natural French — every part (e.g. every "because" clause), not a shortened summary
 - explanations.informal: 3–5 lines on conversational shortcuts, spoken French, texting conventions
 - Do NOT return a changes array — changes are generated in a separate step
 - Ratings are 0–100 integers for grammar and naturalness of the learner's French sentence ONLY
@@ -27,10 +28,21 @@ CORE PHILOSOPHY — this is essential:
 CEFR and DELF measure what a learner at each level can NATURALLY produce — NOT "make every sentence increasingly sophisticated."
 Your job is to express the SAME intended meaning using language appropriate for each level. Never add, remove, or shift communicative intent.
 
-RULE 1 — Preserve meaning:
-Never invent new ideas. If the user says "Hello, how are you?" do NOT produce "I am writing to inquire about your well-being" or "Please accept my distinguished greetings." Those are different messages with different intentions.
+RULE 1 — Preserve meaning (never drop clauses):
+Never invent new ideas AND never silently omit part of what the learner wanted to say.
+If the intended message has multiple parts (e.g. "I have a brother but not a sister" AND "parents didn't want many children" AND "they didn't have much money at that time"), EVERY level must attempt ALL parts.
+Do NOT drop a trailing reason clause at A1/A2 and only add it at B1 — that hides meaning from learners at lower levels.
 
-RULE 2 — Preserve naturalness (do not over-elaborate):
+RULE 1b — Cover the whole message at every level:
+- Try your best to translate the FULL intended meaning at A1, A2, B1, B2, C1, and C2.
+- At lower levels: use simpler words, shorter chained sentences, parce que / et, high-frequency vocabulary — but include every idea.
+- A1: short sentences, present tense where possible; simple past time with "à ce moment" or "avant" if needed; parce que for reasons.
+- A2: passé composé, parce que, slightly longer but still simple — full meaning should usually fit.
+- If a specific grammar point is genuinely out of scope at a level, set coversFullMeaning: false and explain IN limitation exactly which part is simplified or deferred and why (plain English, name the missing clause).
+- coversFullMeaning: true when every part of the intended meaning appears in the French (even if simplified wording).
+- english must reflect what the French sentence actually says; if coversFullMeaning is false, limitation must explain the gap.
+
+RULE 2 — Do not over-elaborate (never add ideas):
 Do NOT add length, new clauses, or bureaucratic phrasing just because the level is higher. A C2 speaker sounds like a native, not like a lawyer.
 
 RULE 3 — Level-appropriate upgrades (same meaning, more proficiency):
@@ -82,14 +94,15 @@ CRITICAL RULES:
 - Return exactly 6 entries — one per level: A1, A2, B1, B2, C1, C2
 - IDENTICAL sentences across levels are ALLOWED and EXPECTED when the message is simple and already optimal
 - Do NOT use grammar or vocabulary above the level being tested
-- If the full meaning cannot fit a lower level, simplify honestly — describe the scope in limitation using neutral language
+- If the full meaning cannot fit a lower level even when simplified, set coversFullMeaning: false and explain clearly in limitation which clause is affected — do NOT omit without explanation
 
 Each entry MUST include:
 - level: exactly one of A1, A2, B1, B2, C1, C2
 - sentence: the recommended polite French (may match a lower level when noChangeNeeded)
 - english: natural English translation (concise, learner-friendly)
 - noChangeNeeded: boolean — true ONLY when sentence is identical to the previous level; false when any word differs or this level adds a proficiency upgrade
-- limitation: neutral scope note — for noChangeNeeded, explain why (e.g. "Already natural at this level")
+- coversFullMeaning: boolean — true when the French includes every part of the intended meaning; false only when a part is simplified/deferred with explanation in limitation
+- limitation: neutral scope note — if coversFullMeaning is false, name the specific clause or idea that is simplified and why at this diploma level
 - explanation: 2–3 lines — if noChangeNeeded, explain why no change is educational (e.g. "Native speakers use this daily; advanced proficiency means knowing when not to over-complicate")
 
 Do NOT return a changes array — changes are extracted in a separate step from your sentences.
@@ -160,12 +173,17 @@ const FORMAL_LEVELS_SCHEMA = {
             description:
               'True when this level needs no meaningful change — sentence may match a lower level',
           },
+          coversFullMeaning: {
+            type: 'boolean',
+            description:
+              'True when the French sentence includes every part of the intended meaning; false if a clause is simplified with explanation in limitation',
+          },
           explanation: {
             type: 'string',
             description: '2–3 lines on DELF/DALF production criteria met and key grammar used',
           },
         },
-        required: ['level', 'sentence', 'english', 'limitation', 'noChangeNeeded', 'explanation'],
+        required: ['level', 'sentence', 'english', 'limitation', 'noChangeNeeded', 'coversFullMeaning', 'explanation'],
       },
     },
   },
@@ -384,7 +402,7 @@ function buildCorrectionPrompt(sentence, clarification) {
   const clarificationText = clarification?.text?.trim();
   if (clarificationText) {
     if (clarification.mode === 'english') {
-      prompt += `\n\nThe learner clarified their intended meaning in English:\n"${clarificationText}"\n\nUse this to interpret what they meant.`;
+      prompt += `\n\nThe learner clarified their intended meaning in English:\n"${clarificationText}"\n\nUse this to interpret what they meant. The informal French correction MUST include every clause and reason — do not drop trailing "because" explanations.`;
     } else {
       prompt += `\n\nThe learner rewrote what they meant in French:\n"${clarificationText}"\n\nUse this to interpret their intent.`;
     }
@@ -438,12 +456,13 @@ function getUserFrenchForVocabulary(originalSentence, clarification) {
 
 function buildFormalLevelsPrompt(sentence, understood, informalSentence, clarification, retry = false) {
   let prompt = `Generate six polite/formal French versions (A1 through C2) for this message.
-Express the SAME intended meaning at every level — never add or remove ideas.
-At each level step, use a more DELF-appropriate word or structure ONLY when it shows proficiency without changing meaning (e.g. a better verb, richer synonym).
-Set noChangeNeeded: true ONLY when the sentence is identical to the previous level. If B1 differs from A2 even by one verb, B1 must have noChangeNeeded: false.
+Express the SAME full intended meaning at every level — include EVERY clause and reason (do not drop parts at lower levels).
+Use simpler vocabulary and shorter sentences at A1/A2, but cover the whole message. Set coversFullMeaning: false only if a part truly cannot fit — then explain in limitation which clause is simplified.
+At each level step, use more DELF-appropriate wording when it shows proficiency without changing meaning.
+Set noChangeNeeded: true ONLY when the sentence is identical to the previous level.
 
 Original learner message: "${sentence}"
-Intended meaning: ${understood}
+Intended meaning (include ALL parts in every level): ${understood}
 Informal French reference: "${informalSentence}"`;
 
   const clarificationText = clarification?.text?.trim();
@@ -506,6 +525,7 @@ function mapFormalLevelsArray(levels) {
       english: item.english?.trim() || '',
       limitation: item.limitation?.trim() || 'Limited to the core meaning at this diploma level.',
       noChangeNeeded: Boolean(item.noChangeNeeded),
+      coversFullMeaning: item.coversFullMeaning !== false,
     };
     explanationsByLevel[level] = item.explanation?.trim() || '';
   }
@@ -661,7 +681,7 @@ async function runFormalLevels(config, sentence, understood, informalSentence, c
     schema: FORMAL_LEVELS_SCHEMA,
     schemaName: 'french_formal_levels',
     ollamaSchemaHint:
-      'Keys: levels (array of 6: {level, sentence, english, limitation, noChangeNeeded, explanation}). Same sentence across levels is allowed when noChangeNeeded.',
+      'Keys: levels (array of 6: {level, sentence, english, limitation, noChangeNeeded, coversFullMeaning, explanation}). Include full intended meaning at every level.',
   });
 }
 

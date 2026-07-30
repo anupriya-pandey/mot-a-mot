@@ -1,5 +1,5 @@
 import { CEFR_LEVELS, CEFR_LEVEL_LABELS, FORMAL_BY_LEVEL_INTRO } from '../constants/cefrLevels';
-import { NO_CHANGE_AT_LEVEL } from '../constants/microcopy';
+import { NO_CHANGE_AT_LEVEL, PARTIAL_MEANING_AT_LEVEL } from '../constants/microcopy';
 import type { CefrLevel, FormalByLevel } from '../types/analysis';
 import { PrimaryButton } from './PrimaryButton';
 import { SectionHeader } from './SectionHeader';
@@ -17,17 +17,24 @@ function LevelSlideContent({
   english,
   limitation,
   noChangeNeeded,
+  coversFullMeaning,
 }: {
   level: CefrLevel;
   sentence: string;
   english?: string;
   limitation: string;
   noChangeNeeded?: boolean;
+  coversFullMeaning?: boolean;
 }) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
 
   return (
     <div className="rounded-card bg-surface p-m shadow-card space-y-s mx-1">
+      {coversFullMeaning === false && (
+        <p className="rounded-lg bg-warning/10 px-m py-s text-sm font-medium text-text-primary" role="note">
+          {PARTIAL_MEANING_AT_LEVEL}
+        </p>
+      )}
       {noChangeNeeded && (
         <p className="rounded-lg bg-success/10 px-m py-s text-sm font-medium text-success" role="status">
           ✓ {NO_CHANGE_AT_LEVEL}
@@ -65,6 +72,7 @@ export function LevelFormalSuggestions({ byLevel }: LevelFormalSuggestionsProps)
         english={byLevel[level].english}
         limitation={byLevel[level].limitation}
         noChangeNeeded={byLevel[level].noChangeNeeded}
+        coversFullMeaning={byLevel[level].coversFullMeaning}
       />
     ),
   }));

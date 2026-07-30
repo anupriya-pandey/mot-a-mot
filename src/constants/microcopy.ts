@@ -41,3 +41,5 @@ export const NEW_VOCAB_HINT =
 export const NO_CHANGE_AT_LEVEL =
   'No changes recommended — already natural at this level.';
 export const NO_CHANGE_FORMAL_PHRASE = 'No change needed at this level.';
+export const PARTIAL_MEANING_AT_LEVEL =
+  'Part of your meaning is simplified at this level — see the note below.';
