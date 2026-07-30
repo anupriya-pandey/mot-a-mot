@@ -42,4 +42,6 @@ export const NO_CHANGE_AT_LEVEL =
   'No changes recommended — already natural at this level.';
 export const NO_CHANGE_FORMAL_PHRASE = 'No change needed at this level.';
 export const PARTIAL_MEANING_AT_LEVEL =
-  'Part of your meaning is simplified at this level — see the note below.';
+  'Not fully expressible at this DELF/DALF level — see why below.';
+export const DELF_SCOPE_LABEL = 'DELF/DALF scope at this level:';
+export const DELF_LIMIT_LABEL = 'Why this level is limited:';

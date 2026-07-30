@@ -1,5 +1,5 @@
 import { CEFR_LEVELS, CEFR_LEVEL_LABELS } from '../constants/cefrLevels';
-import { NO_CHANGE_AT_LEVEL, PARTIAL_MEANING_AT_LEVEL } from '../constants/microcopy';
+import { DELF_LIMIT_LABEL, DELF_SCOPE_LABEL, NO_CHANGE_AT_LEVEL, PARTIAL_MEANING_AT_LEVEL } from '../constants/microcopy';
 import type { CefrLevel, FormalByLevel } from '../types/analysis';
 import { InformationCard } from './InformationCard';
 import { SwipeCarousel } from './SwipeCarousel';
@@ -28,7 +28,9 @@ export function WhyTheseChangesSection({
           <p className="text-sm font-medium text-success">✓ {NO_CHANGE_AT_LEVEL}</p>
         )}
         <p className="text-sm text-text-secondary">
-          <span className="font-medium text-text-primary">In scope at this level: </span>
+          <span className="font-medium text-text-primary">
+            {formalByLevel[level].coversFullMeaning === false ? DELF_LIMIT_LABEL : DELF_SCOPE_LABEL}{' '}
+          </span>
           {formalByLevel[level].limitation}
         </p>
         <p className="whitespace-pre-line text-sm leading-relaxed text-text-primary">

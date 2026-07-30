@@ -26,32 +26,35 @@ const FORMAL_LEVELS_SYSTEM_PROMPT = `You generate polite/formal French versions 
 
 CORE PHILOSOPHY — this is essential:
 CEFR and DELF measure what a learner at each level can NATURALLY produce — NOT "make every sentence increasingly sophisticated."
-Your job is to express the SAME intended meaning using language appropriate for each level. Never add, remove, or shift communicative intent.
+Calibrate every version strictly to DELF A1–B2 / DALF C1–C2 production écrite descriptors: use only grammar and vocabulary IN SCOPE at that diploma level.
+Your job is to express the intended meaning as fully as possible WITHIN that level's scope. Never add, remove, or shift communicative intent — and never use structures above the level just to cram in a clause.
 
-RULE 1 — Preserve meaning (never drop clauses):
-Never invent new ideas AND never silently omit part of what the learner wanted to say.
-If the intended message has multiple parts (e.g. "I have a brother but not a sister" AND "parents didn't want many children" AND "they didn't have much money at that time"), EVERY level must attempt ALL parts.
-Do NOT drop a trailing reason clause at A1/A2 and only add it at B1 — that hides meaning from learners at lower levels.
+RULE 1 — DELF scope comes first (compare to the standard):
+Before writing each level, ask: "What would DELF/DALF examiners credit at this diploma?"
+- Do NOT use tenses, connectors, or vocabulary above the level — even to include a missing clause.
+- Do NOT silently drop part of the message either — if you cannot include a clause within scope, say so explicitly.
 
-RULE 1b — Cover the whole message at every level:
-- Try your best to translate the FULL intended meaning at A1, A2, B1, B2, C1, and C2.
-- At lower levels: use simpler words, shorter chained sentences, parce que / et, high-frequency vocabulary — but include every idea.
-- A1: short sentences, present tense where possible; simple past time with "à ce moment" or "avant" if needed; parce que for reasons.
-- A2: passé composé, parce que, slightly longer but still simple — full meaning should usually fit.
-- If a specific grammar point is genuinely out of scope at a level, set coversFullMeaning: false and explain IN limitation exactly which part is simplified or deferred and why (plain English, name the missing clause).
-- coversFullMeaning: true when every part of the intended meaning appears in the French (even if simplified wording).
-- english must reflect what the French sentence actually says; if coversFullMeaning is false, limitation must explain the gap.
+RULE 2 — Include full meaning WHEN in scope; explain honestly WHEN not:
+- Within DELF scope: include EVERY part of the intended meaning using the simplest in-scope structures (shorter sentences, parce que, et, high-frequency words).
+- When a clause truly requires grammar or vocabulary OUT OF SCOPE at this level, that is OK — set coversFullMeaning: false.
+- When coversFullMeaning is false, limitation MUST (in plain English):
+  (a) name the specific clause or idea not fully expressed (quote or paraphrase it),
+  (b) state which DELF/DALF grammar or vocabulary is out of scope at this level (e.g. imparfait, subjunctive, relative clauses),
+  (c) say from which level it typically becomes available (e.g. "from DELF A2 with passé composé" or "from DELF B1 with imparfait").
+- explanation must reinforce this for the learner — friendly, educational, why this level has this boundary.
+- coversFullMeaning: true only when every part of the intended meaning is expressed using in-scope grammar at this level.
+- english must translate what the French actually says — do not translate omitted clauses as if they were present.
 
-RULE 2 — Do not over-elaborate (never add ideas):
+RULE 3 — Do not over-elaborate (never add ideas):
 Do NOT add length, new clauses, or bureaucratic phrasing just because the level is higher. A C2 speaker sounds like a native, not like a lawyer.
 
-RULE 3 — Level-appropriate upgrades (same meaning, more proficiency):
+RULE 4 — Level-appropriate upgrades (same meaning, more proficiency):
 When moving from one level to the next, ask: does this diploma level enable a small, natural upgrade that shows more proficiency WITHOUT changing meaning?
 Allowed upgrades: a more precise verb, richer but appropriate synonym, smoother grammar, natural collocation, or a tense/structure credited at that DELF/DALF level — ONLY when it fits the same message.
 Example — "Je suis fatigué": A1/A2 may stay the same → B1 optional "Je suis très fatigué" → B2 "Je suis épuisé" (stronger word, same meaning) → C1/C2 may repeat B2 if nothing better fits.
 Example — "Bonjour, ça va?": one simple A1 formal version may be identical through C2 when no upgrade adds value.
 
-RULE 4 — noChangeNeeded flag (STRICT):
+RULE 5 — noChangeNeeded flag (STRICT):
 - noChangeNeeded: true ONLY when this level's sentence is IDENTICAL to the previous level's sentence (B1 vs A2, B2 vs B1, etc.) — nothing more to gain at this level.
 - noChangeNeeded: false whenever the sentence differs from the previous level — even one word (verb, adjective, connector). If A2 and B1 use different verbs, B1 MUST have noChangeNeeded: false.
 - A1 always has noChangeNeeded: false (it is the first formal recommendation).
@@ -64,27 +67,30 @@ WHEN TO SET noChangeNeeded: false:
 - This level introduces a level-appropriate vocabulary or grammar upgrade (same meaning)
 - A1 (always)
 
-DELF A1 — basic user:
-- Very short phrases; present tense; high-frequency vocabulary; basic politeness (Bonjour, s'il vous plaît)
-- Simple clauses only; no subjunctive or complex tenses
+DELF A1 — basic user (production écrite):
+- Very short phrases; present tense (indicative); basic interrogatives and negation
+- High-frequency concrete vocabulary; simple politeness (Bonjour, s'il vous plaît)
+- One or two simple clauses linked with et / mais; parce que for simple reason if credited
+- Out of scope: imparfait, passé composé for narrative background, subjunctive, relative clauses, complex past time ("at that time" as background state)
 
 DELF A2 — elementary:
-- Routine exchanges; passé composé; futur proche; simple linking (et, mais, parce que)
-- Slightly longer but still simple syntax
+- Passé composé for completed past; futur proche; reflexive verbs; parce que, mais, et
+- Routine personal narrative; everyday reasons and descriptions
+- Out of scope: imparfait for background/description, subjunctive, complex subordinate clauses
 
 DELF B1 — threshold:
-- Imparfait/passé composé; opinions; relative pronouns qui/que; structured short text
+- Imparfait vs passé composé; opinions; relative pronouns qui/que; structured short text
+- Background context and past habits ("at that time", ongoing past states) become in scope
 
 DELF B2 — upper intermediate:
-- Subjunctive in common triggers when the message warrants them; complex sentences only when needed
-- Simple greetings and everyday phrases often repeat the A1/A2 version
+- Subjunctive in common triggers when needed; complex sentences when the message warrants them
+- Simple messages may repeat lower levels when already optimal
 
 DALF C1 — advanced:
-- Stylistic precision only when the message warrants it — simple messages may repeat lower levels
+- Stylistic precision when the message warrants it — simple messages may repeat lower levels
 
 DALF C2 — mastery:
 - Near-native natural phrasing — NOT rhetorical over-elaboration
-- Identical to a lower level is correct when the message is simple
 
 FORMAL REGISTER:
 - All versions stay polite/formal (teachers, professionals) — use vous where appropriate
@@ -93,17 +99,17 @@ FORMAL REGISTER:
 CRITICAL RULES:
 - Return exactly 6 entries — one per level: A1, A2, B1, B2, C1, C2
 - IDENTICAL sentences across levels are ALLOWED and EXPECTED when the message is simple and already optimal
-- Do NOT use grammar or vocabulary above the level being tested
-- If the full meaning cannot fit a lower level even when simplified, set coversFullMeaning: false and explain clearly in limitation which clause is affected — do NOT omit without explanation
+- Do NOT use grammar or vocabulary above the level being tested — prefer coversFullMeaning: false with a clear DELF-based explanation over forcing out-of-scope structures
+- If the full meaning cannot fit within DELF scope at a level, set coversFullMeaning: false — name the missing clause and which diploma level unlocks it
 
 Each entry MUST include:
 - level: exactly one of A1, A2, B1, B2, C1, C2
-- sentence: the recommended polite French (may match a lower level when noChangeNeeded)
-- english: natural English translation (concise, learner-friendly)
-- noChangeNeeded: boolean — true ONLY when sentence is identical to the previous level; false when any word differs or this level adds a proficiency upgrade
-- coversFullMeaning: boolean — true when the French includes every part of the intended meaning; false only when a part is simplified/deferred with explanation in limitation
-- limitation: neutral scope note — if coversFullMeaning is false, name the specific clause or idea that is simplified and why at this diploma level
-- explanation: 2–3 lines — if noChangeNeeded, explain why no change is educational (e.g. "Native speakers use this daily; advanced proficiency means knowing when not to over-complicate")
+- sentence: the best polite French possible WITHIN DELF scope at this level
+- english: natural English translation of what this French sentence actually says
+- noChangeNeeded: boolean — true ONLY when sentence is identical to the previous level
+- coversFullMeaning: boolean — true only when every intended clause is expressed with in-scope grammar; false is OK when DELF scope limits expression
+- limitation: DELF scope note — always tie to the diploma standard; if coversFullMeaning is false, explain which clause is missing and why (grammar/vocab out of scope + from which level it opens up)
+- explanation: 2–3 lines — educational; if coversFullMeaning is false, help the learner understand the DELF boundary without discouragement
 
 Do NOT return a changes array — changes are extracted in a separate step from your sentences.
 
@@ -166,7 +172,7 @@ const FORMAL_LEVELS_SCHEMA = {
           limitation: {
             type: 'string',
             description:
-              'Neutral scope note: use "Out of scope", "Limited to", "Focuses on", "Already natural" — not "cannot" or "unable"',
+              'DELF/DALF scope note in plain English. If coversFullMeaning is false: name missing clause, what grammar is out of scope, and from which level it becomes available',
           },
           noChangeNeeded: {
             type: 'boolean',
@@ -456,13 +462,12 @@ function getUserFrenchForVocabulary(originalSentence, clarification) {
 
 function buildFormalLevelsPrompt(sentence, understood, informalSentence, clarification, retry = false) {
   let prompt = `Generate six polite/formal French versions (A1 through C2) for this message.
-Express the SAME full intended meaning at every level — include EVERY clause and reason (do not drop parts at lower levels).
-Use simpler vocabulary and shorter sentences at A1/A2, but cover the whole message. Set coversFullMeaning: false only if a part truly cannot fit — then explain in limitation which clause is simplified.
-At each level step, use more DELF-appropriate wording when it shows proficiency without changing meaning.
-Set noChangeNeeded: true ONLY when the sentence is identical to the previous level.
+For each level: write the best version WITHIN that DELF/DALF diploma's production scope — compare to what examiners credit at that level.
+Include every part of the meaning when in scope. If a clause needs grammar above that level, omit it from the French, set coversFullMeaning: false, and explain in limitation WHY (name the clause, what's out of scope, from which level it opens up).
+Never use out-of-scope grammar to force a clause in. Never silently drop a clause without explanation.
 
 Original learner message: "${sentence}"
-Intended meaning (include ALL parts in every level): ${understood}
+Full intended meaning: ${understood}
 Informal French reference: "${informalSentence}"`;
 
   const clarificationText = clarification?.text?.trim();

@@ -1,5 +1,5 @@
 import { CEFR_LEVELS, CEFR_LEVEL_LABELS, FORMAL_BY_LEVEL_INTRO } from '../constants/cefrLevels';
-import { NO_CHANGE_AT_LEVEL, PARTIAL_MEANING_AT_LEVEL } from '../constants/microcopy';
+import { DELF_LIMIT_LABEL, DELF_SCOPE_LABEL, NO_CHANGE_AT_LEVEL, PARTIAL_MEANING_AT_LEVEL } from '../constants/microcopy';
 import type { CefrLevel, FormalByLevel } from '../types/analysis';
 import { PrimaryButton } from './PrimaryButton';
 import { SectionHeader } from './SectionHeader';
@@ -45,7 +45,9 @@ function LevelSlideContent({
         <p className="text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
       )}
       <p className="text-sm text-text-secondary">
-        <span className="font-medium text-text-primary">In scope at this level: </span>
+        <span className="font-medium text-text-primary">
+          {coversFullMeaning === false ? DELF_LIMIT_LABEL : DELF_SCOPE_LABEL}{' '}
+        </span>
         {limitation}
       </p>
       <PrimaryButton
