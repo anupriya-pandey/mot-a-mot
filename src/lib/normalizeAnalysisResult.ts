@@ -56,7 +56,8 @@ function buildLegacyExplanationsByLevel(formalExplanation: string): Record<CefrL
 function normalizeChanges(changes: AnalysisResult['changes'] | undefined): CorrectionChange[] {
   return (changes ?? [])
     .map((change) => {
-      if (change.byLevel && CEFR_LEVELS.every((level) => change.byLevel[level]?.trim())) {
+      const hasAllLevels = change.byLevel && CEFR_LEVELS.every((level) => level in change.byLevel);
+      if (hasAllLevels) {
         return change;
       }
 

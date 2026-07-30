@@ -12,6 +12,13 @@ All notable changes to Mot-à-Mot are documented here.
 - Reusable `SwipeCarousel` component with dots, arrows, and “Swipe for next level” hint
 - **Listening chime** when the mic is ready — two-tone sound plus updated voice hints
 
+### Changed
+
+- **CEFR/DELF philosophy:** formal suggestions preserve the same meaning at every level — no inventing new ideas or over-elaborating simple messages
+- Levels may show **“No changes recommended”** when phrasing is already natural (identical sentences across A1–C2 are allowed)
+- AI prompts recalibrated to DELF/DALF production norms: higher levels do not mean fancier sentences
+- **What Changed** supports empty formal fix phrases per level when no change is needed
+
 ---
 
 ## [1.1.0] — V1.1 — 2026-07-30

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { CEFR_LEVELS, CEFR_LEVEL_LABELS } from '../constants/cefrLevels';
+import { NO_CHANGE_FORMAL_PHRASE } from '../constants/microcopy';
 import type { CorrectionChange } from '../types/analysis';
 import { SectionHeader } from './SectionHeader';
 import { SwipeCarousel } from './SwipeCarousel';
@@ -33,11 +34,16 @@ function ChangeRow({
 }
 
 function FormalChangeSlide({ change, level }: { change: CorrectionChange; level: (typeof CEFR_LEVELS)[number] }) {
+  const phrase = change.byLevel[level]?.trim();
   const explanation = change.explanationsByLevel?.[level];
 
   return (
     <div className="rounded-lg bg-background/60 p-m mx-1 min-h-[5rem]">
-      <p className="break-words leading-relaxed text-success">{change.byLevel[level]}</p>
+      {phrase ? (
+        <p className="break-words leading-relaxed text-success">{phrase}</p>
+      ) : (
+        <p className="text-sm italic leading-relaxed text-text-secondary">{NO_CHANGE_FORMAL_PHRASE}</p>
+      )}
       {explanation && (
         <p className="mt-s break-words text-sm leading-relaxed text-text-secondary">{explanation}</p>
       )}

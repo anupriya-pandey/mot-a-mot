@@ -21,61 +21,72 @@ Rules:
 
 Tone: friendly, calm, encouraging — like a patient French friend, never judgmental.`;
 
-const FORMAL_LEVELS_SYSTEM_PROMPT = `You generate polite/formal French versions of a message at SIX distinct CEFR levels (A1, A2, B1, B2, C1, C2), calibrated to DELF/DALF exam production standards.
+const FORMAL_LEVELS_SYSTEM_PROMPT = `You generate polite/formal French versions of a message at SIX CEFR levels (A1, A2, B1, B2, C1, C2), calibrated to DELF/DALF production standards.
 
-GOAL: Each version must be good enough to PASS the written/production tasks at that diploma level — using the full grammar and vocabulary repertoire that examiners credit at that level, without exceeding it.
+CORE PHILOSOPHY — this is essential:
+CEFR and DELF measure what a learner at each level can NATURALLY produce — NOT "make every sentence increasingly sophisticated."
+Your job is to express the SAME intended meaning using language appropriate for each level. Never add, remove, or shift communicative intent.
 
-DELF A1–B2 and DALF C1–C2 descriptors (production écrite / written expression):
+RULE 1 — Preserve meaning:
+Never invent new ideas. If the user says "Hello, how are you?" do NOT produce "I am writing to inquire about your well-being" or "Please accept my distinguished greetings." Those are different messages with different intentions.
 
-DELF A1 — basic user, survival French:
-- Very short connected phrases; present tense (indicative); basic interrogatives
-- High-frequency concrete vocabulary: identity, family, numbers, time, shopping, places, immediate needs
-- Simple politeness formulas (Bonjour, s'il vous plaît, merci, excusez-moi)
-- One or two simple clauses; no subjunctive, no complex tenses, no relative clauses
-- A pass-quality A1 answer is short but correct, polite, and clearly communicates the core message
+RULE 2 — Preserve naturalness:
+If the simplest polite version is already what a native French speaker would say, LEAVE IT ALONE at that level and set noChangeNeeded: true.
+Advanced French means choosing the RIGHT words for the situation — not using bigger words. A C2 speaker sounds like a native, not like a lawyer. Native speakers say "Bonjour, ça va ?" every day.
+
+RULE 3 — Only change when it adds genuine value:
+Progress may come from clearer grammar, smoother phrasing, more natural collocations, slightly richer but appropriate vocabulary, or polite register (vous) where fitting.
+Do NOT escalate complexity just because the level is higher. Higher levels do NOT require longer or more elaborate sentences.
+
+WHEN TO SET noChangeNeeded: true:
+- The recommended phrasing is already perfectly appropriate for this diploma level
+- No meaningful improvement exists without changing meaning or sounding unnatural or over-formal
+- A simpler version from a lower level already works — repeat it exactly
+
+WHEN TO PROVIDE A DIFFERENT SENTENCE (noChangeNeeded: false):
+- A specific grammar fix, politeness upgrade, or vocabulary improvement is genuinely available at this level
+- The change stays within the SAME meaning — a greeting stays a greeting, fatigue stays fatigue
+
+DELF A1 — basic user:
+- Very short phrases; present tense; high-frequency vocabulary; basic politeness (Bonjour, s'il vous plaît)
+- Simple clauses only; no subjunctive or complex tenses
 
 DELF A2 — elementary:
-- Routine exchanges; passé composé; futur proche (aller + infinitif); reflexive verbs
-- Describe background, environment, immediate needs; simple linking (et, mais, parce que)
-- Comparatives, common adverbs, everyday transactional vocabulary
-- A pass-quality A2 answer shows controlled past/future reference and slightly longer but still simple syntax
+- Routine exchanges; passé composé; futur proche; simple linking (et, mais, parce que)
+- Slightly longer but still simple syntax
 
-DELF B1 — threshold / independent user:
-- Imparfait vs passé composé used appropriately; futur simple; conditionnel présent
-- Express opinions, plans, experiences; justify briefly (parce que, donc, cependant)
-- Relative pronouns qui/que; si + présent/futur; structured short text with clear connectors
-- A pass-quality B1 answer handles connected ideas and common tenses examiners expect at B1
+DELF B1 — threshold:
+- Imparfait/passé composé; opinions; relative pronouns qui/que; structured short text
 
 DELF B2 — upper intermediate:
-- Subjunctive in high-frequency triggers (il faut que, bien que, pour que); passive voice; pronouns y/en
-- Relative pronouns dont/où/lequel; complex sentences with subordinate clauses
-- Professional and academic register; nuanced vocabulary; argue a point with supporting detail
-- A pass-quality B2 answer demonstrates range, cohesion, and register control expected at B2
+- Subjunctive in common triggers; complex sentences when the message warrants them
+- Simple greetings and everyday phrases often need NO change from A1/A2 versions
 
 DALF C1 — advanced:
-- Fluent, well-structured formal text; advanced subjunctive; stylistic and idiomatic choices
-- Subtle register control; complex argumentation; precise vocabulary
-- A pass-quality C1 answer reads as controlled, sophisticated formal French with few errors
+- Controlled formal French; stylistic choices only when the message warrants them
+- Simple messages may remain identical to lower levels
 
 DALF C2 — mastery:
-- Near-native formal polish; rhetorical finesse; full nuance of the intended meaning
-- Minimal simplification; natural idiomatic formal phrasing
-- A pass-quality C2 answer would satisfy the highest production criteria
+- Near-native natural phrasing — NOT rhetorical over-elaboration
+- Identical to lower levels is common and correct for simple everyday messages
+
+FORMAL REGISTER:
+- All versions stay polite/formal (teachers, professionals) — use vous where appropriate
+- Formal does NOT mean verbose or bureaucratic unless the original message is already formal correspondence
 
 CRITICAL RULES:
 - Return exactly 6 entries — one per level: A1, A2, B1, B2, C1, C2
-- Each level MUST have a DIFFERENT sentence — never copy the same text across levels
-- Use the MAXIMUM competent production standard for that diploma level (what would earn a pass), not an under-powered stub
-- Do NOT use grammar or vocabulary above the level being tested — that fails calibration
-- All versions stay polite/formal (teachers, professionals, exams)
+- IDENTICAL sentences across levels are ALLOWED and EXPECTED when the message is simple and already optimal
+- Do NOT use grammar or vocabulary above the level being tested
 - If the full meaning cannot fit a lower level, simplify honestly — describe the scope in limitation using neutral language
 
 Each entry MUST include:
 - level: exactly one of A1, A2, B1, B2, C1, C2
-- sentence: formal/polite French that would pass DELF/DALF production at this level
-- english: natural English translation of this level's French sentence (concise, learner-friendly)
-- limitation: neutral scope note for this diploma level — use phrasing like "Out of scope at this level", "Limited to…", "Focuses on…". Do NOT use "cannot" or "unable"
-- explanation: 2–3 lines on which DELF/DALF production criteria this version meets and key grammar choices
+- sentence: the recommended polite French (may match a lower level when noChangeNeeded)
+- english: natural English translation (concise, learner-friendly)
+- noChangeNeeded: boolean — true when this level needs no meaningful change from what is already natural
+- limitation: neutral scope note — for noChangeNeeded, explain why (e.g. "Already natural at this level")
+- explanation: 2–3 lines — if noChangeNeeded, explain why no change is educational (e.g. "Native speakers use this daily; advanced proficiency means knowing when not to over-complicate")
 
 Do NOT return a changes array — changes are extracted in a separate step from your sentences.
 
@@ -83,7 +94,7 @@ Return ONLY valid JSON matching the schema.`;
 
 const LEVEL_CHANGES_SYSTEM_PROMPT = `You build an accurate, aligned "what changed" breakdown across French sentence versions — and explain each fix in English like a warm native French speaker helping a new student.
 
-INPUTS: learner's ORIGINAL text (may contain errors), informal correction, and six formal sentences (A1–C2) already written.
+INPUTS: learner's ORIGINAL text (may contain errors), informal correction, and six formal sentences (A1–C2) already written. Some formal levels may have noChangeNeeded: true (sentence already optimal).
 
 METHOD — follow in order:
 1. Compare the learner's ORIGINAL to the informal correction. Identify ONLY specific spans that were wrong, missing, unnatural, or misspelled — not parts the learner got right.
@@ -91,20 +102,21 @@ METHOD — follow in order:
 3. youWrote MUST be an exact verbatim substring copied from the learner's ORIGINAL (same spelling, accents, punctuation as they wrote). If you cannot find it in the original, do not invent it.
 4. informalFrench MUST be the replacement phrase at the same meaning slot — a contiguous substring of the informal sentence.
 5. byLevel: for each level, the replacement at that same meaning slot — a contiguous substring copied from THAT level's formal sentence. When levels restructure grammar, pick the phrase in that sentence that carries the same idea (not the same word position).
-6. Verify every byLevel and informalFrench value actually appears inside its target sentence before returning.
+6. If a level's formal sentence has noChangeNeeded or the learner's phrasing is already correct at that level for this meaning slot, set byLevel[level] to "" (empty string) and explain why in explanationsByLevel[level].
+7. Verify every non-empty byLevel and informalFrench value actually appears inside its target sentence before returning.
 
 Each row fields:
 - youWrote: verbatim from learner original (French)
 - informalFrench: matching fix phrase from informal sentence (French)
 - informalExplanation: 2–4 sentences IN ENGLISH — buddy tone, why this informal fix works
-- byLevel: A1–C2 fix phrases (French), each from that level's sentence
-- explanationsByLevel: A1–C2, 2–4 sentences IN ENGLISH each — why that level's phrasing fits DELF/DALF scope
+- byLevel: A1–C2 fix phrases (French) — use "" when no change is needed at that level
+- explanationsByLevel: A1–C2, 2–4 sentences IN ENGLISH each — for empty byLevel, explain why no change is needed
 
 QUALITY RULES:
 - Prefer several precise rows over one vague row that dumps half the sentence
 - Do NOT use the full corrected sentence as youWrote unless the entire original was unusable
 - Do NOT use the full sentence as informalFrench/byLevel unless the entire clause was replaced
-- When formal sentences differ by level, byLevel phrases MUST differ when the underlying wording differs
+- If the sentence is already correct with only minor informal fixes and formal levels need no changes, return an empty changes array
 - ALL explanation text must be ENGLISH (French may be quoted inline)
 
 Return ONLY valid JSON matching the schema.`;
@@ -137,14 +149,19 @@ const FORMAL_LEVELS_SCHEMA = {
           limitation: {
             type: 'string',
             description:
-              'Neutral scope note: use "Out of scope", "Limited to", "Focuses on" — not "cannot" or "unable"',
+              'Neutral scope note: use "Out of scope", "Limited to", "Focuses on", "Already natural" — not "cannot" or "unable"',
+          },
+          noChangeNeeded: {
+            type: 'boolean',
+            description:
+              'True when this level needs no meaningful change — sentence may match a lower level',
           },
           explanation: {
             type: 'string',
             description: '2–3 lines on DELF/DALF production criteria met and key grammar used',
           },
         },
-        required: ['level', 'sentence', 'english', 'limitation', 'explanation'],
+        required: ['level', 'sentence', 'english', 'limitation', 'noChangeNeeded', 'explanation'],
       },
     },
   },
@@ -416,8 +433,9 @@ function getUserFrenchForVocabulary(originalSentence, clarification) {
 }
 
 function buildFormalLevelsPrompt(sentence, understood, informalSentence, clarification, retry = false) {
-  let prompt = `Generate six DISTINCT polite/formal French versions (A1 through C2) for this message.
-Each version must be calibrated to pass the DELF (A1–B2) or DALF (C1–C2) written production exam at that level — use the full grammar and vocabulary credited at that diploma, without exceeding it.
+  let prompt = `Generate six polite/formal French versions (A1 through C2) for this message.
+Express the SAME intended meaning at each level — do NOT add new ideas or make sentences fancier just because the level is higher.
+Use noChangeNeeded: true when the phrasing is already natural for that diploma level (identical sentences across levels are fine).
 
 Original learner message: "${sentence}"
 Intended meaning: ${understood}
@@ -434,7 +452,7 @@ Informal French reference: "${informalSentence}"`;
 
   if (retry) {
     prompt +=
-      '\n\nIMPORTANT: Your previous attempt repeated sentences across levels or exceeded diploma boundaries. Each level MUST use pass-quality grammar for that DELF/DALF level only. All six sentences must differ.';
+      '\n\nIMPORTANT: Your previous attempt exceeded diploma boundaries or changed the user\'s meaning. Preserve the SAME communicative intent at every level. Use noChangeNeeded: true when no improvement is needed. Do NOT invent elaborate formal phrasing for simple messages.';
   }
 
   return prompt;
@@ -442,7 +460,8 @@ Informal French reference: "${informalSentence}"`;
 
 function buildLevelChangesPrompt(originalSentence, informalSentence, byLevel, retry = false) {
   const levelLines = CEFR_LEVELS.map(
-    (level) => `${level}: "${byLevel[level].sentence}"`,
+    (level) =>
+      `${level}: "${byLevel[level].sentence}"${byLevel[level].noChangeNeeded ? ' (no change needed)' : ''}`,
   ).join('\n');
 
   let prompt = `Compare the learner's ORIGINAL against each corrected sentence below. Build precise change rows — one per specific error or fix, not whole-sentence dumps.
@@ -456,11 +475,11 @@ Informal correction:
 Formal sentences (byLevel phrases must be copied from the matching line only):
 ${levelLines}
 
-For each specific issue: youWrote from original → informalFrench from informal → byLevel A1–C2 from each formal line. English buddy explanations for informal and each level.`;
+For each specific issue: youWrote from original → informalFrench from informal → byLevel A1–C2 from each formal line (use "" when no change at that level). English buddy explanations for informal and each level. Return an empty changes array if the sentence is already correct.`;
 
   if (retry) {
     prompt +=
-      '\n\nIMPORTANT: Previous attempt failed alignment checks. youWrote must appear verbatim in the learner ORIGINAL. informalFrench must appear in the informal sentence. Each byLevel value must appear in that level\'s formal sentence. Use smaller, precise spans — not whole sentences. Re-read each target sentence word by word.';
+      '\n\nIMPORTANT: Previous attempt failed alignment checks. youWrote must appear verbatim in the learner ORIGINAL. informalFrench must appear in the informal sentence. Each non-empty byLevel value must appear in that level\'s formal sentence. Use "" for levels where no change is needed. Use smaller, precise spans — not whole sentences.';
   }
 
   return prompt;
@@ -481,6 +500,7 @@ function mapFormalLevelsArray(levels) {
       sentence: item.sentence.trim(),
       english: item.english?.trim() || '',
       limitation: item.limitation?.trim() || 'Limited to the core meaning at this diploma level.',
+      noChangeNeeded: Boolean(item.noChangeNeeded),
     };
     explanationsByLevel[level] = item.explanation?.trim() || '';
   }
@@ -492,20 +512,26 @@ function hasCompleteByLevel(byLevel) {
   return CEFR_LEVELS.every((level) => byLevel[level]?.sentence?.trim());
 }
 
-function countUniqueFormalSentences(byLevel) {
-  const sentences = CEFR_LEVELS.map((level) => byLevel[level]?.sentence?.trim().toLowerCase()).filter(
-    Boolean,
-  );
-  return new Set(sentences).size;
-}
-
-function mapLevelStrings(source) {
+function mapLevelStrings(source, { allowEmpty = false } = {}) {
   const mapped = {};
   for (const level of CEFR_LEVELS) {
-    const value = source?.[level]?.trim();
-    if (value) mapped[level] = value;
+    if (!(level in (source ?? {}))) continue;
+    const trimmed = String(source[level] ?? '').trim();
+    if (trimmed || allowEmpty) mapped[level] = trimmed;
   }
   return mapped;
+}
+
+function hasAllLevelKeys(source, { allowEmpty = false } = {}) {
+  return CEFR_LEVELS.every((level) => {
+    if (!(level in (source ?? {}))) return false;
+    const trimmed = String(source[level] ?? '').trim();
+    return allowEmpty || Boolean(trimmed);
+  });
+}
+
+function allLevelsNoChangeNeeded(byLevel) {
+  return CEFR_LEVELS.every((level) => byLevel[level]?.noChangeNeeded === true);
 }
 
 function mapFormalLevelsChanges(changes) {
@@ -513,11 +539,11 @@ function mapFormalLevelsChanges(changes) {
 
   return changes
     .map((change) => {
-      const byLevel = mapLevelStrings(change?.byLevel);
-      const explanationsByLevel = mapLevelStrings(change?.explanationsByLevel);
+      const byLevel = mapLevelStrings(change?.byLevel, { allowEmpty: true });
+      const explanationsByLevel = mapLevelStrings(change?.explanationsByLevel, { allowEmpty: true });
 
       if (!change?.youWrote?.trim() || !change?.informalFrench?.trim()) return null;
-      if (CEFR_LEVELS.some((level) => !byLevel[level])) return null;
+      if (!hasAllLevelKeys(byLevel, { allowEmpty: true })) return null;
 
       return {
         youWrote: change.youWrote.trim(),
@@ -525,7 +551,7 @@ function mapFormalLevelsChanges(changes) {
         informalExplanation: change.informalExplanation?.trim() || undefined,
         byLevel,
         explanationsByLevel:
-          CEFR_LEVELS.every((level) => explanationsByLevel[level]) ? explanationsByLevel : undefined,
+          hasAllLevelKeys(explanationsByLevel, { allowEmpty: true }) ? explanationsByLevel : undefined,
       };
     })
     .filter(Boolean);
@@ -546,19 +572,10 @@ function phraseAppearsInSentence(phrase, sentence) {
   return normalizedSentence.includes(normalizedPhrase);
 }
 
-function levelChangeSignaturesDiffer(changes) {
-  const signatures = CEFR_LEVELS.map((level) =>
-    changes
-      .map((change) => change.byLevel[level]?.trim().toLowerCase() ?? '')
-      .join('|'),
-  );
-  return new Set(signatures).size >= 2;
-}
-
 function changesArePersonalized(changes, byLevel, informalSentence, originalSentence) {
-  if (!changes.length) return false;
-
-  const sentencesDiffer = countUniqueFormalSentences(byLevel) >= 2;
+  if (!changes.length) {
+    return allLevelsNoChangeNeeded(byLevel);
+  }
 
   for (const change of changes) {
     if (!phraseAppearsInSentence(change.youWrote, originalSentence)) {
@@ -569,14 +586,12 @@ function changesArePersonalized(changes, byLevel, informalSentence, originalSent
     }
 
     for (const level of CEFR_LEVELS) {
-      if (!phraseAppearsInSentence(change.byLevel[level], byLevel[level].sentence)) {
+      const phrase = change.byLevel[level];
+      if (!phrase?.trim()) continue;
+      if (!phraseAppearsInSentence(phrase, byLevel[level].sentence)) {
         return false;
       }
     }
-  }
-
-  if (sentencesDiffer && !levelChangeSignaturesDiffer(changes)) {
-    return false;
   }
 
   return true;
@@ -620,7 +635,7 @@ async function runFormalLevels(config, sentence, understood, informalSentence, c
     schema: FORMAL_LEVELS_SCHEMA,
     schemaName: 'french_formal_levels',
     ollamaSchemaHint:
-      'Keys: levels (array of 6: {level, sentence, english, limitation, explanation}). Each sentence must differ by level.',
+      'Keys: levels (array of 6: {level, sentence, english, limitation, noChangeNeeded, explanation}). Same sentence across levels is allowed when noChangeNeeded.',
   });
 }
 
@@ -679,8 +694,8 @@ async function runFormalLevelsWithRetry(
   );
   let { byLevel } = mapFormalLevelsArray(formalLevelsResult?.levels);
 
-  if (countUniqueFormalSentences(byLevel) < 3 || !hasCompleteByLevel(byLevel)) {
-    console.warn('Formal levels lacked distinct sentences or completeness — retrying once.');
+  if (!hasCompleteByLevel(byLevel)) {
+    console.warn('Formal levels were incomplete — retrying once.');
     formalLevelsResult = await runFormalLevels(
       config,
       sentence,
@@ -694,10 +709,6 @@ async function runFormalLevelsWithRetry(
 
   if (!hasCompleteByLevel(byLevel)) {
     throw new Error('Could not generate all six CEFR formal levels.');
-  }
-
-  if (countUniqueFormalSentences(byLevel) < 2) {
-    throw new Error('Formal levels were too similar across CEFR levels.');
   }
 
   return formalLevelsResult;

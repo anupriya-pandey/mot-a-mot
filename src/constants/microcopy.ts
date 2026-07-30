@@ -38,3 +38,6 @@ export const VOICE_HINT =
 export const VOICE_LISTENING = 'Listening… speak now.';
 export const NEW_VOCAB_HINT =
   'See a word you do not recognise in the suggestions below? Scroll to Add to your French toolkit at the bottom of this page — tap + to save words with their English meanings.';
+export const NO_CHANGE_AT_LEVEL =
+  'No changes recommended — already natural at this level.';
+export const NO_CHANGE_FORMAL_PHRASE = 'No change needed at this level.';

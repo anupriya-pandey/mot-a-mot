@@ -1,4 +1,5 @@
 import { CEFR_LEVELS, CEFR_LEVEL_LABELS } from '../constants/cefrLevels';
+import { NO_CHANGE_AT_LEVEL } from '../constants/microcopy';
 import type { CefrLevel, FormalByLevel } from '../types/analysis';
 import { InformationCard } from './InformationCard';
 import { SwipeCarousel } from './SwipeCarousel';
@@ -20,6 +21,9 @@ export function WhyTheseChangesSection({
     subtitle: CEFR_LEVEL_LABELS[level],
     content: (
       <div className="rounded-lg bg-background/60 p-m space-y-s min-h-[8rem]">
+        {formalByLevel[level].noChangeNeeded && (
+          <p className="text-sm font-medium text-success">✓ {NO_CHANGE_AT_LEVEL}</p>
+        )}
         <p className="text-sm text-text-secondary">
           <span className="font-medium text-text-primary">In scope at this level: </span>
           {formalByLevel[level].limitation}

@@ -12,4 +12,4 @@ export const CEFR_LEVEL_LABELS: Record<CefrLevel, string> = {
 };
 
 export const FORMAL_BY_LEVEL_INTRO =
-  'Polite French calibrated to each DELF/DALF level. Start at A1 — swipe or tap → to see A2, B1, B2, C1, and C2.';
+  'Polite French calibrated to each DELF/DALF level. Higher levels do not always mean fancier — swipe through A1 to C2 to see when no change is needed.';

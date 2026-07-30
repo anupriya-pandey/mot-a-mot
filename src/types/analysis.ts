@@ -25,6 +25,8 @@ export interface LevelSuggestion {
   sentence: string;
   english?: string;
   limitation: string;
+  /** True when this level needs no meaningful change — already natural */
+  noChangeNeeded?: boolean;
 }
 
 export type FormalByLevel = Record<CefrLevel, LevelSuggestion>;

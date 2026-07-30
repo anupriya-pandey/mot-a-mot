@@ -1,4 +1,5 @@
 import { CEFR_LEVELS, CEFR_LEVEL_LABELS, FORMAL_BY_LEVEL_INTRO } from '../constants/cefrLevels';
+import { NO_CHANGE_AT_LEVEL } from '../constants/microcopy';
 import type { CefrLevel, FormalByLevel } from '../types/analysis';
 import { PrimaryButton } from './PrimaryButton';
 import { SectionHeader } from './SectionHeader';
@@ -15,16 +16,23 @@ function LevelSlideContent({
   sentence,
   english,
   limitation,
+  noChangeNeeded,
 }: {
   level: CefrLevel;
   sentence: string;
   english?: string;
   limitation: string;
+  noChangeNeeded?: boolean;
 }) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
 
   return (
     <div className="rounded-card bg-surface p-m shadow-card space-y-s mx-1">
+      {noChangeNeeded && (
+        <p className="rounded-lg bg-success/10 px-m py-s text-sm font-medium text-success" role="status">
+          ✓ {NO_CHANGE_AT_LEVEL}
+        </p>
+      )}
       <p className="leading-relaxed text-text-primary">{sentence}</p>
       {english?.trim() && (
         <p className="text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
@@ -56,6 +64,7 @@ export function LevelFormalSuggestions({ byLevel }: LevelFormalSuggestionsProps)
         sentence={byLevel[level].sentence}
         english={byLevel[level].english}
         limitation={byLevel[level].limitation}
+        noChangeNeeded={byLevel[level].noChangeNeeded}
       />
     ),
   }));
