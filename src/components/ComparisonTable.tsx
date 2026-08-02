@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { CEFR_LEVELS, CEFR_LEVEL_LABELS } from '../constants/cefrLevels';
+import { WRITING_STYLES, WRITING_STYLE_LABELS } from '../constants/writingStyles';
 import { NO_CHANGE_FORMAL_PHRASE } from '../constants/microcopy';
 import type { CorrectionChange } from '../types/analysis';
 import { SectionHeader } from './SectionHeader';
@@ -33,9 +33,15 @@ function ChangeRow({
   );
 }
 
-function FormalChangeSlide({ change, level }: { change: CorrectionChange; level: (typeof CEFR_LEVELS)[number] }) {
-  const phrase = change.byLevel[level]?.trim();
-  const explanation = change.explanationsByLevel?.[level];
+function WritingChangeSlide({
+  change,
+  style,
+}: {
+  change: CorrectionChange;
+  style: (typeof WRITING_STYLES)[number];
+}) {
+  const phrase = change.byStyle[style]?.trim();
+  const explanation = change.explanationsByStyle?.[style];
 
   return (
     <div className="rounded-lg bg-background/60 p-m mx-1 min-h-[5rem]">
@@ -60,16 +66,18 @@ export function ComparisonTable({ changes }: ComparisonTableProps) {
     <section>
       <SectionHeader icon="📝" title="What Changed" />
       <p className="mb-m text-sm text-text-secondary">
-        Each fix shows informal first, then formal DELF/DALF levels — swipe right to move from A1 to C2.
+        Each fix shows everyday speaking first, then writing styles — swipe to compare Simple, Natural, and Refined.
       </p>
       <div className="space-y-l">
         {changes.map((change, index) => {
-          const formalSlides = CEFR_LEVELS.map((level) => ({
-            key: level,
-            badge: `Formal ${level}`,
-            subtitle: CEFR_LEVEL_LABELS[level],
-            content: <FormalChangeSlide change={change} level={level} />,
+          const writingSlides = WRITING_STYLES.map((style) => ({
+            key: style,
+            badge: WRITING_STYLE_LABELS[style],
+            subtitle: 'Writing',
+            content: <WritingChangeSlide change={change} style={style} />,
           }));
+
+          const speakingPhrase = change.speakingFrench || change.informalFrench || '';
 
           return (
             <article
@@ -86,11 +94,11 @@ export function ComparisonTable({ changes }: ComparisonTableProps) {
                   <p className="break-words leading-relaxed text-error">{change.youWrote}</p>
                 </ChangeRow>
 
-                <ChangeRow label="Informal">
-                  <p className="break-words leading-relaxed text-success">{change.informalFrench}</p>
-                  {change.informalExplanation && (
+                <ChangeRow label="Speaking">
+                  <p className="break-words leading-relaxed text-success">{speakingPhrase}</p>
+                  {(change.speakingExplanation || change.informalExplanation) && (
                     <p className="mt-s break-words text-sm leading-relaxed text-text-secondary">
-                      {change.informalExplanation}
+                      {change.speakingExplanation || change.informalExplanation}
                     </p>
                   )}
                 </ChangeRow>
@@ -98,12 +106,9 @@ export function ComparisonTable({ changes }: ComparisonTableProps) {
 
               <div>
                 <p className="mb-s text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                  Formal by level
+                  Writing by style
                 </p>
-                <SwipeCarousel
-                  slides={formalSlides}
-                  ariaLabel={`Change ${index + 1} formal levels`}
-                />
+                <SwipeCarousel slides={writingSlides} ariaLabel={`Change ${index + 1} writing styles`} />
               </div>
             </article>
           );

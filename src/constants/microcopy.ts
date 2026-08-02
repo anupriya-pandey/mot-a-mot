@@ -38,10 +38,8 @@ export const VOICE_HINT =
 export const VOICE_LISTENING = 'Listening… speak now.';
 export const NEW_VOCAB_HINT =
   'See a word you do not recognise in the suggestions below? Scroll to Add to your French toolkit at the bottom of this page — tap + to save words with their English meanings.';
-export const NO_CHANGE_AT_LEVEL =
-  'No changes recommended — already natural at this level.';
-export const NO_CHANGE_FORMAL_PHRASE = 'No change needed at this level.';
+export const SAME_AS_PREVIOUS_STYLE =
+  'Same as {style} — already the most natural written version at this style.';
 export const PARTIAL_MEANING_AT_LEVEL =
-  'Not fully expressible at this DELF/DALF level — see why below.';
-export const DELF_SCOPE_LABEL = 'DELF/DALF scope at this level:';
-export const DELF_LIMIT_LABEL = 'Why this level is limited:';
+  'Part of your meaning could not fit this writing style — see the note below.';
+export const NO_CHANGE_FORMAL_PHRASE = 'No change needed for this writing style.';

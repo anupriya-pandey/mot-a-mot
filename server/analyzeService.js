@@ -1,230 +1,140 @@
 import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
 import { sanitizeVocabulary } from './vocabularySanitizer.js';
 
-const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const WRITING_STYLES = ['simple', 'natural', 'refined'];
 
-const CORRECTION_SYSTEM_PROMPT = `You are Mot-à-Mot, an AI messaging assistant for French learners (A1–C2).
+const CORRECTION_SYSTEM_PROMPT = `You are Mot-à-Mot, a French practice buddy — not a grammar textbook or proficiency examiner.
 
-Your ONLY job in this task is sentence correction and explanation — NOT vocabulary extraction or CEFR-level formal versions (those come in a separate step).
+Your ONLY job in this task is everyday speaking correction and explanation — NOT writing-style versions or vocabulary (those come in separate steps).
 
 Rules:
-- Provide ONE informal version (friends, family, texts) — natural spoken/texting French
-- suggestions.informal.english: a natural English translation of the informal French sentence (small, clear, not word-for-word if unnatural)
-- For "understood": a clear natural English explanation confirming what the learner intended to say — include EVERY clause and reason they expressed
-- When the learner clarifies in ENGLISH, suggestions.informal MUST express the COMPLETE intended meaning in natural French — every part (e.g. every "because" clause), not a shortened summary
-- explanations.informal: 3–5 lines on conversational shortcuts, spoken French, texting conventions
-- Do NOT return a changes array — changes are generated in a separate step
+- Provide ONE everyday speaking version — how a native would naturally say this in conversation (friends, family, texts)
+- suggestions.speaking.english: natural English translation of the speaking French
+- For "understood": confirm what the learner intended — include EVERY clause and reason
+- When the learner clarifies in ENGLISH, suggestions.speaking MUST express the COMPLETE intended meaning — every "because" clause, not a summary
+- explanations.speaking: 3–5 lines on why this sounds natural when speaking — conversational shortcuts, spoken French, texting conventions
+- Do NOT return a changes array — changes come in a separate step
 - Ratings are 0–100 integers for grammar and naturalness of the learner's French sentence ONLY
-- If the learner clarified in ENGLISH (not French), set both grammar and naturalness ratings to 0
+- If the learner clarified in ENGLISH, set both grammar and naturalness ratings to 0
 - If the learner clarified in French, rate that French clarification text
 - Never say "that's just how French works" — explain the underlying rule or pattern
 - Return ONLY valid JSON matching the schema
 
 Tone: friendly, calm, encouraging — like a patient French friend, never judgmental.`;
 
-const FORMAL_LEVELS_SYSTEM_PROMPT = `You generate polite/formal French versions of a message at SIX CEFR levels (A1, A2, B1, B2, C1, C2), calibrated to DELF/DALF production standards.
+const WRITING_STYLES_SYSTEM_PROMPT = `You generate THREE written French versions of the same message — Simple, Natural, and Refined — for learners who want to practice writing (not speaking).
 
-CORE PHILOSOPHY — this is essential:
-CEFR and DELF measure what a learner at each level can NATURALLY produce — NOT "make every sentence increasingly sophisticated."
-Calibrate every version strictly to DELF A1–B2 / DALF C1–C2 production écrite descriptors: use only grammar and vocabulary IN SCOPE at that diploma level.
-Your job is to express the intended meaning as fully as possible WITHIN that level's scope. Never add, remove, or shift communicative intent — and never use structures above the level just to cram in a clause.
+CORE PHILOSOPHY — Mot-à-Mot is a practice buddy, NOT a proficiency examiner:
+- These are writing STYLES, not CEFR/DELF levels. Do NOT label anything A1, B2, etc.
+- Never increase complexity unless it creates real communicative value.
+- Never change, add, or remove meaning — only how the same idea is written.
+- Identical sentences across styles are ALLOWED and ENCOURAGED when no better version exists.
 
-RULE 1 — DELF scope comes first (compare to the standard):
-Before writing each level, ask: "What would DELF/DALF examiners credit at this diploma?"
-- Do NOT use tenses, connectors, or vocabulary above the level — even to include a missing clause.
-- Do NOT silently drop part of the message either — if you cannot include a clause within scope, say so explicitly.
+THE THREE STYLES:
 
-RULE 2 — Include full meaning WHEN in scope; explain honestly WHEN not:
-- Within DELF scope: include EVERY part of the intended meaning using the simplest in-scope structures (shorter sentences, parce que, et, high-frequency words).
-- When a clause truly requires grammar or vocabulary OUT OF SCOPE at this level, that is OK — set coversFullMeaning: false.
-- When coversFullMeaning is false, limitation MUST (in plain English):
-  (a) name the specific clause or idea not fully expressed (quote or paraphrase it),
-  (b) state which DELF/DALF grammar or vocabulary is out of scope at this level (e.g. imparfait, subjunctive, relative clauses),
-  (c) say from which level it typically becomes available (e.g. "from DELF A2 with passé composé" or "from DELF B1 with imparfait").
-- explanation must reinforce this for the learner — friendly, educational, why this level has this boundary.
-- coversFullMeaning: true only when every part of the intended meaning is expressed using in-scope grammar at this level.
-- english must translate what the French actually says — do not translate omitted clauses as if they were present.
+Simple — Clear, everyday written French using common vocabulary. Appropriate for messages, notes, everyday correspondence. Include the FULL intended meaning using straightforward structures.
 
-RULE 3 — Do not over-elaborate (never add ideas):
-Do NOT add length, new clauses, or bureaucratic phrasing just because the level is higher. A C2 speaker sounds like a native, not like a lawyer.
+Natural — A smoother, more polished written version that many native speakers would naturally write. May add richer vocabulary or smoother phrasing — same meaning only.
 
-RULE 4 — Level-appropriate upgrades (same meaning, more proficiency):
-When moving from one level to the next, ask: does this diploma level enable a small, natural upgrade that shows more proficiency WITHOUT changing meaning?
-Allowed upgrades: a more precise verb, richer but appropriate synonym, smoother grammar, natural collocation, or a tense/structure credited at that DELF/DALF level — ONLY when it fits the same message.
-Example — "Je suis fatigué": A1/A2 may stay the same → B1 optional "Je suis très fatigué" → B2 "Je suis épuisé" (stronger word, same meaning) → C1/C2 may repeat B2 if nothing better fits.
-Example — "Bonjour, ça va?": one simple A1 formal version may be identical through C2 when no upgrade adds value.
+Refined — A more expressive or formal written alternative — ONLY when people actually write this way in real life (professional emails, formal notes). If no genuinely better refined version exists, repeat Natural.
 
-RULE 5 — noChangeNeeded flag (STRICT):
-- noChangeNeeded: true ONLY when this level's sentence is IDENTICAL to the previous level's sentence (B1 vs A2, B2 vs B1, etc.) — nothing more to gain at this level.
-- noChangeNeeded: false whenever the sentence differs from the previous level — even one word (verb, adjective, connector). If A2 and B1 use different verbs, B1 MUST have noChangeNeeded: false.
-- A1 always has noChangeNeeded: false (it is the first formal recommendation).
+RULES:
+1. Preserve meaning — every clause the learner intended must appear somewhere across the three styles when possible. Try to include the FULL message in Simple first; only omit if truly unwieldy and explain in note.
+2. Never invent new ideas or bureaucratic phrasing to sound "advanced."
+3. sameAsPrevious: true when this style's sentence is IDENTICAL to the previous style (Natural vs Simple, Refined vs Natural). This is a valid and common answer.
+4. coversFullMeaning: false only if a clause could not fit even in Simple — explain in note which part and why.
+5. Use appropriate written register (punctuation, line breaks for emails if natural) — not the same as casual speaking.
 
-WHEN TO SET noChangeNeeded: true:
-- Sentence is word-for-word the same as the previous level AND no level-appropriate improvement exists
+Examples:
+- "Bonjour. Ça va?" → Simple: "Bonjour, comment allez-vous ?" / Natural & Refined: same (sameAsPrevious: true)
+- "Je suis fatigué." → Simple: "Je suis fatigué." / Natural: "Je suis très fatigué." / Refined: "Je suis complètement épuisé."
+- "Merci beaucoup." → Simple & Natural: "Merci beaucoup." / Refined: "Je vous remercie sincèrement." (only because people actually write this)
 
-WHEN TO SET noChangeNeeded: false:
-- Any word differs from the previous level's sentence
-- This level introduces a level-appropriate vocabulary or grammar upgrade (same meaning)
-- A1 (always)
-
-DELF A1 — basic user (production écrite):
-- Very short phrases; present tense (indicative); basic interrogatives and negation
-- High-frequency concrete vocabulary; simple politeness (Bonjour, s'il vous plaît)
-- One or two simple clauses linked with et / mais; parce que for simple reason if credited
-- Out of scope: imparfait, passé composé for narrative background, subjunctive, relative clauses, complex past time ("at that time" as background state)
-
-DELF A2 — elementary:
-- Passé composé for completed past; futur proche; reflexive verbs; parce que, mais, et
-- Routine personal narrative; everyday reasons and descriptions
-- Out of scope: imparfait for background/description, subjunctive, complex subordinate clauses
-
-DELF B1 — threshold:
-- Imparfait vs passé composé; opinions; relative pronouns qui/que; structured short text
-- Background context and past habits ("at that time", ongoing past states) become in scope
-
-DELF B2 — upper intermediate:
-- Subjunctive in common triggers when needed; complex sentences when the message warrants them
-- Simple messages may repeat lower levels when already optimal
-
-DALF C1 — advanced:
-- Stylistic precision when the message warrants it — simple messages may repeat lower levels
-
-DALF C2 — mastery:
-- Near-native natural phrasing — NOT rhetorical over-elaboration
-
-FORMAL REGISTER:
-- All versions stay polite/formal (teachers, professionals) — use vous where appropriate
-- Formal does NOT mean verbose or bureaucratic unless the original message is already formal correspondence
-
-CRITICAL RULES:
-- Return exactly 6 entries — one per level: A1, A2, B1, B2, C1, C2
-- IDENTICAL sentences across levels are ALLOWED and EXPECTED when the message is simple and already optimal
-- Do NOT use grammar or vocabulary above the level being tested — prefer coversFullMeaning: false with a clear DELF-based explanation over forcing out-of-scope structures
-- If the full meaning cannot fit within DELF scope at a level, set coversFullMeaning: false — name the missing clause and which diploma level unlocks it
+Return exactly 3 entries: simple, natural, refined.
 
 Each entry MUST include:
-- level: exactly one of A1, A2, B1, B2, C1, C2
-- sentence: the best polite French possible WITHIN DELF scope at this level
-- english: natural English translation of what this French sentence actually says
-- noChangeNeeded: boolean — true ONLY when sentence is identical to the previous level
-- coversFullMeaning: boolean — true only when every intended clause is expressed with in-scope grammar; false is OK when DELF scope limits expression
-- limitation: DELF scope note — always tie to the diploma standard; if coversFullMeaning is false, explain which clause is missing and why (grammar/vocab out of scope + from which level it opens up)
-- explanation: 2–3 lines — educational; if coversFullMeaning is false, help the learner understand the DELF boundary without discouragement
-
-Do NOT return a changes array — changes are extracted in a separate step from your sentences.
+- style: exactly one of simple, natural, refined
+- sentence: written French for this style
+- english: natural English translation of what the French actually says
+- explanation: 2–3 lines IN ENGLISH — why this style choice works (or why same as previous)
+- sameAsPrevious: boolean — true when identical to the previous style
+- coversFullMeaning: boolean — true when every intended clause is expressed
+- note: optional plain-English note when coversFullMeaning is false or when reusing a previous style
 
 Return ONLY valid JSON matching the schema.`;
 
-const LEVEL_CHANGES_SYSTEM_PROMPT = `You build an accurate, aligned "what changed" breakdown across French sentence versions — and explain each fix in English like a warm native French speaker helping a new student.
+const STYLE_CHANGES_SYSTEM_PROMPT = `You build an accurate "what changed" breakdown across French sentence versions — and explain each fix in English like a warm native French speaker helping a new student.
 
-INPUTS: learner's ORIGINAL text (may contain errors), informal correction, and six formal sentences (A1–C2) already written. Some formal levels may have noChangeNeeded: true (sentence already optimal).
+INPUTS: learner's ORIGINAL text, everyday speaking correction, and three written versions (simple, natural, refined).
 
-METHOD — follow in order:
-1. Compare the learner's ORIGINAL to the informal correction. Identify ONLY specific spans that were wrong, missing, unnatural, or misspelled — not parts the learner got right.
-2. For each issue, create ONE change row tied to a single meaning slot (e.g. verb choice, gender agreement, politeness, word order, vocabulary).
-3. youWrote MUST be an exact verbatim substring copied from the learner's ORIGINAL (same spelling, accents, punctuation as they wrote). If you cannot find it in the original, do not invent it.
-4. informalFrench MUST be the replacement phrase at the same meaning slot — a contiguous substring of the informal sentence.
-5. byLevel: for each level, the replacement at that same meaning slot — a contiguous substring copied from THAT level's formal sentence. When levels restructure grammar, pick the phrase in that sentence that carries the same idea (not the same word position).
-6. If a level's formal sentence is identical to the previous level (noChangeNeeded: true), set byLevel[level] to "" for that meaning slot. If the sentence DIFFERS from the previous level (even one word), byLevel[level] MUST contain the differing phrase from that level's sentence — never empty.
-7. Verify every non-empty byLevel and informalFrench value actually appears inside its target sentence before returning.
+METHOD:
+1. Compare the learner's ORIGINAL to the speaking correction. Identify ONLY specific spans that were wrong, missing, unnatural, or misspelled.
+2. For each issue, create ONE change row tied to a single meaning slot.
+3. youWrote MUST be an exact verbatim substring from the learner's ORIGINAL.
+4. speakingFrench MUST be the replacement phrase — a contiguous substring of the speaking sentence.
+5. byStyle: for each writing style, the replacement at that meaning slot — copied from THAT style's sentence. Use "" when that style's sentence is identical to the previous style for this slot or no change applies.
+6. Verify every non-empty value appears inside its target sentence.
 
-Each row fields:
-- youWrote: verbatim from learner original (French)
-- informalFrench: matching fix phrase from informal sentence (French)
-- informalExplanation: 2–4 sentences IN ENGLISH — buddy tone, why this informal fix works
-- byLevel: A1–C2 fix phrases (French) — use "" when no change is needed at that level
-- explanationsByLevel: A1–C2, 2–4 sentences IN ENGLISH each — for empty byLevel, explain why no change is needed
+Each row:
+- youWrote, speakingFrench, speakingExplanation (English)
+- byStyle: { simple, natural, refined } — "" when no change at that style
+- explanationsByStyle: English explanation per style
 
-QUALITY RULES:
-- Prefer several precise rows over one vague row that dumps half the sentence
-- Do NOT use the full corrected sentence as youWrote unless the entire original was unusable
-- Do NOT use the full sentence as informalFrench/byLevel unless the entire clause was replaced
-- If the sentence is already correct with only minor informal fixes and formal levels need no changes, return an empty changes array
-- ALL explanation text must be ENGLISH (French may be quoted inline)
+Return empty changes array if the sentence is already correct.
 
 Return ONLY valid JSON matching the schema.`;
 
-const BY_LEVEL_STRINGS_SCHEMA = {
+const BY_STYLE_STRINGS_SCHEMA = {
   type: 'object',
-  properties: Object.fromEntries(CEFR_LEVELS.map((level) => [level, { type: 'string' }])),
-  required: CEFR_LEVELS,
+  properties: Object.fromEntries(WRITING_STYLES.map((style) => [style, { type: 'string' }])),
+  required: WRITING_STYLES,
 };
 
-const FORMAL_LEVELS_SCHEMA = {
+const WRITING_STYLES_SCHEMA = {
   type: 'object',
   properties: {
-    levels: {
+    styles: {
       type: 'array',
-      description: 'Exactly six entries, one per CEFR level A1 through C2',
+      description: 'Exactly three entries: simple, natural, refined',
       items: {
         type: 'object',
         properties: {
-          level: { type: 'string', enum: CEFR_LEVELS },
-          sentence: {
-            type: 'string',
-            description:
-              'Polite formal French that would pass DELF/DALF written production at this level',
-          },
-          english: {
-            type: 'string',
-            description: 'Natural English translation of this formal sentence',
-          },
-          limitation: {
-            type: 'string',
-            description:
-              'DELF/DALF scope note in plain English. If coversFullMeaning is false: name missing clause, what grammar is out of scope, and from which level it becomes available',
-          },
-          noChangeNeeded: {
-            type: 'boolean',
-            description:
-              'True when this level needs no meaningful change — sentence may match a lower level',
-          },
-          coversFullMeaning: {
-            type: 'boolean',
-            description:
-              'True when the French sentence includes every part of the intended meaning; false if a clause is simplified with explanation in limitation',
-          },
-          explanation: {
-            type: 'string',
-            description: '2–3 lines on DELF/DALF production criteria met and key grammar used',
-          },
+          style: { type: 'string', enum: WRITING_STYLES },
+          sentence: { type: 'string', description: 'Written French for this style' },
+          english: { type: 'string', description: 'English translation of this written sentence' },
+          explanation: { type: 'string', description: 'English — why this style works or why same as previous' },
+          sameAsPrevious: { type: 'boolean', description: 'True when identical to the previous writing style' },
+          coversFullMeaning: { type: 'boolean', description: 'True when full intended meaning is expressed' },
+          note: { type: 'string', description: 'Optional note when meaning is partial or style reuses previous' },
         },
-        required: ['level', 'sentence', 'english', 'limitation', 'noChangeNeeded', 'coversFullMeaning', 'explanation'],
+        required: ['style', 'sentence', 'english', 'explanation', 'sameAsPrevious', 'coversFullMeaning'],
       },
     },
   },
-  required: ['levels'],
+  required: ['styles'],
 };
 
-const LEVEL_CHANGES_SCHEMA = {
+const STYLE_CHANGES_SCHEMA = {
   type: 'object',
   properties: {
     changes: {
       type: 'array',
-      description: 'Per-segment phrasing extracted from each provided sentence',
       items: {
         type: 'object',
         properties: {
           youWrote: { type: 'string' },
-          informalFrench: { type: 'string' },
-          informalExplanation: {
-            type: 'string',
-            description: 'English only — buddy-style 2–4 sentence explanation for the informal phrasing',
-          },
-          byLevel: BY_LEVEL_STRINGS_SCHEMA,
-          explanationsByLevel: {
+          speakingFrench: { type: 'string' },
+          speakingExplanation: { type: 'string', description: 'English only' },
+          byStyle: BY_STYLE_STRINGS_SCHEMA,
+          explanationsByStyle: {
             type: 'object',
-            description: 'English only — per-level buddy explanations (A1 through C2)',
             properties: Object.fromEntries(
-              CEFR_LEVELS.map((level) => [
-                level,
-                { type: 'string', description: `English explanation for ${level}` },
-              ]),
+              WRITING_STYLES.map((style) => [style, { type: 'string' }]),
             ),
-            required: CEFR_LEVELS,
+            required: WRITING_STYLES,
           },
         },
-        required: ['youWrote', 'informalFrench', 'informalExplanation', 'byLevel', 'explanationsByLevel'],
+        required: ['youWrote', 'speakingFrench', 'speakingExplanation', 'byStyle', 'explanationsByStyle'],
       },
     },
   },
@@ -241,23 +151,23 @@ const CORRECTION_SCHEMA = {
     suggestions: {
       type: 'object',
       properties: {
-        informal: {
+        speaking: {
           type: 'object',
           properties: {
             sentence: { type: 'string' },
-            english: { type: 'string', description: 'Natural English translation of informal sentence' },
+            english: { type: 'string', description: 'Natural English translation of speaking sentence' },
           },
           required: ['sentence', 'english'],
         },
       },
-      required: ['informal'],
+      required: ['speaking'],
     },
     explanations: {
       type: 'object',
       properties: {
-        informal: { type: 'string' },
+        speaking: { type: 'string' },
       },
-      required: ['informal'],
+      required: ['speaking'],
     },
     ratings: {
       type: 'object',
@@ -297,13 +207,13 @@ const VOCABULARY_LIST_SCHEMA = {
   },
 };
 
-const COMBINED_VOCABULARY_SYSTEM_PROMPT = `You are a French linguistics assistant for learners at all levels (A1–C2).
+const COMBINED_VOCABULARY_SYSTEM_PROMPT = `You are a French linguistics assistant for learners.
 
 Return TWO vocabulary lists in one JSON response:
 
 1. userVocabulary — extract ALL meaningful vocabulary from the learner's French sentence ONLY (lemma form, include function words). If no learner French is provided, return an empty array.
 
-2. suggestedAdditions — words NEWLY INTRODUCED in ANY corrected French version provided: the informal correction AND every formal level (A1, A2, B1, B2, C1, C2). Compare against what the learner already used — not spelling fixes. Include words that appear only at higher levels (e.g. advanced verbs or connectors in B2/C1). Merge duplicates by lemma + part of speech. Multi-word expressions stay together. Lemma form for verbs/adjectives.
+2. suggestedAdditions — words NEWLY INTRODUCED in ANY corrected French version provided: the everyday speaking correction AND every writing style (simple, natural, refined). Compare against what the learner already used — not spelling fixes. Merge duplicates by lemma + part of speech. Multi-word expressions stay together. Lemma form for verbs/adjectives.
 
 Part of speech: Noun, Verb, Adjective, Adverb, Pronoun, Article / Determiner, Preposition, Conjunction, Expression, Negation Particle, Reflexive Pronoun
 
@@ -408,7 +318,7 @@ function buildCorrectionPrompt(sentence, clarification) {
   const clarificationText = clarification?.text?.trim();
   if (clarificationText) {
     if (clarification.mode === 'english') {
-      prompt += `\n\nThe learner clarified their intended meaning in English:\n"${clarificationText}"\n\nUse this to interpret what they meant. The informal French correction MUST include every clause and reason — do not drop trailing "because" explanations.`;
+      prompt += `\n\nThe learner clarified their intended meaning in English:\n"${clarificationText}"\n\nUse this to interpret what they meant. The everyday speaking correction MUST include every clause and reason — do not drop trailing "because" explanations.`;
     } else {
       prompt += `\n\nThe learner rewrote what they meant in French:\n"${clarificationText}"\n\nUse this to interpret their intent.`;
     }
@@ -420,15 +330,15 @@ function buildCorrectionPrompt(sentence, clarification) {
 function buildCombinedVocabularyPrompt(
   userFrench,
   learnerFrench,
-  informalSentence,
-  formalByLevel,
+  speakingSentence,
+  writingByStyle,
 ) {
   const userSection = userFrench
     ? `Learner's French (extract userVocabulary from this):\n"${userFrench}"`
     : 'No learner French provided — return an empty userVocabulary array.';
 
-  const formalSections = CEFR_LEVELS.map(
-    (level) => `Corrected (formal ${level}): "${formalByLevel[level].sentence}"`,
+  const writingSections = WRITING_STYLES.map(
+    (style) => `Corrected (writing ${style}): "${writingByStyle[style].sentence}"`,
   ).join('\n');
 
   return `${userSection}
@@ -436,13 +346,13 @@ function buildCombinedVocabularyPrompt(
 Learner's French baseline for comparing new words:
 "${learnerFrench}"
 
-Corrected (informal):
-"${informalSentence}"
+Corrected (everyday speaking):
+"${speakingSentence}"
 
-${formalSections}
+${writingSections}
 
 Extract userVocabulary from the learner French above (if any).
-Extract suggestedAdditions from the UNION of all corrected versions above — informal plus every formal level A1 through C2. Include words introduced at any level that the learner did not already use.`;
+Extract suggestedAdditions from the UNION of all corrected versions — speaking plus every writing style. Include words the learner did not already use.`;
 }
 
 function getFrenchBaseline(originalSentence, clarification) {
@@ -460,15 +370,13 @@ function getUserFrenchForVocabulary(originalSentence, clarification) {
   return originalSentence;
 }
 
-function buildFormalLevelsPrompt(sentence, understood, informalSentence, clarification, retry = false) {
-  let prompt = `Generate six polite/formal French versions (A1 through C2) for this message.
-For each level: write the best version WITHIN that DELF/DALF diploma's production scope — compare to what examiners credit at that level.
-Include every part of the meaning when in scope. If a clause needs grammar above that level, omit it from the French, set coversFullMeaning: false, and explain in limitation WHY (name the clause, what's out of scope, from which level it opens up).
-Never use out-of-scope grammar to force a clause in. Never silently drop a clause without explanation.
+function buildWritingStylesPrompt(sentence, understood, speakingSentence, clarification, retry = false) {
+  let prompt = `Generate three written French versions (simple, natural, refined) for this message.
+Include the FULL intended meaning in Simple when possible. Never change meaning. Use sameAsPrevious when a style adds no value.
 
 Original learner message: "${sentence}"
 Full intended meaning: ${understood}
-Informal French reference: "${informalSentence}"`;
+Everyday speaking reference: "${speakingSentence}"`;
 
   const clarificationText = clarification?.text?.trim();
   if (clarificationText) {
@@ -481,128 +389,129 @@ Informal French reference: "${informalSentence}"`;
 
   if (retry) {
     prompt +=
-      '\n\nIMPORTANT: Your previous attempt exceeded diploma boundaries or changed the user\'s meaning. Preserve the SAME communicative intent at every level. Use noChangeNeeded: true when no improvement is needed. Do NOT invent elaborate formal phrasing for simple messages.';
+      '\n\nIMPORTANT: Previous attempt changed meaning or forced unnecessary complexity. Preserve the SAME intent. Use sameAsPrevious when no better written version exists.';
   }
 
   return prompt;
 }
 
-function buildLevelChangesPrompt(originalSentence, informalSentence, byLevel, retry = false) {
-  const levelLines = CEFR_LEVELS.map(
-    (level) =>
-      `${level}: "${byLevel[level].sentence}"${byLevel[level].noChangeNeeded ? ' (no change needed)' : ''}`,
+function buildStyleChangesPrompt(originalSentence, speakingSentence, writingByStyle, retry = false) {
+  const styleLines = WRITING_STYLES.map(
+    (style) =>
+      `${style}: "${writingByStyle[style].sentence}"${writingByStyle[style].sameAsPrevious ? ' (same as previous style)' : ''}`,
   ).join('\n');
 
-  let prompt = `Compare the learner's ORIGINAL against each corrected sentence below. Build precise change rows — one per specific error or fix, not whole-sentence dumps.
+  let prompt = `Compare the learner's ORIGINAL against each corrected sentence below. Build precise change rows.
 
 Learner's ORIGINAL (youWrote must be copied verbatim from here only):
 "${originalSentence}"
 
-Informal correction:
-"${informalSentence}"
+Everyday speaking correction:
+"${speakingSentence}"
 
-Formal sentences (byLevel phrases must be copied from the matching line only):
-${levelLines}
+Written versions (byStyle phrases must be copied from the matching line only):
+${styleLines}
 
-For each specific issue: youWrote from original → informalFrench from informal → byLevel A1–C2 from each formal line (use "" when no change at that level). English buddy explanations for informal and each level. Return an empty changes array if the sentence is already correct.`;
+For each issue: youWrote → speakingFrench → byStyle simple/natural/refined. English explanations. Return empty array if already correct.`;
 
   if (retry) {
     prompt +=
-      '\n\nIMPORTANT: Previous attempt failed alignment checks. youWrote must appear verbatim in the learner ORIGINAL. informalFrench must appear in the informal sentence. Each non-empty byLevel value must appear in that level\'s formal sentence. Use "" for levels where no change is needed. Use smaller, precise spans — not whole sentences.';
+      '\n\nIMPORTANT: Alignment failed. youWrote from ORIGINAL only. speakingFrench from speaking sentence. Non-empty byStyle from that style\'s sentence. Use "" when no change at that style.';
   }
 
   return prompt;
 }
 
-function mapFormalLevelsArray(levels) {
-  const byLevel = {};
-  const explanationsByLevel = {};
+function mapWritingStylesArray(styles) {
+  const writing = {};
+  const explanationsByStyle = {};
 
-  for (const item of levels ?? []) {
-    const level = String(item?.level ?? '')
+  for (const item of styles ?? []) {
+    const style = String(item?.style ?? '')
       .trim()
-      .toUpperCase();
-    if (!CEFR_LEVELS.includes(level)) continue;
+      .toLowerCase();
+    if (!WRITING_STYLES.includes(style)) continue;
     if (!item?.sentence?.trim()) continue;
 
-    byLevel[level] = {
+    writing[style] = {
       sentence: item.sentence.trim(),
       english: item.english?.trim() || '',
-      limitation: item.limitation?.trim() || 'Limited to the core meaning at this diploma level.',
-      noChangeNeeded: Boolean(item.noChangeNeeded),
+      explanation: item.explanation?.trim() || '',
+      sameAsPrevious: Boolean(item.sameAsPrevious),
       coversFullMeaning: item.coversFullMeaning !== false,
+      note: item.note?.trim() || undefined,
     };
-    explanationsByLevel[level] = item.explanation?.trim() || '';
+    explanationsByStyle[style] = item.explanation?.trim() || '';
   }
 
-  normalizeNoChangeNeededFlags(byLevel);
+  normalizeSameAsPreviousFlags(writing);
 
-  return { byLevel, explanationsByLevel };
+  return { writing, explanationsByStyle };
 }
 
-function normalizeNoChangeNeededFlags(byLevel) {
-  if (byLevel.A1) {
-    byLevel.A1.noChangeNeeded = false;
+function normalizeSameAsPreviousFlags(writing) {
+  if (writing.simple) {
+    writing.simple.sameAsPrevious = false;
   }
 
-  for (let i = 1; i < CEFR_LEVELS.length; i += 1) {
-    const level = CEFR_LEVELS[i];
-    const prevLevel = CEFR_LEVELS[i - 1];
-    if (!byLevel[level] || !byLevel[prevLevel]) continue;
+  if (writing.simple && writing.natural) {
+    writing.natural.sameAsPrevious =
+      normalizeForMatch(writing.natural.sentence) === normalizeForMatch(writing.simple.sentence);
+  }
 
-    const currSentence = normalizeForMatch(byLevel[level].sentence);
-    const prevSentence = normalizeForMatch(byLevel[prevLevel].sentence);
-
-    byLevel[level].noChangeNeeded = currSentence === prevSentence;
+  if (writing.natural && writing.refined) {
+    writing.refined.sameAsPrevious =
+      normalizeForMatch(writing.refined.sentence) === normalizeForMatch(writing.natural.sentence);
   }
 }
 
-function hasCompleteByLevel(byLevel) {
-  return CEFR_LEVELS.every((level) => byLevel[level]?.sentence?.trim());
+function hasCompleteWriting(writing) {
+  return WRITING_STYLES.every((style) => writing[style]?.sentence?.trim());
 }
 
-function mapLevelStrings(source, { allowEmpty = false } = {}) {
+function mapStyleStrings(source, { allowEmpty = false } = {}) {
   const mapped = {};
-  for (const level of CEFR_LEVELS) {
-    if (!(level in (source ?? {}))) continue;
-    const trimmed = String(source[level] ?? '').trim();
-    if (trimmed || allowEmpty) mapped[level] = trimmed;
+  for (const style of WRITING_STYLES) {
+    if (!(style in (source ?? {}))) continue;
+    const trimmed = String(source[style] ?? '').trim();
+    if (trimmed || allowEmpty) mapped[style] = trimmed;
   }
   return mapped;
 }
 
-function hasAllLevelKeys(source, { allowEmpty = false } = {}) {
-  return CEFR_LEVELS.every((level) => {
-    if (!(level in (source ?? {}))) return false;
-    const trimmed = String(source[level] ?? '').trim();
+function hasAllStyleKeys(source, { allowEmpty = false } = {}) {
+  return WRITING_STYLES.every((style) => {
+    if (!(style in (source ?? {}))) return false;
+    const trimmed = String(source[style] ?? '').trim();
     return allowEmpty || Boolean(trimmed);
   });
 }
 
-function allFormalSentencesIdentical(byLevel) {
-  const baseline = normalizeForMatch(byLevel.A1?.sentence ?? '');
+function allWritingSentencesIdentical(writing) {
+  const baseline = normalizeForMatch(writing.simple?.sentence ?? '');
   if (!baseline) return false;
-  return CEFR_LEVELS.every((level) => normalizeForMatch(byLevel[level]?.sentence ?? '') === baseline);
+  return WRITING_STYLES.every((style) => normalizeForMatch(writing[style]?.sentence ?? '') === baseline);
 }
 
-function mapFormalLevelsChanges(changes) {
+function mapStyleChanges(changes) {
   if (!Array.isArray(changes)) return [];
 
   return changes
     .map((change) => {
-      const byLevel = mapLevelStrings(change?.byLevel, { allowEmpty: true });
-      const explanationsByLevel = mapLevelStrings(change?.explanationsByLevel, { allowEmpty: true });
+      const byStyle = mapStyleStrings(change?.byStyle, { allowEmpty: true });
+      const explanationsByStyle = mapStyleStrings(change?.explanationsByStyle, { allowEmpty: true });
+      const speakingFrench = change?.speakingFrench?.trim() || change?.informalFrench?.trim();
 
-      if (!change?.youWrote?.trim() || !change?.informalFrench?.trim()) return null;
-      if (!hasAllLevelKeys(byLevel, { allowEmpty: true })) return null;
+      if (!change?.youWrote?.trim() || !speakingFrench) return null;
+      if (!hasAllStyleKeys(byStyle, { allowEmpty: true })) return null;
 
       return {
         youWrote: change.youWrote.trim(),
-        informalFrench: change.informalFrench.trim(),
-        informalExplanation: change.informalExplanation?.trim() || undefined,
-        byLevel,
-        explanationsByLevel:
-          hasAllLevelKeys(explanationsByLevel, { allowEmpty: true }) ? explanationsByLevel : undefined,
+        speakingFrench,
+        speakingExplanation: change.speakingExplanation?.trim() || change.informalExplanation?.trim() || undefined,
+        byStyle,
+        explanationsByStyle:
+          hasAllStyleKeys(explanationsByStyle, { allowEmpty: true }) ? explanationsByStyle : undefined,
       };
     })
     .filter(Boolean);
@@ -623,23 +532,23 @@ function phraseAppearsInSentence(phrase, sentence) {
   return normalizedSentence.includes(normalizedPhrase);
 }
 
-function changesArePersonalized(changes, byLevel, informalSentence, originalSentence) {
+function changesArePersonalized(changes, writing, speakingSentence, originalSentence) {
   if (!changes.length) {
-    return allFormalSentencesIdentical(byLevel);
+    return allWritingSentencesIdentical(writing);
   }
 
   for (const change of changes) {
     if (!phraseAppearsInSentence(change.youWrote, originalSentence)) {
       return false;
     }
-    if (!phraseAppearsInSentence(change.informalFrench, informalSentence)) {
+    if (!phraseAppearsInSentence(change.speakingFrench, speakingSentence)) {
       return false;
     }
 
-    for (const level of CEFR_LEVELS) {
-      const phrase = change.byLevel[level];
+    for (const style of WRITING_STYLES) {
+      const phrase = change.byStyle[style];
       if (!phrase?.trim()) continue;
-      if (!phraseAppearsInSentence(phrase, byLevel[level].sentence)) {
+      if (!phraseAppearsInSentence(phrase, writing[style].sentence)) {
         return false;
       }
     }
@@ -648,21 +557,21 @@ function changesArePersonalized(changes, byLevel, informalSentence, originalSent
   return true;
 }
 
-function mergeCorrectionWithFormalLevels(correction, byLevel, explanationsByLevel, changes) {
-  if (!hasCompleteByLevel(byLevel)) {
-    throw new Error('Formal level generation returned incomplete levels.');
+function mergeCorrectionWithWriting(correction, writing, explanationsByStyle, changes) {
+  if (!hasCompleteWriting(writing)) {
+    throw new Error('Writing style generation returned incomplete styles.');
   }
 
   return {
     understood: correction.understood,
     suggestions: {
-      informal: correction.suggestions.informal,
-      byLevel,
+      speaking: correction.suggestions.speaking,
+      writing,
     },
     changes,
     explanations: {
-      informal: correction.explanations.informal,
-      byLevel: explanationsByLevel,
+      speaking: correction.explanations.speaking,
+      writing: explanationsByStyle,
     },
     ratings: correction.ratings,
   };
@@ -675,115 +584,104 @@ async function runCorrection(config, sentence, clarification) {
     schema: CORRECTION_SCHEMA,
     schemaName: 'french_correction',
     ollamaSchemaHint:
-      'Keys: understood, suggestions ({informal: {sentence, english}}), explanations ({informal}), ratings ({grammar, naturalness}).',
+      'Keys: understood, suggestions ({speaking: {sentence, english}}), explanations ({speaking}), ratings ({grammar, naturalness}).',
   });
 }
 
-async function runFormalLevels(config, sentence, understood, informalSentence, clarification, retry = false) {
+async function runWritingStyles(config, sentence, understood, speakingSentence, clarification, retry = false) {
   return generateStructured(config, {
-    systemPrompt: FORMAL_LEVELS_SYSTEM_PROMPT,
-    userPrompt: buildFormalLevelsPrompt(sentence, understood, informalSentence, clarification, retry),
-    schema: FORMAL_LEVELS_SCHEMA,
-    schemaName: 'french_formal_levels',
+    systemPrompt: WRITING_STYLES_SYSTEM_PROMPT,
+    userPrompt: buildWritingStylesPrompt(sentence, understood, speakingSentence, clarification, retry),
+    schema: WRITING_STYLES_SCHEMA,
+    schemaName: 'french_writing_styles',
     ollamaSchemaHint:
-      'Keys: levels (array of 6: {level, sentence, english, limitation, noChangeNeeded, coversFullMeaning, explanation}). Include full intended meaning at every level.',
+      'Keys: styles (array of 3: {style, sentence, english, explanation, sameAsPrevious, coversFullMeaning, note?}).',
   });
 }
 
-async function runLevelChanges(config, originalSentence, informalSentence, byLevel, retry = false) {
+async function runStyleChanges(config, originalSentence, speakingSentence, writing, retry = false) {
   return generateStructured(config, {
-    systemPrompt: LEVEL_CHANGES_SYSTEM_PROMPT,
-    userPrompt: buildLevelChangesPrompt(originalSentence, informalSentence, byLevel, retry),
-    schema: LEVEL_CHANGES_SCHEMA,
-    schemaName: 'french_level_changes',
+    systemPrompt: STYLE_CHANGES_SYSTEM_PROMPT,
+    userPrompt: buildStyleChangesPrompt(originalSentence, speakingSentence, writing, retry),
+    schema: STYLE_CHANGES_SCHEMA,
+    schemaName: 'french_style_changes',
     ollamaSchemaHint:
-      'Keys: changes (array of {youWrote, informalFrench, informalExplanation (English), byLevel, explanationsByLevel (English A1..C2)}).',
+      'Keys: changes (array of {youWrote, speakingFrench, speakingExplanation, byStyle, explanationsByStyle}).',
   });
 }
 
-async function runLevelChangesWithRetry(config, originalSentence, informalSentence, byLevel) {
-  let changesResult = await runLevelChanges(
-    config,
-    originalSentence,
-    informalSentence,
-    byLevel,
-  );
-  let changes = mapFormalLevelsChanges(changesResult?.changes);
+async function runStyleChangesWithRetry(config, originalSentence, speakingSentence, writing) {
+  let changesResult = await runStyleChanges(config, originalSentence, speakingSentence, writing);
+  let changes = mapStyleChanges(changesResult?.changes);
 
-  if (!changesArePersonalized(changes, byLevel, informalSentence, originalSentence)) {
-    console.warn('Level changes were not personalized — retrying once.');
-    changesResult = await runLevelChanges(
-      config,
-      originalSentence,
-      informalSentence,
-      byLevel,
-      true,
-    );
-    changes = mapFormalLevelsChanges(changesResult?.changes);
+  if (!changesArePersonalized(changes, writing, speakingSentence, originalSentence)) {
+    console.warn('Style changes were not personalized — retrying once.');
+    changesResult = await runStyleChanges(config, originalSentence, speakingSentence, writing, true);
+    changes = mapStyleChanges(changesResult?.changes);
   }
 
-  if (!changesArePersonalized(changes, byLevel, informalSentence, originalSentence)) {
-    throw new Error('Could not generate level-specific changes.');
+  if (!changesArePersonalized(changes, writing, speakingSentence, originalSentence)) {
+    throw new Error('Could not generate style-specific changes.');
   }
 
   return changes;
 }
 
-async function runFormalLevelsWithRetry(
+async function runWritingStylesWithRetry(
   config,
   sentence,
   understood,
-  informalSentence,
+  speakingSentence,
   clarification,
 ) {
-  let formalLevelsResult = await runFormalLevels(
+  let writingStylesResult = await runWritingStyles(
     config,
     sentence,
     understood,
-    informalSentence,
+    speakingSentence,
     clarification,
   );
-  let { byLevel } = mapFormalLevelsArray(formalLevelsResult?.levels);
+  let { writing } = mapWritingStylesArray(writingStylesResult?.styles);
 
-  if (!hasCompleteByLevel(byLevel)) {
-    console.warn('Formal levels were incomplete — retrying once.');
-    formalLevelsResult = await runFormalLevels(
+  if (!hasCompleteWriting(writing)) {
+    console.warn('Writing styles were incomplete — retrying once.');
+    writingStylesResult = await runWritingStyles(
       config,
       sentence,
       understood,
-      informalSentence,
+      speakingSentence,
       clarification,
       true,
     );
-    ({ byLevel } = mapFormalLevelsArray(formalLevelsResult?.levels));
+    ({ writing } = mapWritingStylesArray(writingStylesResult?.styles));
   }
 
-  if (!hasCompleteByLevel(byLevel)) {
-    throw new Error('Could not generate all six CEFR formal levels.');
+  if (!hasCompleteWriting(writing)) {
+    throw new Error('Could not generate all three writing styles.');
   }
 
-  return formalLevelsResult;
+  return writingStylesResult;
 }
 
 async function runCombinedVocabularyExtraction(
   config,
   userFrench,
   learnerFrench,
-  informalSentence,
-  formalByLevel,
+  speakingSentence,
+  writingByStyle,
 ) {
   return generateStructured(config, {
     systemPrompt: COMBINED_VOCABULARY_SYSTEM_PROMPT,
     userPrompt: buildCombinedVocabularyPrompt(
       userFrench,
       learnerFrench,
-      informalSentence,
-      formalByLevel,
+      speakingSentence,
+      writingByStyle,
     ),
     schema: COMBINED_VOCABULARY_SCHEMA,
     schemaName: 'french_vocabulary_combined',
     ollamaSchemaHint:
-      'Keys: userVocabulary (array), suggestedAdditions (array) — suggestedAdditions from informal + formal A1–C2. Each item {lemma, surface, meaning, partOfSpeech, example}.',
+      'Keys: userVocabulary (array), suggestedAdditions (array) — from speaking + writing simple/natural/refined.',
   });
 }
 
@@ -813,24 +711,24 @@ export async function analyzeSentence(input) {
       correction.ratings = { grammar: 0, naturalness: 0 };
     }
 
-    const formalLevelsResult = await runFormalLevelsWithRetry(
+    const writingStylesResult = await runWritingStylesWithRetry(
       config,
       trimmed,
       correction.understood,
-      correction.suggestions.informal.sentence,
+      correction.suggestions.speaking.sentence,
       clarification,
     );
-    const { byLevel, explanationsByLevel } = mapFormalLevelsArray(formalLevelsResult?.levels);
-    const changes = await runLevelChangesWithRetry(
+    const { writing, explanationsByStyle } = mapWritingStylesArray(writingStylesResult?.styles);
+    const changes = await runStyleChangesWithRetry(
       config,
       trimmed,
-      correction.suggestions.informal.sentence,
-      byLevel,
+      correction.suggestions.speaking.sentence,
+      writing,
     );
-    const merged = mergeCorrectionWithFormalLevels(
+    const merged = mergeCorrectionWithWriting(
       correction,
-      byLevel,
-      explanationsByLevel,
+      writing,
+      explanationsByStyle,
       changes,
     );
 
@@ -845,8 +743,8 @@ export async function analyzeSentence(input) {
         config,
         userFrench,
         frenchBaseline,
-        merged.suggestions.informal.sentence,
-        merged.suggestions.byLevel,
+        merged.suggestions.speaking.sentence,
+        merged.suggestions.writing,
       );
       userVocabulary = sanitizeVocabulary(vocabResult.userVocabulary ?? []);
       suggestedAdditions = sanitizeVocabulary(vocabResult.suggestedAdditions ?? []);

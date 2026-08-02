@@ -4,16 +4,14 @@ import { StatusBanner } from './StatusBanner';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 
 interface SuggestedMessageCardProps {
-  variant: 'informal' | 'formal';
   sentence: string;
   english?: string;
 }
 
-export function SuggestedMessageCard({ variant, sentence, english }: SuggestedMessageCardProps) {
+export function SuggestedMessageCard({ sentence, english }: SuggestedMessageCardProps) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
-  const title = variant === 'informal' ? '🇫🇷 Informal French' : '🇫🇷 Formal French';
-  const copyLabel =
-    variant === 'informal' ? 'Copy informal French message' : 'Copy formal French message';
+  const title = '🗣 Everyday French (Speaking)';
+  const copyLabel = 'Copy everyday French message';
 
   return (
     <div className="space-y-m">

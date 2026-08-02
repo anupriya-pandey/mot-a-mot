@@ -1,115 +1,175 @@
-import { CEFR_LEVELS, type CefrLevel } from '../constants/cefrLevels';
+import {
+  WRITING_STYLES,
+  type WritingStyle,
+} from '../constants/writingStyles';
 import type {
   AnalysisResult,
   CorrectionChange,
-  FormalByLevel,
-  LevelSuggestion,
+  StyleSuggestion,
   VocabularyItem,
+  WritingByStyle,
 } from '../types/analysis';
 
 type LegacyAnalysisResult = AnalysisResult & {
   vocabulary?: VocabularyItem[];
-  suggestions?: AnalysisResult['suggestions'] & {
+  suggestions?: {
+    informal?: { sentence: string; english?: string };
     formal?: { sentence: string };
+    byLevel?: Record<string, StyleSuggestion & { limitation?: string }>;
+    speaking?: { sentence: string; english?: string };
+    writing?: WritingByStyle;
   };
   explanations?: AnalysisResult['explanations'] & {
+    informal?: string;
     formal?: string;
+    byLevel?: Record<string, string>;
+    speaking?: string;
+    writing?: Record<WritingStyle, string>;
   };
 };
 
-function buildLegacyByLevel(formalSentence: string): FormalByLevel {
-  const legacyNote =
-    'This result was saved before level breakdown was available. Check a new sentence to see A1–C2 versions.';
+const LEGACY_LEVEL_TO_STYLE: Record<string, WritingStyle> = {
+  A1: 'simple',
+  A2: 'simple',
+  B1: 'natural',
+  B2: 'natural',
+  C1: 'refined',
+  C2: 'refined',
+};
 
-  return Object.fromEntries(
-    CEFR_LEVELS.map((level) => [
-      level,
-      { sentence: formalSentence, limitation: legacyNote } satisfies LevelSuggestion,
-    ]),
-  ) as FormalByLevel;
+function isCompleteWriting(writing: Partial<WritingByStyle> | undefined): writing is WritingByStyle {
+  return Boolean(writing && WRITING_STYLES.every((style) => writing[style]?.sentence?.trim()));
 }
 
-function isCompleteByLevel(byLevel: Partial<FormalByLevel> | undefined): byLevel is FormalByLevel {
-  return Boolean(byLevel && CEFR_LEVELS.every((level) => byLevel[level]?.sentence?.trim()));
+function migrateLegacyByLevel(
+  byLevel: Record<string, StyleSuggestion & { limitation?: string }>,
+): WritingByStyle {
+  const pick = (style: WritingStyle) => {
+    const entry = Object.entries(LEGACY_LEVEL_TO_STYLE).find(([, mapped]) => mapped === style);
+    const level = entry?.[0] ?? 'A1';
+    const source = byLevel[level];
+    return {
+      sentence: source?.sentence?.trim() ?? '',
+      english: source?.english,
+      explanation: source?.limitation?.trim() || 'Saved from an earlier version with DELF levels.',
+      sameAsPrevious: false,
+      coversFullMeaning: source?.coversFullMeaning !== false,
+      note: source?.limitation,
+    } satisfies StyleSuggestion;
+  };
+
+  const writing = Object.fromEntries(WRITING_STYLES.map((style) => [style, pick(style)])) as WritingByStyle;
+
+  if (writing.natural && writing.simple) {
+    writing.natural.sameAsPrevious =
+      writing.natural.sentence.trim().toLowerCase() === writing.simple.sentence.trim().toLowerCase();
+  }
+  if (writing.refined && writing.natural) {
+    writing.refined.sameAsPrevious =
+      writing.refined.sentence.trim().toLowerCase() === writing.natural.sentence.trim().toLowerCase();
+  }
+
+  return writing;
 }
 
-function hasCompleteExplanationsByLevel(
-  explanationsByLevel: Partial<Record<CefrLevel, string>> | undefined,
-): explanationsByLevel is Record<CefrLevel, string> {
-  return Boolean(
-    explanationsByLevel &&
-      CEFR_LEVELS.every((level) => typeof explanationsByLevel[level] === 'string'),
-  );
-}
-
-function emptyExplanationsByLevel(): Record<CefrLevel, string> {
-  return Object.fromEntries(CEFR_LEVELS.map((level) => [level, ''])) as Record<CefrLevel, string>;
-}
-
-function buildLegacyExplanationsByLevel(formalExplanation: string): Record<CefrLevel, string> {
-  return Object.fromEntries(CEFR_LEVELS.map((level) => [level, formalExplanation])) as Record<
-    CefrLevel,
-    string
-  >;
-}
-
-function normalizeChanges(changes: AnalysisResult['changes'] | undefined): CorrectionChange[] {
-  return (changes ?? [])
-    .map((change) => {
-      const hasAllLevels = change.byLevel && CEFR_LEVELS.every((level) => level in change.byLevel);
-      if (hasAllLevels) {
-        return change;
-      }
-
-      const legacyFormal = change.formalFrench?.trim();
-      if (!change.youWrote?.trim() || !change.informalFrench?.trim() || !legacyFormal) {
-        return null;
-      }
-
+function migrateLegacyChanges(changes: CorrectionChange[] | undefined): CorrectionChange[] {
+  return (changes ?? []).map((change) => {
+    if (change.byStyle && WRITING_STYLES.every((style) => style in change.byStyle)) {
       return {
-        youWrote: change.youWrote.trim(),
-        informalFrench: change.informalFrench.trim(),
-        byLevel: Object.fromEntries(CEFR_LEVELS.map((level) => [level, legacyFormal])) as Record<
-          CefrLevel,
-          string
-        >,
+        ...change,
+        speakingFrench: change.speakingFrench || change.informalFrench || '',
       };
-    })
-    .filter((change): change is CorrectionChange => change !== null);
+    }
+
+    const legacyByLevel = change.byLevel;
+    if (!legacyByLevel) {
+      return change;
+    }
+
+    const byStyle = Object.fromEntries(
+      WRITING_STYLES.map((style) => {
+        const levelEntry = Object.entries(LEGACY_LEVEL_TO_STYLE).find(([, mapped]) => mapped === style);
+        const level = levelEntry?.[0] ?? 'A1';
+        return [style, legacyByLevel[level] ?? ''];
+      }),
+    ) as Record<WritingStyle, string>;
+
+    return {
+      youWrote: change.youWrote,
+      speakingFrench: change.speakingFrench || change.informalFrench || '',
+      speakingExplanation: change.speakingExplanation || change.informalExplanation,
+      byStyle,
+      explanationsByStyle: change.explanationsByStyle,
+    };
+  });
+}
+
+function buildLegacyWriting(formalSentence: string): WritingByStyle {
+  const base: StyleSuggestion = {
+    sentence: formalSentence,
+    explanation: 'Saved from an earlier version. Check a new sentence for speaking + writing styles.',
+    sameAsPrevious: false,
+  };
+
+  return {
+    simple: base,
+    natural: { ...base, sameAsPrevious: true },
+    refined: { ...base, sameAsPrevious: true },
+  };
 }
 
 export function normalizeAnalysisResult(result: LegacyAnalysisResult): AnalysisResult {
-  const legacyFormal = result.suggestions?.formal?.sentence;
-  const legacyFormalExplanation = result.explanations?.formal;
+  const speaking =
+    result.suggestions?.speaking ??
+    (result.suggestions?.informal
+      ? {
+          sentence: result.suggestions.informal.sentence,
+          english: result.suggestions.informal.english,
+        }
+      : undefined);
 
-  const byLevel = isCompleteByLevel(result.suggestions?.byLevel)
-    ? result.suggestions.byLevel
-    : legacyFormal
-      ? buildLegacyByLevel(legacyFormal)
-      : undefined;
-
-  const explanationsByLevel = hasCompleteExplanationsByLevel(result.explanations?.byLevel)
-    ? result.explanations.byLevel
-    : legacyFormalExplanation
-      ? buildLegacyExplanationsByLevel(legacyFormalExplanation)
-      : isCompleteByLevel(byLevel)
-        ? emptyExplanationsByLevel()
+  const writing = isCompleteWriting(result.suggestions?.writing)
+    ? result.suggestions.writing
+    : result.suggestions?.byLevel
+      ? migrateLegacyByLevel(result.suggestions.byLevel)
+      : result.suggestions?.formal?.sentence
+        ? buildLegacyWriting(result.suggestions.formal.sentence)
         : undefined;
 
-  if (!byLevel || !explanationsByLevel) {
-    throw new Error('Analysis result is missing formal suggestions.');
+  const speakingExplanation =
+    result.explanations?.speaking ??
+    result.explanations?.informal ??
+    result.explanations?.formal ??
+    '';
+
+  const writingExplanations = result.explanations?.writing
+    ? result.explanations.writing
+    : result.explanations?.byLevel
+      ? (Object.fromEntries(
+          WRITING_STYLES.map((style) => {
+            const levelEntry = Object.entries(LEGACY_LEVEL_TO_STYLE).find(([, mapped]) => mapped === style);
+            const level = levelEntry?.[0] ?? 'A1';
+            return [style, result.explanations?.byLevel?.[level] ?? ''];
+          }),
+        ) as Record<WritingStyle, string>)
+      : writing
+        ? (Object.fromEntries(WRITING_STYLES.map((style) => [style, writing[style].explanation])) as Record<
+            WritingStyle,
+            string
+          >)
+        : undefined;
+
+  if (!speaking?.sentence?.trim() || !writing || !writingExplanations) {
+    throw new Error('Analysis result is missing suggestions.');
   }
 
   return {
     ...result,
-    suggestions: {
-      informal: result.suggestions.informal,
-      byLevel,
-    },
-    changes: normalizeChanges(result.changes),
+    suggestions: { speaking, writing },
+    changes: migrateLegacyChanges(result.changes),
     explanations: {
-      informal: result.explanations.informal,
-      byLevel: explanationsByLevel,
+      speaking: speakingExplanation,
+      writing: writingExplanations,
     },
     userVocabulary: result.userVocabulary ?? result.vocabulary ?? [],
     suggestedAdditions: result.suggestedAdditions ?? [],

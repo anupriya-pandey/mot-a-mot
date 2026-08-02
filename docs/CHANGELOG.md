@@ -2,6 +2,19 @@
 
 All notable changes to Mot-à-Mot are documented here.
 
+## [1.3.0] — V1.3 — 2026-08-02
+
+### Changed — product philosophy
+
+- **Removed CEFR/DELF level labels (A1–C2)** — replaced with authentic communication options, not proficiency guessing
+- **Everyday French (Speaking)** — how a native would say it in conversation (replaces “Informal French”)
+- **Writing styles:** Simple, Natural, Refined — same meaning, different written register (not “harder = better”)
+- **Same as previous style** — when no better written version exists, the app says so explicitly
+- **What Changed** and **Why These Changes?** updated for speaking + three writing styles
+- Saved history from V1.2 still loads (legacy DELF results mapped to new format)
+
+---
+
 ## [1.2.0] — V1.2 — 2026-07-30
 
 ### Added

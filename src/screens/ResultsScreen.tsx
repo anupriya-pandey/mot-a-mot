@@ -6,9 +6,9 @@ import { InformationCard } from '../components/InformationCard';
 import { RatingBar } from '../components/RatingBar';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { SectionHeader } from '../components/SectionHeader';
-import { LevelFormalSuggestions } from '../components/LevelFormalSuggestions';
 import { SuggestedMessageCard } from '../components/SuggestedMessageCard';
 import { WhyTheseChangesSection } from '../components/WhyTheseChangesSection';
+import { WritingSuggestions } from '../components/WritingSuggestions';
 import { SuggestedToolkitAdditions } from '../components/SuggestedToolkitAdditions';
 import { SCORES_ENGLISH_CLARIFICATION, SCORES_FRENCH_NOTE, NEW_VOCAB_HINT } from '../constants/microcopy';
 import type { AnalysisResult, ClarificationInput, SentenceLanguage, VocabularyItem } from '../types/analysis';
@@ -88,20 +88,19 @@ export function ResultsScreen({
           <SectionHeader icon="💬" title="Suggested Messages" />
           <div className="space-y-l">
             <SuggestedMessageCard
-              variant="informal"
-              sentence={result.suggestions.informal.sentence}
-              english={result.suggestions.informal.english ?? result.understood}
+              sentence={result.suggestions.speaking.sentence}
+              english={result.suggestions.speaking.english ?? result.understood}
             />
-            <LevelFormalSuggestions byLevel={result.suggestions.byLevel} />
+            <WritingSuggestions writing={result.suggestions.writing} />
           </div>
         </section>
 
         <ComparisonTable changes={result.changes} />
 
         <WhyTheseChangesSection
-          informalExplanation={result.explanations.informal}
-          formalByLevel={result.suggestions.byLevel}
-          explanationsByLevel={result.explanations.byLevel}
+          speakingExplanation={result.explanations.speaking}
+          writingByStyle={result.suggestions.writing}
+          explanationsByStyle={result.explanations.writing}
         />
 
         <section className="space-y-m" aria-labelledby="your-sentence-scores">

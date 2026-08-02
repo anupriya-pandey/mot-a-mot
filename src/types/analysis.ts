@@ -1,6 +1,6 @@
-import type { CefrLevel } from '../constants/cefrLevels';
+import type { WritingStyle } from '../constants/writingStyles';
 
-export type { CefrLevel };
+export type { WritingStyle };
 
 export interface AdjectiveForms {
   masculineSingular: string;
@@ -11,27 +11,34 @@ export interface AdjectiveForms {
 
 export interface CorrectionChange {
   youWrote: string;
-  informalFrench: string;
-  /** Buddy-style explanation for the informal phrasing */
-  informalExplanation?: string;
-  byLevel: Record<CefrLevel, string>;
-  /** Buddy-style explanation per DELF/DALF level for this change */
-  explanationsByLevel?: Record<CefrLevel, string>;
-  /** @deprecated Legacy B1-only field from saved history */
+  /** Fix phrase from the everyday speaking suggestion */
+  speakingFrench: string;
+  /** Buddy-style explanation for the speaking phrasing */
+  speakingExplanation?: string;
+  byStyle: Record<WritingStyle, string>;
+  /** Buddy-style explanation per writing style for this change */
+  explanationsByStyle?: Record<WritingStyle, string>;
+  /** @deprecated Legacy fields from saved history */
+  informalFrench?: string;
   formalFrench?: string;
+  byLevel?: Record<string, string>;
+  explanationsByLevel?: Record<string, string>;
+  informalExplanation?: string;
 }
 
-export interface LevelSuggestion {
+export interface StyleSuggestion {
   sentence: string;
   english?: string;
-  limitation: string;
-  /** True when this level needs no meaningful change — already natural */
-  noChangeNeeded?: boolean;
-  /** False when part of the intended meaning is simplified — see limitation */
+  explanation: string;
+  /** True when identical to the previous writing style */
+  sameAsPrevious?: boolean;
+  /** False when the full intended meaning could not fit this style */
   coversFullMeaning?: boolean;
+  /** Note when meaning is partial or style is limited */
+  note?: string;
 }
 
-export type FormalByLevel = Record<CefrLevel, LevelSuggestion>;
+export type WritingByStyle = Record<WritingStyle, StyleSuggestion>;
 
 export interface VocabularyItem {
   lemma: string;
@@ -47,13 +54,13 @@ export interface VocabularyItem {
 export interface AnalysisResult {
   understood: string;
   suggestions: {
-    informal: { sentence: string; english?: string };
-    byLevel: FormalByLevel;
+    speaking: { sentence: string; english?: string };
+    writing: WritingByStyle;
   };
   changes: CorrectionChange[];
   explanations: {
-    informal: string;
-    byLevel: Record<CefrLevel, string>;
+    speaking: string;
+    writing: Record<WritingStyle, string>;
   };
   userVocabulary: VocabularyItem[];
   suggestedAdditions: VocabularyItem[];
