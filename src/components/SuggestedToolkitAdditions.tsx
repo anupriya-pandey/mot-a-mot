@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { VocabularyItem } from '../types/analysis';
+import { PronunciationButton } from './PronunciationButton';
 
 interface SuggestedToolkitAdditionsProps {
   items: VocabularyItem[];
@@ -50,7 +51,10 @@ export function SuggestedToolkitAdditions({
               className="flex items-center gap-m rounded-button border border-border bg-background px-m py-s"
             >
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-text-primary">{item.lemma}</p>
+                <div className="flex items-center gap-s">
+                  <p className="font-medium text-text-primary">{item.lemma}</p>
+                  <PronunciationButton text={item.lemma} size="compact" ariaLabel={`Hear ${item.lemma}`} />
+                </div>
                 <p className="text-sm text-text-secondary">
                   {item.meaning}
                   <span className="text-text-secondary/70"> · {item.partOfSpeech}</span>

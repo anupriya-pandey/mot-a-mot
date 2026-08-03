@@ -9,6 +9,7 @@ import {
 import { PARTIAL_MEANING_AT_LAYER } from '../constants/microcopy';
 import type { CorrectionChange, WritingByStyle, WritingStyle } from '../types/analysis';
 import { PrimaryButton } from './PrimaryButton';
+import { PronunciationButton } from './PronunciationButton';
 import { SectionHeader } from './SectionHeader';
 import { StatusBanner } from './StatusBanner';
 import { StyleChangesCarousel } from './StyleChangesCarousel';
@@ -67,7 +68,13 @@ function WritingStyleGroup({
 
       {!sameAsPrevious && (
         <>
-          <p className="whitespace-pre-line leading-relaxed text-text-primary">{sentence}</p>
+          <div className="flex items-start gap-s">
+            <p className="flex-1 whitespace-pre-line leading-relaxed text-text-primary">{sentence}</p>
+            <PronunciationButton
+              text={sentence}
+              ariaLabel={`Hear ${layerLabel} pronunciation`}
+            />
+          </div>
           {english?.trim() && (
             <p className="text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
           )}

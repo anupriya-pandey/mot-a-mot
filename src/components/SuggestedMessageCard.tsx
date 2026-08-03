@@ -1,5 +1,6 @@
 import { InformationCard } from './InformationCard';
 import { PrimaryButton } from './PrimaryButton';
+import { PronunciationButton } from './PronunciationButton';
 import { StatusBanner } from './StatusBanner';
 import {
   EVERYDAY_FRENCH_DESCRIPTION,
@@ -22,7 +23,10 @@ export function SuggestedMessageCard({ sentence, english }: SuggestedMessageCard
       <InformationCard icon="✅" title={title} highlight="success">
         <p className="text-sm font-medium text-text-secondary">{EVERYDAY_FRENCH_SUBTITLE}</p>
         <p className="mt-xs text-sm text-text-secondary">{EVERYDAY_FRENCH_DESCRIPTION}</p>
-        <p className="mt-m leading-relaxed">{sentence}</p>
+        <div className="mt-m flex items-start gap-s">
+          <p className="flex-1 leading-relaxed">{sentence}</p>
+          <PronunciationButton text={sentence} ariaLabel="Hear everyday French pronunciation" />
+        </div>
         {english?.trim() && (
           <p className="mt-s text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
         )}
