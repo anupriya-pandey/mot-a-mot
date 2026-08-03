@@ -10,6 +10,17 @@ All notable changes to Mot-à-Mot are documented here.
 - **Everyday French (Speaking)** — how a native would say it in conversation (replaces “Informal French”)
 - **Writing layers:** Foundation → Expanding → Fluent (learning journey, not proficiency labels)
 - **Everyday French (Conversation)** for speaking; grouped Results UI with per-layer **What changed** carousels
+- Layer naming: Foundation / Expanding / Fluent (Layer 1–3); Fluent “same as previous” copy when no richer wording adds value
+
+### Added
+
+- **Consistent ratings** — the same French sentence always receives the same grammar and naturalness scores (`src/lib/ratingsCache.ts`)
+- Ratings cache keyed by normalized sentence text, with fallback to prior history entries
+- Stricter AI rating rubric and lower correction temperature (`0.1`) for more stable first-time scores
+
+### Fixed
+
+- Duplicate history entries for the same sentence now show separate timestamps but **identical** grammar/naturalness ratings
 
 ---
 
