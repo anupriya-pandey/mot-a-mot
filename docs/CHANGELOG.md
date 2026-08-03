@@ -12,6 +12,7 @@ All notable changes to Mot-à-Mot are documented here.
 - **Same as previous style** — when no better written version exists, the app says so explicitly
 - **What Changed** and **Why These Changes?** updated for speaking + three writing styles
 - Saved history from V1.2 still loads (legacy DELF results mapped to new format)
+- **Grouped Results UI:** each writing style (Simple / Natural / Refined) shows its sentence and **What changed** carousel together; speaking changes grouped with Everyday French
 
 ---
 

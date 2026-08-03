@@ -15,4 +15,4 @@ export const WRITING_STYLE_DESCRIPTIONS: Record<WritingStyle, string> = {
 };
 
 export const WRITING_SECTION_INTRO =
-  'Choose the version that matches how you want to write. Same meaning — different writing style, not proficiency level.';
+  'Each style shows the suggested sentence and what changed from your original — swipe through changes when there is more than one.';

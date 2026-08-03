@@ -1,12 +1,11 @@
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { ClarificationPanel } from '../components/ClarificationPanel';
-import { ComparisonTable } from '../components/ComparisonTable';
 import { InformationCard } from '../components/InformationCard';
 import { RatingBar } from '../components/RatingBar';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { SectionHeader } from '../components/SectionHeader';
-import { SuggestedMessageCard } from '../components/SuggestedMessageCard';
+import { SpeakingSuggestion } from '../components/SpeakingSuggestion';
 import { WhyTheseChangesSection } from '../components/WhyTheseChangesSection';
 import { WritingSuggestions } from '../components/WritingSuggestions';
 import { SuggestedToolkitAdditions } from '../components/SuggestedToolkitAdditions';
@@ -87,15 +86,14 @@ export function ResultsScreen({
         <section aria-labelledby="suggested-messages">
           <SectionHeader icon="💬" title="Suggested Messages" />
           <div className="space-y-l">
-            <SuggestedMessageCard
+            <SpeakingSuggestion
               sentence={result.suggestions.speaking.sentence}
               english={result.suggestions.speaking.english ?? result.understood}
+              changes={result.changes}
             />
-            <WritingSuggestions writing={result.suggestions.writing} />
+            <WritingSuggestions writing={result.suggestions.writing} changes={result.changes} />
           </div>
         </section>
-
-        <ComparisonTable changes={result.changes} />
 
         <WhyTheseChangesSection
           speakingExplanation={result.explanations.speaking}

@@ -5,17 +5,19 @@ import {
   WRITING_SECTION_INTRO,
 } from '../constants/writingStyles';
 import { PARTIAL_MEANING_AT_LEVEL, SAME_AS_PREVIOUS_STYLE } from '../constants/microcopy';
-import type { WritingByStyle, WritingStyle } from '../types/analysis';
+import type { CorrectionChange, WritingByStyle, WritingStyle } from '../types/analysis';
 import { PrimaryButton } from './PrimaryButton';
 import { SectionHeader } from './SectionHeader';
 import { StatusBanner } from './StatusBanner';
+import { StyleChangesCarousel } from './StyleChangesCarousel';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 
 interface WritingSuggestionsProps {
   writing: WritingByStyle;
+  changes: CorrectionChange[];
 }
 
-function WritingStyleCard({
+function WritingStyleGroup({
   style,
   sentence,
   english,
@@ -24,6 +26,7 @@ function WritingStyleCard({
   coversFullMeaning,
   note,
   previousLabel,
+  changes,
 }: {
   style: WritingStyle;
   sentence: string;
@@ -33,13 +36,15 @@ function WritingStyleCard({
   coversFullMeaning?: boolean;
   note?: string;
   previousLabel?: string;
+  changes: CorrectionChange[];
 }) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
+  const styleLabel = `${WRITING_STYLE_LABELS[style]} Writing`;
 
   return (
-    <article className="rounded-card bg-surface p-m shadow-card space-y-s">
+    <article className="rounded-card bg-surface p-m shadow-card space-y-m">
       <div>
-        <h3 className="font-semibold text-text-primary">{WRITING_STYLE_LABELS[style]} Writing</h3>
+        <h3 className="font-semibold text-text-primary">{styleLabel}</h3>
         <p className="mt-xs text-sm text-text-secondary">{WRITING_STYLE_DESCRIPTIONS[style]}</p>
       </div>
 
@@ -61,34 +66,35 @@ function WritingStyleCard({
           {english?.trim() && (
             <p className="text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
           )}
-        </>
-      )}
-
-      {note?.trim() && (
-        <p className="text-sm text-text-secondary">{note.trim()}</p>
-      )}
-
-      {explanation?.trim() && (
-        <p className="text-sm leading-relaxed text-text-secondary">{explanation.trim()}</p>
-      )}
-
-      {!sameAsPrevious && (
-        <>
           <PrimaryButton
             onClick={() => void copy(sentence)}
             success={copied}
-            aria-label={`Copy ${WRITING_STYLE_LABELS[style]} writing`}
+            aria-label={`Copy ${styleLabel}`}
           >
             Copy Message
           </PrimaryButton>
           {copyError && <StatusBanner type="error" message={copyError} />}
         </>
       )}
+
+      {note?.trim() && <p className="text-sm text-text-secondary">{note.trim()}</p>}
+
+      {explanation?.trim() && !sameAsPrevious && (
+        <p className="text-sm leading-relaxed text-text-secondary">{explanation.trim()}</p>
+      )}
+
+      <StyleChangesCarousel
+        changes={changes}
+        styleLabel={styleLabel}
+        getFixPhrase={(change) => change.byStyle[style]}
+        getExplanation={(change) => change.explanationsByStyle?.[style]}
+        ariaLabel={`What changed for ${styleLabel}`}
+      />
     </article>
   );
 }
 
-export function WritingSuggestions({ writing }: WritingSuggestionsProps) {
+export function WritingSuggestions({ writing, changes }: WritingSuggestionsProps) {
   return (
     <section aria-labelledby="writing-suggestions">
       <SectionHeader icon="✍️" title="Writing" />
@@ -99,7 +105,7 @@ export function WritingSuggestions({ writing }: WritingSuggestionsProps) {
           const item = writing[style];
 
           return (
-            <WritingStyleCard
+            <WritingStyleGroup
               key={style}
               style={style}
               sentence={item.sentence}
@@ -109,6 +115,7 @@ export function WritingSuggestions({ writing }: WritingSuggestionsProps) {
               coversFullMeaning={item.coversFullMeaning}
               note={item.note}
               previousLabel={previousLabel}
+              changes={changes}
             />
           );
         })}
