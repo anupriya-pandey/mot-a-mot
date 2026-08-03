@@ -80,6 +80,12 @@ export interface ClarificationInput {
 export interface AnalyzeRequest {
   sentence: string;
   clarification?: ClarificationInput;
+  /** When set, suggestions are model answers for this practice task — not just edits of the attempt */
+  practicePrompt?: {
+    title: string;
+    instruction: string;
+    targetWords: string[];
+  };
 }
 
 export type AppScreen =

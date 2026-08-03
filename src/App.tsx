@@ -170,10 +170,14 @@ export default function App() {
 
       const clarifiedText = clarification.text.trim();
       const language: SentenceLanguage = clarification.mode === 'english' ? 'english' : 'french';
+      const practicePromptContext =
+        activeTab === 'practice' && practiceSession
+          ? practiceSession.prompts[practiceQuestionIndex]
+          : undefined;
 
       try {
         const analysis = normalizeAnalysisResult(
-          await analyzeFrench({ sentence: trimmed, clarification }),
+          await analyzeFrench({ sentence: trimmed, clarification, practicePrompt: practicePromptContext }),
         );
         applyAnalysis(analysis, {
           display: clarifiedText,
@@ -394,10 +398,15 @@ export default function App() {
       setScreen('loading');
 
       try {
-        const analysis = normalizeAnalysisResult(await analyzeFrench({ sentence: userSentence }));
+        const prompt = practiceSession.prompts[practiceQuestionIndex];
+        const analysis = normalizeAnalysisResult(
+          await analyzeFrench({
+            sentence: userSentence,
+            practicePrompt: prompt,
+          }),
+        );
         applyAnalysis(analysis, { display: userSentence, language: 'french' });
 
-        const prompt = practiceSession.prompts[practiceQuestionIndex];
         setPracticeReflection(
           buildPracticeReflection(prompt, userSentence, analysis, toolbox.isInToolbox),
         );

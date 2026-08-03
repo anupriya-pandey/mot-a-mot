@@ -26,6 +26,7 @@ app.post('/api/analyze', async (req, res) => {
     const result = await analyzeSentence({
       sentence: req.body?.sentence,
       clarification: req.body?.clarification,
+      practicePrompt: req.body?.practicePrompt,
     });
     return res.status(result.status).json(result.body);
   } catch (error) {

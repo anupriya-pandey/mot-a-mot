@@ -10,6 +10,7 @@ import { SpeakingSuggestion } from '../components/SpeakingSuggestion';
 import { WhyTheseChangesSection } from '../components/WhyTheseChangesSection';
 import { WritingSuggestions } from '../components/WritingSuggestions';
 import { SuggestedToolkitAdditions } from '../components/SuggestedToolkitAdditions';
+import { PRACTICE_MODEL_ANSWERS_HINT } from '../constants/practiceMicrocopy';
 import { SCORES_ENGLISH_CLARIFICATION, SCORES_FRENCH_NOTE, NEW_VOCAB_HINT } from '../constants/microcopy';
 import type { AnalysisResult, ClarificationInput, SentenceLanguage, VocabularyItem } from '../types/analysis';
 import type { PracticeReflection } from '../types/practice';
@@ -65,6 +66,15 @@ export function ResultsScreen({
   return (
     <div className="mx-auto min-h-screen w-full max-w-content px-m py-xl">
       <div className="space-y-l">
+        {mode === 'practice' && (
+          <p
+            className="rounded-card border border-primary/20 bg-primary/5 px-m py-s text-sm leading-relaxed text-text-secondary"
+            role="note"
+          >
+            {PRACTICE_MODEL_ANSWERS_HINT}
+          </p>
+        )}
+
         {hasSuggestedVocab && (
           <p
             className="rounded-card border border-border bg-background px-m py-s text-sm leading-relaxed text-text-secondary"

@@ -315,8 +315,28 @@ function mapAnalysisError(error) {
   return error?.message ?? "We couldn't check your sentence right now. Please try again.";
 }
 
-function buildCorrectionPrompt(sentence, clarification) {
-  let prompt = `Correct this French message and return structured feedback:\n\n"${sentence}"`;
+function buildPracticeContext(practicePrompt) {
+  if (!practicePrompt) return '';
+
+  const words = (practicePrompt.targetWords ?? []).join(', ');
+  return `PRACTICE MODE — the learner is completing a practice exercise, not free-form messaging.
+
+Practice task: ${practicePrompt.title}
+Instruction: ${practicePrompt.instruction}
+Words they should use: ${words}
+
+IMPORTANT for suggestions.speaking:
+- Provide an OBJECTIVELY CORRECT model answer in everyday spoken French that fully completes this practice task and uses the required words naturally.
+- Do NOT merely patch the learner's sentence — show what a strong, natural answer looks like even if their attempt was wrong or incomplete.
+- understood should describe what a good answer to this practice task expresses in English.
+
+Still rate grammar and naturalness on what the learner ACTUALLY wrote.`;
+}
+
+function buildCorrectionPrompt(sentence, clarification, practicePrompt) {
+  let prompt = practicePrompt
+    ? `${buildPracticeContext(practicePrompt)}\n\nLearner's attempt:\n"${sentence}"`
+    : `Correct this French message and return structured feedback:\n\n"${sentence}"`;
 
   const clarificationText = clarification?.text?.trim();
   if (clarificationText) {
@@ -373,13 +393,25 @@ function getUserFrenchForVocabulary(originalSentence, clarification) {
   return originalSentence;
 }
 
-function buildWritingStylesPrompt(sentence, understood, speakingSentence, clarification, retry = false) {
+function buildWritingStylesPrompt(
+  sentence,
+  understood,
+  speakingSentence,
+  clarification,
+  practicePrompt,
+  retry = false,
+) {
   let prompt = `Generate three written French versions (simple, natural, refined) for this message.
 Include the FULL intended meaning in Foundation when possible. Never change meaning. Use sameAsPrevious when a layer adds no value — especially at Fluent.
 
 Original learner message: "${sentence}"
 Full intended meaning: ${understood}
 Everyday speaking reference: "${speakingSentence}"`;
+
+  if (practicePrompt) {
+    const words = (practicePrompt.targetWords ?? []).join(', ');
+    prompt += `\n\nPRACTICE MODE: Generate Foundation, Expanding, and Fluent as objectively correct WRITTEN model answers to the practice task — "${practicePrompt.title}: ${practicePrompt.instruction}". Each layer must fulfill the task and incorporate these words naturally: ${words}. These are ideal answers to the exercise, not minimal rewrites of the learner's attempt.`;
+  }
 
   const clarificationText = clarification?.text?.trim();
   if (clarificationText) {
@@ -580,10 +612,10 @@ function mergeCorrectionWithWriting(correction, writing, explanationsByStyle, ch
   };
 }
 
-async function runCorrection(config, sentence, clarification) {
+async function runCorrection(config, sentence, clarification, practicePrompt) {
   return generateStructured(config, {
     systemPrompt: CORRECTION_SYSTEM_PROMPT,
-    userPrompt: buildCorrectionPrompt(sentence, clarification),
+    userPrompt: buildCorrectionPrompt(sentence, clarification, practicePrompt),
     schema: CORRECTION_SCHEMA,
     schemaName: 'french_correction',
     ollamaSchemaHint:
@@ -592,10 +624,25 @@ async function runCorrection(config, sentence, clarification) {
   });
 }
 
-async function runWritingStyles(config, sentence, understood, speakingSentence, clarification, retry = false) {
+async function runWritingStyles(
+  config,
+  sentence,
+  understood,
+  speakingSentence,
+  clarification,
+  practicePrompt,
+  retry = false,
+) {
   return generateStructured(config, {
     systemPrompt: WRITING_STYLES_SYSTEM_PROMPT,
-    userPrompt: buildWritingStylesPrompt(sentence, understood, speakingSentence, clarification, retry),
+    userPrompt: buildWritingStylesPrompt(
+      sentence,
+      understood,
+      speakingSentence,
+      clarification,
+      practicePrompt,
+      retry,
+    ),
     schema: WRITING_STYLES_SCHEMA,
     schemaName: 'french_writing_styles',
     ollamaSchemaHint:
@@ -637,6 +684,7 @@ async function runWritingStylesWithRetry(
   understood,
   speakingSentence,
   clarification,
+  practicePrompt,
 ) {
   let writingStylesResult = await runWritingStyles(
     config,
@@ -644,6 +692,7 @@ async function runWritingStylesWithRetry(
     understood,
     speakingSentence,
     clarification,
+    practicePrompt,
   );
   let { writing } = mapWritingStylesArray(writingStylesResult?.styles);
 
@@ -655,6 +704,7 @@ async function runWritingStylesWithRetry(
       understood,
       speakingSentence,
       clarification,
+      practicePrompt,
       true,
     );
     ({ writing } = mapWritingStylesArray(writingStylesResult?.styles));
@@ -692,6 +742,7 @@ async function runCombinedVocabularyExtraction(
 export async function analyzeSentence(input) {
   const sentence = typeof input === 'string' ? input : input?.sentence;
   const clarification = typeof input === 'object' ? input?.clarification : undefined;
+  const practicePrompt = typeof input === 'object' ? input?.practicePrompt : undefined;
   const trimmed = typeof sentence === 'string' ? sentence.trim() : '';
 
   if (!trimmed) {
@@ -709,7 +760,7 @@ export async function analyzeSentence(input) {
   const config = getRuntimeConfig();
 
   try {
-    const correction = await runCorrection(config, trimmed, clarification);
+    const correction = await runCorrection(config, trimmed, clarification, practicePrompt);
 
     if (clarification?.mode === 'english') {
       correction.ratings = { grammar: 0, naturalness: 0 };
@@ -721,6 +772,7 @@ export async function analyzeSentence(input) {
       correction.understood,
       correction.suggestions.speaking.sentence,
       clarification,
+      practicePrompt,
     );
     const { writing, explanationsByStyle } = mapWritingStylesArray(writingStylesResult?.styles);
     const changes = await runStyleChangesWithRetry(

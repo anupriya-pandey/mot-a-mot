@@ -19,7 +19,10 @@ export const PRACTICE_SUMMARY_TITLE = 'Today\'s Practice';
 
 export const PRACTICE_SUMMARY_COMPLETED = 'Completed';
 
-export const PRACTICE_REFLECTION_TITLE = 'Quick reflection';
+export const PRACTICE_REFLECTION_TITLE = 'Your practice';
+
+export const PRACTICE_MODEL_ANSWERS_HINT =
+  'These are strong model answers for today\'s practice prompt — not just edits of what you wrote.';
 
 export const PRACTICE_WORDS_USED = 'Words you used';
 
