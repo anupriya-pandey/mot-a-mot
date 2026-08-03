@@ -89,6 +89,10 @@ export type AppScreen =
   | 'toolbox'
   | 'vocabulary'
   | 'history'
+  | 'practice'
+  | 'practice-intro'
+  | 'practice-question'
+  | 'practice-summary'
   | 'import'
   | 'import-review'
   | 'import-success';

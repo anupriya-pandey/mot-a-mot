@@ -2,6 +2,7 @@ import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { ClarificationPanel } from '../components/ClarificationPanel';
 import { InformationCard } from '../components/InformationCard';
+import { PracticeReflectionPanel } from '../components/PracticeReflectionPanel';
 import { RatingBar } from '../components/RatingBar';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { SectionHeader } from '../components/SectionHeader';
@@ -11,6 +12,7 @@ import { WritingSuggestions } from '../components/WritingSuggestions';
 import { SuggestedToolkitAdditions } from '../components/SuggestedToolkitAdditions';
 import { SCORES_ENGLISH_CLARIFICATION, SCORES_FRENCH_NOTE, NEW_VOCAB_HINT } from '../constants/microcopy';
 import type { AnalysisResult, ClarificationInput, SentenceLanguage, VocabularyItem } from '../types/analysis';
+import type { PracticeReflection } from '../types/practice';
 
 interface ResultsScreenProps {
   result: AnalysisResult;
@@ -22,6 +24,12 @@ interface ResultsScreenProps {
   clarificationError: string | null;
   isInToolbox: (lemma: string, partOfSpeech: string) => boolean;
   onAddToToolbox: (item: VocabularyItem) => void;
+  mode?: 'check' | 'practice';
+  practiceReflection?: PracticeReflection | null;
+  onAddPracticeExpression?: () => void;
+  practiceExpressionAdded?: boolean;
+  footerLabel?: string;
+  onFooter?: () => void;
 }
 
 export function ResultsScreen({
@@ -34,6 +42,12 @@ export function ResultsScreen({
   clarificationError,
   isInToolbox,
   onAddToToolbox,
+  mode = 'check',
+  practiceReflection,
+  onAddPracticeExpression,
+  practiceExpressionAdded,
+  footerLabel,
+  onFooter,
 }: ResultsScreenProps) {
   const [showClarification, setShowClarification] = useState(false);
 
@@ -120,10 +134,20 @@ export function ResultsScreen({
           onAdd={onAddToToolbox}
         />
 
-        <SecondaryButton onClick={onCheckAnother}>
+        {mode === 'practice' && practiceReflection && (
+          <PracticeReflectionPanel
+            reflection={practiceReflection}
+            onAddExpression={
+              practiceReflection.newExpression ? onAddPracticeExpression : undefined
+            }
+            expressionAdded={practiceExpressionAdded}
+          />
+        )}
+
+        <SecondaryButton onClick={mode === 'practice' && onFooter ? onFooter : onCheckAnother}>
           <span className="inline-flex items-center justify-center gap-s">
-            <Sparkles className="h-4 w-4" />
-            Check Another Sentence
+            {mode === 'practice' ? null : <Sparkles className="h-4 w-4" />}
+            {footerLabel ?? (mode === 'practice' ? 'Next Question →' : 'Check Another Sentence')}
           </span>
         </SecondaryButton>
       </div>

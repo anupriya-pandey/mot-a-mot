@@ -1,12 +1,19 @@
 import { useCallback, useState } from 'react';
 import { analyzeFrench } from './api/analyzeFrench';
+import { createPracticeSession } from './api/createPracticeSession';
 import { importToolbox } from './api/importToolbox';
 import { normalizeAnalysisResult } from './lib/normalizeAnalysisResult';
 import { applyConsistentRatings } from './lib/ratingsCache';
 import { categorizeImportEntries } from './lib/categorizeImport';
+import {
+  buildPracticeReflection,
+  computeSessionSummary,
+  pickNewExpressionForAdd,
+} from './lib/practiceHelpers';
 import { AppTabs } from './components/AppTabs';
 import { StatusBanner } from './components/StatusBanner';
 import { IMPORT_LOADING_MESSAGES } from './constants/importMicrocopy';
+import { PRACTICE_LOADING_MESSAGES } from './constants/practiceMicrocopy';
 import { ERRORS } from './constants/microcopy';
 import { useFrenchToolbox } from './hooks/useFrenchToolbox';
 import { useSearchHistory } from './hooks/useSearchHistory';
@@ -16,6 +23,10 @@ import { ImportSuccessScreen } from './screens/ImportSuccessScreen';
 import { ImportToolboxScreen } from './screens/ImportToolboxScreen';
 import { LandingScreen } from './screens/LandingScreen';
 import { LoadingScreen } from './screens/LoadingScreen';
+import { PracticeLabScreen } from './screens/PracticeLabScreen';
+import { PracticeQuestionScreen } from './screens/PracticeQuestionScreen';
+import { PracticeSessionIntroScreen } from './screens/PracticeSessionIntroScreen';
+import { PracticeSummaryScreen } from './screens/PracticeSummaryScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { ToolboxScreen } from './screens/ToolboxScreen';
 import { VocabularyScreen } from './screens/VocabularyScreen';
@@ -28,9 +39,15 @@ import type {
 } from './types/analysis';
 import type { AppTab, SearchHistoryEntry } from './types/history';
 import type { ImportApplyResult, ImportReviewData } from './types/import';
+import type {
+  PracticeQuestionResult,
+  PracticeReflection,
+  PracticeSessionPlan,
+  PracticeSessionSummary,
+} from './types/practice';
 import type { PartOfSpeech } from './types/toolbox';
 
-type LoadingMode = 'analyze' | 'import';
+type LoadingMode = 'analyze' | 'import' | 'practice-generate' | 'practice-check';
 
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>('landing');
@@ -51,9 +68,34 @@ export default function App() {
   const [importReview, setImportReview] = useState<ImportReviewData | null>(null);
   const [importResult, setImportResult] = useState<ImportApplyResult | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [practiceSession, setPracticeSession] = useState<PracticeSessionPlan | null>(null);
+  const [practiceQuestionIndex, setPracticeQuestionIndex] = useState(0);
+  const [practiceResults, setPracticeResults] = useState<PracticeQuestionResult[]>([]);
+  const [practiceSummary, setPracticeSummary] = useState<PracticeSessionSummary | null>(null);
+  const [practiceError, setPracticeError] = useState<string | null>(null);
+  const [isStartingPractice, setIsStartingPractice] = useState(false);
+  const [practiceReflection, setPracticeReflection] = useState<PracticeReflection | null>(null);
+  const [practiceExpressionAdded, setPracticeExpressionAdded] = useState(false);
 
   const toolbox = useFrenchToolbox();
   const history = useSearchHistory();
+
+  const resetPractice = useCallback(() => {
+    setPracticeSession(null);
+    setPracticeQuestionIndex(0);
+    setPracticeResults([]);
+    setPracticeSummary(null);
+    setPracticeReflection(null);
+    setPracticeExpressionAdded(false);
+    setPracticeError(null);
+  }, []);
+
+  const isPracticeFlow =
+    Boolean(practiceSession) &&
+    (screen === 'practice-intro' ||
+      screen === 'practice-question' ||
+      screen === 'practice-summary' ||
+      (screen === 'results' && activeTab === 'practice'));
 
   const applyAnalysis = useCallback(
     (
@@ -138,6 +180,21 @@ export default function App() {
           language,
           historyId: currentHistoryId ?? undefined,
         });
+
+        if (practiceSession && activeTab === 'practice') {
+          const prompt = practiceSession.prompts[practiceQuestionIndex];
+          const ratings = applyConsistentRatings(clarifiedText, language, analysis.ratings);
+          setPracticeReflection(
+            buildPracticeReflection(
+              prompt,
+              clarifiedText,
+              { ...analysis, ratings },
+              toolbox.isInToolbox,
+            ),
+          );
+          setPracticeExpressionAdded(false);
+        }
+
         setScreen('results');
         return true;
       } catch (err) {
@@ -150,7 +207,7 @@ export default function App() {
         setIsClarifying(false);
       }
     },
-    [applyAnalysis, currentHistoryId, sentence],
+    [applyAnalysis, activeTab, currentHistoryId, practiceQuestionIndex, practiceSession, sentence, toolbox.isInToolbox],
   );
 
   const handleCheckAnother = useCallback(() => {
@@ -177,24 +234,43 @@ export default function App() {
     setScreen('toolbox');
   }, []);
 
-  const handleTabChange = useCallback((tab: AppTab) => {
-    setActiveTab(tab);
-    setError(null);
-    setClarificationError(null);
-    setVocabularyCategory(null);
+  const handleTabChange = useCallback(
+    (tab: AppTab) => {
+      setActiveTab(tab);
+      setError(null);
+      setClarificationError(null);
+      setVocabularyCategory(null);
 
-    if (tab === 'history') {
-      setScreen('history');
-      return;
-    }
+      if (tab !== 'practice' && isPracticeFlow) {
+        resetPractice();
+      }
 
-    if (tab === 'toolbox') {
-      setScreen('toolbox');
-      return;
-    }
+      if (tab === 'history') {
+        setScreen('history');
+        return;
+      }
 
-    setScreen(result ? 'results' : 'landing');
-  }, [result]);
+      if (tab === 'toolbox') {
+        setScreen('toolbox');
+        return;
+      }
+
+      if (tab === 'practice') {
+        setScreen(
+          screen === 'practice-question' ||
+            screen === 'practice-intro' ||
+            screen === 'practice-summary' ||
+            (screen === 'results' && practiceSession)
+            ? screen
+            : 'practice',
+        );
+        return;
+      }
+
+      setScreen(result && activeTab === 'check' ? 'results' : 'landing');
+    },
+    [activeTab, isPracticeFlow, practiceSession, resetPractice, result, screen],
+  );
 
   const handleOpenHistoryEntry = useCallback((entry: SearchHistoryEntry) => {
     const normalized = normalizeAnalysisResult(entry.result);
@@ -278,12 +354,135 @@ export default function App() {
     setScreen('import');
   }, []);
 
+  const handleStartPractice = useCallback(async () => {
+    setPracticeError(null);
+    setIsStartingPractice(true);
+    setLoadingMode('practice-generate');
+    setScreen('loading');
+
+    try {
+      const session = await createPracticeSession(toolbox.entries);
+      setPracticeSession(session);
+      setPracticeQuestionIndex(0);
+      setPracticeResults([]);
+      setPracticeSummary(null);
+      setActiveTab('practice');
+      setScreen('practice-intro');
+    } catch (err) {
+      setScreen('practice');
+      setActiveTab('practice');
+      setPracticeError(
+        err instanceof Error && err.message ? err.message : ERRORS.aiRequestFailed,
+      );
+    } finally {
+      setIsStartingPractice(false);
+    }
+  }, [toolbox.entries]);
+
+  const handleBeginPracticeSession = useCallback(() => {
+    setScreen('practice-question');
+  }, []);
+
+  const handlePracticeCheck = useCallback(
+    async (userSentence: string) => {
+      if (!practiceSession) return;
+
+      setSentence(userSentence);
+      setClarificationError(null);
+      setCurrentHistoryId(null);
+      setLoadingMode('practice-check');
+      setScreen('loading');
+
+      try {
+        const analysis = normalizeAnalysisResult(await analyzeFrench({ sentence: userSentence }));
+        applyAnalysis(analysis, { display: userSentence, language: 'french' });
+
+        const prompt = practiceSession.prompts[practiceQuestionIndex];
+        setPracticeReflection(
+          buildPracticeReflection(prompt, userSentence, analysis, toolbox.isInToolbox),
+        );
+        setPracticeExpressionAdded(false);
+        setActiveTab('practice');
+        setScreen('results');
+      } catch (err) {
+        setScreen('practice-question');
+        setPracticeError(
+          err instanceof Error && err.message ? err.message : ERRORS.aiRequestFailed,
+        );
+      }
+    },
+    [applyAnalysis, practiceQuestionIndex, practiceSession, toolbox.isInToolbox],
+  );
+
+  const handlePracticeNext = useCallback(() => {
+    if (!practiceSession || !result) return;
+
+    const prompt = practiceSession.prompts[practiceQuestionIndex];
+    const questionResult: PracticeQuestionResult = {
+      prompt,
+      userSentence: displaySentence,
+      analysis: result,
+      wordsUsed: practiceReflection?.wordsUsed ?? [],
+    };
+    const updatedResults = [...practiceResults, questionResult];
+
+    if (practiceQuestionIndex >= practiceSession.prompts.length - 1) {
+      const stats = computeSessionSummary(updatedResults, toolbox.isInToolbox);
+      setPracticeResults(updatedResults);
+      setPracticeSummary({
+        completedCount: updatedResults.length,
+        totalCount: practiceSession.prompts.length,
+        newWordsDiscovered: stats.newWordsDiscovered,
+        wordsStrengthened: stats.wordsStrengthened,
+        questionResults: updatedResults,
+      });
+      setResult(null);
+      setPracticeReflection(null);
+      setScreen('practice-summary');
+      return;
+    }
+
+    setPracticeResults(updatedResults);
+    setPracticeQuestionIndex((index) => index + 1);
+    setResult(null);
+    setPracticeReflection(null);
+    setPracticeExpressionAdded(false);
+    setScreen('practice-question');
+  }, [
+    displaySentence,
+    practiceQuestionIndex,
+    practiceReflection,
+    practiceResults,
+    practiceSession,
+    result,
+    toolbox.isInToolbox,
+  ]);
+
+  const handleAddPracticeExpression = useCallback(() => {
+    if (!result) return;
+    const item = pickNewExpressionForAdd(result, toolbox.isInToolbox);
+    if (item) {
+      toolbox.addSingleItem(item);
+      setPracticeExpressionAdded(true);
+    }
+  }, [result, toolbox]);
+
+  const handlePracticeDone = useCallback(() => {
+    resetPractice();
+    setResult(null);
+    setActiveTab('practice');
+    setScreen('practice');
+  }, [resetPractice]);
+
+  const loadingMessages =
+    loadingMode === 'import'
+      ? IMPORT_LOADING_MESSAGES
+      : loadingMode === 'practice-generate'
+        ? PRACTICE_LOADING_MESSAGES
+        : undefined;
+
   if (screen === 'loading') {
-    return (
-      <LoadingScreen
-        messages={loadingMode === 'import' ? IMPORT_LOADING_MESSAGES : undefined}
-      />
-    );
+    return <LoadingScreen messages={loadingMessages} />;
   }
 
   if (screen === 'import') {
@@ -319,7 +518,36 @@ export default function App() {
     screen === 'landing' ||
     screen === 'results' ||
     screen === 'history' ||
-    screen === 'toolbox';
+    screen === 'toolbox' ||
+    screen === 'practice';
+
+  if (screen === 'practice-intro' && practiceSession) {
+    return (
+      <PracticeSessionIntroScreen session={practiceSession} onStart={handleBeginPracticeSession} />
+    );
+  }
+
+  if (screen === 'practice-question' && practiceSession) {
+    const prompt = practiceSession.prompts[practiceQuestionIndex];
+    if (!prompt) {
+      setScreen('practice');
+      return null;
+    }
+
+    return (
+      <PracticeQuestionScreen
+        prompt={prompt}
+        questionNumber={practiceQuestionIndex + 1}
+        totalQuestions={practiceSession.prompts.length}
+        onCheck={(value) => void handlePracticeCheck(value)}
+        isChecking={false}
+      />
+    );
+  }
+
+  if (screen === 'practice-summary' && practiceSummary) {
+    return <PracticeSummaryScreen summary={practiceSummary} onDone={handlePracticeDone} />;
+  }
 
   if (screen === 'vocabulary' && vocabularyCategory) {
     return (
@@ -335,6 +563,12 @@ export default function App() {
   }
 
   if (screen === 'results' && result) {
+    const isPracticeResults = activeTab === 'practice' && Boolean(practiceSession);
+    const isLastQuestion =
+      isPracticeResults &&
+      practiceSession &&
+      practiceQuestionIndex >= practiceSession.prompts.length - 1;
+
     return (
       <div className="min-h-screen">
         {showTabs && <AppTabs active={activeTab} onChange={handleTabChange} />}
@@ -348,6 +582,20 @@ export default function App() {
           clarificationError={clarificationError}
           isInToolbox={toolbox.isInToolbox}
           onAddToToolbox={handleAddToToolbox}
+          mode={isPracticeResults ? 'practice' : 'check'}
+          practiceReflection={isPracticeResults ? practiceReflection : undefined}
+          onAddPracticeExpression={
+            isPracticeResults ? handleAddPracticeExpression : undefined
+          }
+          practiceExpressionAdded={practiceExpressionAdded}
+          footerLabel={
+            isPracticeResults
+              ? isLastQuestion
+                ? 'Finish Session →'
+                : 'Next Question →'
+              : undefined
+          }
+          onFooter={isPracticeResults ? handlePracticeNext : undefined}
         />
       </div>
     );
@@ -372,6 +620,20 @@ export default function App() {
           totalCount={toolbox.totalCount}
           onSelectCategory={handleSelectCategory}
           onImport={handleOpenImport}
+        />
+      </div>
+    );
+  }
+
+  if (screen === 'practice') {
+    return (
+      <div className="min-h-screen">
+        <AppTabs active={activeTab} onChange={handleTabChange} />
+        <PracticeLabScreen
+          totalEntries={toolbox.totalCount}
+          onStartPractice={() => void handleStartPractice()}
+          isStarting={isStartingPractice}
+          error={practiceError}
         />
       </div>
     );

@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import { analyzeSentence, getHealthStatus, isConfigured } from './analyzeService.js';
 import { importToolboxText } from './importService.js';
+import { generatePracticeSession } from './practiceService.js';
 
 dotenv.config();
 
@@ -47,6 +48,18 @@ app.post('/api/import-toolbox', async (req, res) => {
   }
 });
 
+app.post('/api/practice-session', async (req, res) => {
+  try {
+    const result = await generatePracticeSession(req.body?.toolboxEntries);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('POST /api/practice-session failed:', error);
+    return res.status(500).json({
+      message: "We couldn't create your practice session right now. Please try again.",
+    });
+  }
+});
+
 app.get('/', (_req, res) => {
   const health = getHealthStatus();
   res.json({
@@ -57,6 +70,7 @@ app.get('/', (_req, res) => {
       health: 'GET /api/health',
       analyze: 'POST /api/analyze',
       importToolbox: 'POST /api/import-toolbox',
+      practiceSession: 'POST /api/practice-session',
     },
   });
 });
