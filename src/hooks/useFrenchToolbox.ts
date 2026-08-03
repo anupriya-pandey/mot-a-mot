@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   addVocabulary,
   addVocabularyItem,
+  applyToolboxImport,
   getCategoryCounts,
   getVocabularyByCategory,
   isVocabularyInToolbox,
@@ -52,12 +53,22 @@ export function useFrenchToolbox() {
     return getVocabularyByCategory(category);
   }, []);
 
+  const applyImport = useCallback(
+    (items: VocabularyItem[]) => {
+      const result = applyToolboxImport(items);
+      refresh();
+      return result;
+    },
+    [refresh],
+  );
+
   return {
     entries,
     counts,
     totalCount: entries.length,
     addUserVocabulary,
     addSingleItem,
+    applyImport,
     isInToolbox,
     getByCategory,
     refresh,

@@ -19,6 +19,7 @@ interface LandingScreenProps {
   toolboxCounts: CategoryCounts;
   toolboxTotal: number;
   onSelectCategory: (category: PartOfSpeech) => void;
+  onImport: () => void;
 }
 
 export function LandingScreen({
@@ -29,6 +30,7 @@ export function LandingScreen({
   toolboxCounts,
   toolboxTotal,
   onSelectCategory,
+  onImport,
 }: LandingScreenProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [showEmptyError, setShowEmptyError] = useState(false);
@@ -160,6 +162,7 @@ export function LandingScreen({
             counts={toolboxCounts}
             totalCount={toolboxTotal}
             onSelectCategory={onSelectCategory}
+            onImport={onImport}
           />
         </div>
       </main>

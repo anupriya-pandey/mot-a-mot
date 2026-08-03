@@ -1,22 +1,36 @@
 import { TOOLBOX_EMPTY } from '../constants/microcopy';
 import type { CategoryCounts, PartOfSpeech } from '../types/toolbox';
+import { SecondaryButton } from './SecondaryButton';
 
 interface FrenchToolboxDashboardProps {
   counts: CategoryCounts;
   totalCount: number;
   onSelectCategory: (category: PartOfSpeech) => void;
+  onImport: () => void;
 }
 
 export function FrenchToolboxDashboard({
   counts,
   totalCount,
   onSelectCategory,
+  onImport,
 }: FrenchToolboxDashboardProps) {
   return (
     <section className="mt-xxl" aria-labelledby="toolbox-title">
-      <h2 id="toolbox-title" className="mb-m text-xl font-semibold text-text-primary">
-        🧰 My French Toolbox
-      </h2>
+      <div className="mb-m flex items-center justify-between gap-m">
+        <h2 id="toolbox-title" className="text-xl font-semibold text-text-primary">
+          🧰 My French Toolbox
+        </h2>
+        {totalCount > 0 && (
+          <p className="text-sm text-text-secondary">
+            {totalCount} {totalCount === 1 ? 'entry' : 'entries'}
+          </p>
+        )}
+      </div>
+
+      <SecondaryButton onClick={onImport} className="mb-m">
+        Import to Toolbox
+      </SecondaryButton>
 
       {totalCount === 0 ? (
         <p className="rounded-card bg-surface p-l text-sm text-text-secondary shadow-card whitespace-pre-line">

@@ -38,7 +38,7 @@ export function SuggestedToolkitAdditions({
         Add to your French toolkit?
       </h2>
       <p className="mt-xs text-sm text-text-secondary">
-        These words were newly introduced in the corrected versions (everyday speaking and writing styles) —
+        These entries were newly introduced in the corrected versions (everyday speaking and writing styles) —
         not spelling fixes. Tap + to save one to your toolbox.
       </p>
       <ul className="mt-m space-y-s">

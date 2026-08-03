@@ -1,13 +1,19 @@
 import { useCallback, useState } from 'react';
 import { analyzeFrench } from './api/analyzeFrench';
+import { importToolbox } from './api/importToolbox';
 import { normalizeAnalysisResult } from './lib/normalizeAnalysisResult';
 import { applyConsistentRatings } from './lib/ratingsCache';
+import { categorizeImportEntries } from './lib/categorizeImport';
 import { AppTabs } from './components/AppTabs';
 import { StatusBanner } from './components/StatusBanner';
+import { IMPORT_LOADING_MESSAGES } from './constants/importMicrocopy';
 import { ERRORS } from './constants/microcopy';
 import { useFrenchToolbox } from './hooks/useFrenchToolbox';
 import { useSearchHistory } from './hooks/useSearchHistory';
 import { HistoryScreen } from './screens/HistoryScreen';
+import { ImportReviewScreen, collectSelectedImportItems } from './screens/ImportReviewScreen';
+import { ImportSuccessScreen } from './screens/ImportSuccessScreen';
+import { ImportToolboxScreen } from './screens/ImportToolboxScreen';
 import { LandingScreen } from './screens/LandingScreen';
 import { LoadingScreen } from './screens/LoadingScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
@@ -20,7 +26,10 @@ import type {
   VocabularyItem,
 } from './types/analysis';
 import type { AppTab, SearchHistoryEntry } from './types/history';
+import type { ImportApplyResult, ImportReviewData } from './types/import';
 import type { PartOfSpeech } from './types/toolbox';
+
+type LoadingMode = 'analyze' | 'import';
 
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>('landing');
@@ -35,6 +44,12 @@ export default function App() {
   const [clarificationError, setClarificationError] = useState<string | null>(null);
   const [vocabularyCategory, setVocabularyCategory] = useState<PartOfSpeech | null>(null);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+  const [loadingMode, setLoadingMode] = useState<LoadingMode>('analyze');
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importReview, setImportReview] = useState<ImportReviewData | null>(null);
+  const [importResult, setImportResult] = useState<ImportApplyResult | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const toolbox = useFrenchToolbox();
   const history = useSearchHistory();
@@ -82,6 +97,7 @@ export default function App() {
     setError(null);
     setClarificationError(null);
     setCurrentHistoryId(null);
+    setLoadingMode('analyze');
     setIsSubmitting(true);
     setScreen('loading');
 
@@ -106,6 +122,7 @@ export default function App() {
 
       setClarificationError(null);
       setIsClarifying(true);
+      setLoadingMode('analyze');
       setScreen('loading');
 
       const clarifiedText = clarification.text.trim();
@@ -191,8 +208,101 @@ export default function App() {
     [toolbox],
   );
 
+  const handleOpenImport = useCallback(() => {
+    setImportError(null);
+    setScreen('import');
+  }, []);
+
+  const handleAnalyzeImport = useCallback(async () => {
+    const trimmed = importText.trim();
+    if (!trimmed) return;
+
+    setImportError(null);
+    setLoadingMode('import');
+    setScreen('loading');
+
+    try {
+      const { entries } = await importToolbox(trimmed);
+      const review = categorizeImportEntries(entries, toolbox.entries);
+      setImportReview(review);
+      setScreen('import-review');
+    } catch (err) {
+      setScreen('import');
+      setImportError(
+        err instanceof Error && err.message ? err.message : ERRORS.aiRequestFailed,
+      );
+    }
+  }, [importText, toolbox.entries]);
+
+  const handleConfirmImport = useCallback(() => {
+    if (!importReview) return;
+
+    setIsImporting(true);
+    const items = collectSelectedImportItems(importReview);
+    const result = toolbox.applyImport(items);
+
+    setImportResult({
+      added: result.added,
+      skipped: importReview.alreadyIn.length,
+      totalEntries: result.totalEntries,
+    });
+    setIsImporting(false);
+    setImportReview(null);
+    setImportText('');
+    setScreen('import-success');
+  }, [importReview, toolbox]);
+
+  const handleImportDone = useCallback(() => {
+    setImportResult(null);
+    setImportError(null);
+    setScreen('landing');
+    setActiveTab('check');
+  }, []);
+
+  const handleBackFromImport = useCallback(() => {
+    setImportError(null);
+    setScreen('landing');
+  }, []);
+
+  const handleBackFromImportReview = useCallback(() => {
+    setScreen('import');
+  }, []);
+
   if (screen === 'loading') {
-    return <LoadingScreen />;
+    return (
+      <LoadingScreen
+        messages={loadingMode === 'import' ? IMPORT_LOADING_MESSAGES : undefined}
+      />
+    );
+  }
+
+  if (screen === 'import') {
+    return (
+      <ImportToolboxScreen
+        text={importText}
+        onTextChange={setImportText}
+        onAnalyze={() => void handleAnalyzeImport()}
+        onBack={handleBackFromImport}
+        isSubmitting={false}
+        error={importError}
+      />
+    );
+  }
+
+  if (screen === 'import-review' && importReview) {
+    return (
+      <ImportReviewScreen
+        review={importReview}
+        onReviewChange={setImportReview}
+        onConfirm={handleConfirmImport}
+        onBack={handleBackFromImportReview}
+        isImporting={isImporting}
+      />
+    );
+  }
+
+  if (screen === 'import-success' && importResult) {
+    return <ImportSuccessScreen result={importResult} onDone={handleImportDone} />;
   }
 
   if (screen === 'vocabulary' && vocabularyCategory) {
@@ -251,6 +361,7 @@ export default function App() {
         toolboxCounts={toolbox.counts}
         toolboxTotal={toolbox.totalCount}
         onSelectCategory={handleSelectCategory}
+        onImport={handleOpenImport}
       />
     </div>
   );

@@ -2,21 +2,22 @@ import { LOADING_MESSAGES } from '../constants/loadingMessages';
 
 interface LoadingIndicatorProps {
   activeIndex: number;
+  messages?: readonly string[];
 }
 
-export function LoadingIndicator({ activeIndex }: LoadingIndicatorProps) {
+export function LoadingIndicator({ activeIndex, messages = LOADING_MESSAGES }: LoadingIndicatorProps) {
   return (
     <div className="flex flex-col items-center py-xxl">
       <div
         className="mb-xl h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary"
         role="status"
-        aria-label="Analyzing your French"
+        aria-label="Loading"
       />
       <p className="mb-xl text-center text-xl font-semibold text-text-primary">
-        {LOADING_MESSAGES[activeIndex]}
+        {messages[activeIndex]}
       </p>
       <ul className="w-full max-w-sm space-y-m">
-        {LOADING_MESSAGES.map((message, index) => {
+        {messages.map((message, index) => {
           const isActive = index === activeIndex;
           const isComplete = index < activeIndex;
 

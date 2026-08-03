@@ -26,7 +26,7 @@ export function VocabularyScreen({ category, entries, onBack }: VocabularyScreen
       <header className="mb-l">
         <h1 className="text-2xl font-semibold text-text-primary">{category}</h1>
         <p className="mt-xs text-sm text-text-secondary">
-          {entries.length} {entries.length === 1 ? 'word' : 'words'} in your toolbox
+          {entries.length} {entries.length === 1 ? 'entry' : 'entries'} in your toolbox
         </p>
         <p className="mt-m rounded-card bg-surface p-m text-sm leading-relaxed text-text-secondary shadow-card">
           {guide.summary}

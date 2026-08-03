@@ -277,6 +277,31 @@ export function getTotalVocabularyCount(): number {
   return loadToolbox().length;
 }
 
+export function applyToolboxImport(items: VocabularyItem[]): {
+  added: number;
+  totalEntries: number;
+} {
+  const existingKeys = new Set(loadToolbox().map((entry) => entryKey(entry)));
+  let added = 0;
+
+  for (const item of items) {
+    const partOfSpeech = normalizePartOfSpeech(item.partOfSpeech);
+    if (!partOfSpeech) continue;
+
+    const key = entryKey({ lemma: item.lemma, partOfSpeech });
+    if (existingKeys.has(key)) continue;
+
+    addVocabulary([item]);
+    added += 1;
+    existingKeys.add(key);
+  }
+
+  return {
+    added,
+    totalEntries: getTotalVocabularyCount(),
+  };
+}
+
 /** Clear bad legacy data — run once if toolbox looks wrong */
 export function resetToolbox(): void {
   localStorage.removeItem(STORAGE_KEY);

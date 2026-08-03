@@ -31,13 +31,13 @@ export const SCORES_FRENCH_NOTE =
 export const HISTORY_EMPTY =
   'No searches yet.\nCheck a French sentence — your history will appear here.';
 export const TOOLBOX_EMPTY =
-  'Your French Toolbox is empty.\nStart checking sentences to build your vocabulary.';
+  'Your French Toolbox is empty.\nStart checking sentences or import notes to build your entries.';
 
 export const VOICE_HINT =
   'Tap the mic — you\'ll hear a short chime when it\'s ready, then speak your French sentence.';
 export const VOICE_LISTENING = 'Listening… speak now.';
 export const NEW_VOCAB_HINT =
-  'See a word you do not recognise in the suggestions below? Scroll to Add to your French toolkit at the bottom of this page — tap + to save words with their English meanings.';
+  'See an entry you do not recognise in the suggestions below? Scroll to Add to your French toolkit at the bottom of this page — tap + to save entries with their English meanings.';
 export const PARTIAL_MEANING_AT_LAYER =
   'Part of your meaning could not fit at this layer — see the note below.';
 export const NO_CHANGE_AT_LAYER = 'No change needed at this layer.';

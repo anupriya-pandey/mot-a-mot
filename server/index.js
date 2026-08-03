@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import { analyzeSentence, getHealthStatus, isConfigured } from './analyzeService.js';
+import { importToolboxText } from './importService.js';
 
 dotenv.config();
 
@@ -34,6 +35,18 @@ app.post('/api/analyze', async (req, res) => {
   }
 });
 
+app.post('/api/import-toolbox', async (req, res) => {
+  try {
+    const result = await importToolboxText(req.body?.text);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('POST /api/import-toolbox failed:', error);
+    return res.status(500).json({
+      message: "We couldn't analyze your import right now. Please try again.",
+    });
+  }
+});
+
 app.get('/', (_req, res) => {
   const health = getHealthStatus();
   res.json({
@@ -43,6 +56,7 @@ app.get('/', (_req, res) => {
     endpoints: {
       health: 'GET /api/health',
       analyze: 'POST /api/analyze',
+      importToolbox: 'POST /api/import-toolbox',
     },
   });
 });

@@ -82,6 +82,14 @@ export interface AnalyzeRequest {
   clarification?: ClarificationInput;
 }
 
-export type AppScreen = 'landing' | 'loading' | 'results' | 'vocabulary' | 'history';
+export type AppScreen =
+  | 'landing'
+  | 'loading'
+  | 'results'
+  | 'vocabulary'
+  | 'history'
+  | 'import'
+  | 'import-review'
+  | 'import-success';
 
 export type BannerType = 'success' | 'warning' | 'error';

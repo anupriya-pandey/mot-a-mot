@@ -60,7 +60,7 @@ export function normalizePartOfSpeechLabel(value) {
   return null;
 }
 
-function isInvalidItem(item) {
+export function isInvalidItem(item) {
   const lemma = String(item?.lemma ?? '').trim();
   const meaning = String(item?.meaning ?? '').trim();
   const surface = String(item?.surface ?? '').trim();
