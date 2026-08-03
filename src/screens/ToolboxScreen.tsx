@@ -1,0 +1,111 @@
+import { Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+  TOOLBOX_DESCRIPTION,
+  TOOLBOX_EMPTY,
+  TOOLBOX_METHOD_IMPORT,
+  TOOLBOX_METHOD_PRACTICE,
+  TOOLBOX_TAB_SUBTITLE,
+} from '../constants/microcopy';
+import type { CategoryCounts, PartOfSpeech, VocabularyEntry } from '../types/toolbox';
+import { FrenchToolboxDashboard } from '../components/FrenchToolboxDashboard';
+import { VocabularyListItem } from '../components/VocabularyListItem';
+import { SecondaryButton } from '../components/SecondaryButton';
+
+interface ToolboxScreenProps {
+  entries: VocabularyEntry[];
+  counts: CategoryCounts;
+  totalCount: number;
+  onSelectCategory: (category: PartOfSpeech) => void;
+  onImport: () => void;
+}
+
+function matchesQuery(entry: VocabularyEntry, query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    entry.lemma.toLowerCase().includes(q) ||
+    entry.meaning.toLowerCase().includes(q) ||
+    entry.partOfSpeech.toLowerCase().includes(q) ||
+    entry.surfaces.some((surface) => surface.toLowerCase().includes(q)) ||
+    entry.examples.some((example) => example.toLowerCase().includes(q))
+  );
+}
+
+export function ToolboxScreen({
+  entries,
+  counts,
+  totalCount,
+  onSelectCategory,
+  onImport,
+}: ToolboxScreenProps) {
+  const [query, setQuery] = useState('');
+  const trimmedQuery = query.trim();
+  const isSearching = trimmedQuery.length > 0;
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    return entries
+      .filter((entry) => matchesQuery(entry, trimmedQuery))
+      .sort((a, b) => a.lemma.localeCompare(b.lemma, 'fr'));
+  }, [entries, isSearching, trimmedQuery]);
+
+  return (
+    <div className="mx-auto w-full max-w-content px-m pb-xl">
+      <header className="mb-l">
+        <h1 className="text-2xl font-semibold text-text-primary">French Toolbox</h1>
+        <p className="mt-xs text-sm text-text-secondary">{TOOLBOX_TAB_SUBTITLE}</p>
+      </header>
+
+      <div className="relative mb-m">
+        <Search
+          className="pointer-events-none absolute left-m top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
+          aria-hidden
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search entries…"
+          aria-label="Search toolbox entries"
+          className="w-full rounded-input border border-border bg-surface py-3 pl-xxl pr-m text-base text-text-primary placeholder:text-text-secondary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      <SecondaryButton onClick={onImport} className="mb-m">
+        Import to Toolbox
+      </SecondaryButton>
+
+      {isSearching ? (
+        <section aria-labelledby="search-results">
+          <h2 id="search-results" className="mb-m text-lg font-semibold text-text-primary">
+            {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}
+          </h2>
+          {searchResults.length === 0 ? (
+            <p className="rounded-card bg-surface p-m text-sm text-text-secondary shadow-card">
+              No entries match &ldquo;{trimmedQuery}&rdquo;.
+            </p>
+          ) : (
+            <div className="space-y-m">
+              {searchResults.map((entry) => (
+                <VocabularyListItem
+                  key={`${entry.lemma}-${entry.partOfSpeech}-${entry.meaning}`}
+                  entry={entry}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <FrenchToolboxDashboard
+          counts={counts}
+          totalCount={totalCount}
+          onSelectCategory={onSelectCategory}
+          description={TOOLBOX_DESCRIPTION}
+          methodPractice={TOOLBOX_METHOD_PRACTICE}
+          methodImport={TOOLBOX_METHOD_IMPORT}
+          emptyMessage={TOOLBOX_EMPTY}
+        />
+      )}
+    </div>
+  );
+}

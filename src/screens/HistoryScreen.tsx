@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import { HISTORY_EMPTY } from '../constants/microcopy';
+import { HISTORY_EMPTY, HISTORY_SUBTITLE } from '../constants/microcopy';
 import type { SearchHistoryEntry } from '../types/history';
 
 interface HistoryScreenProps {
@@ -26,10 +26,8 @@ export function HistoryScreen({ entries, onSelectEntry }: HistoryScreenProps) {
   return (
     <div className="mx-auto w-full max-w-content px-m pb-xl">
       <header className="mb-l">
-        <h1 className="text-2xl font-semibold text-text-primary">Search History</h1>
-        <p className="mt-xs text-sm text-text-secondary">
-          Tap a sentence to view its results again.
-        </p>
+        <h1 className="text-2xl font-semibold text-text-primary">History</h1>
+        <p className="mt-xs text-sm text-text-secondary">{HISTORY_SUBTITLE}</p>
       </header>
 
       {entries.length === 0 ? (

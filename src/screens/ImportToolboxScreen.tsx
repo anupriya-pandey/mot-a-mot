@@ -50,7 +50,7 @@ export function ImportToolboxScreen({
       <SecondaryButton onClick={onBack} className="mb-l">
         <span className="inline-flex items-center justify-center gap-s">
           <ArrowLeft className="h-4 w-4" />
-          Back to Home
+          Back to Toolbox
         </span>
       </SecondaryButton>
 

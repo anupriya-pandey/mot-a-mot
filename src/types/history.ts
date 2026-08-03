@@ -11,4 +11,4 @@ export interface SearchHistoryEntry {
   createdAt: string;
 }
 
-export type AppTab = 'check' | 'history';
+export type AppTab = 'check' | 'toolbox' | 'history';

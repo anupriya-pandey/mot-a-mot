@@ -17,6 +17,7 @@ import { ImportToolboxScreen } from './screens/ImportToolboxScreen';
 import { LandingScreen } from './screens/LandingScreen';
 import { LoadingScreen } from './screens/LoadingScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
+import { ToolboxScreen } from './screens/ToolboxScreen';
 import { VocabularyScreen } from './screens/VocabularyScreen';
 import type {
   AnalysisResult,
@@ -166,27 +167,34 @@ export default function App() {
 
   const handleSelectCategory = useCallback((category: PartOfSpeech) => {
     setVocabularyCategory(category);
+    setActiveTab('toolbox');
     setScreen('vocabulary');
   }, []);
 
   const handleBackFromVocabulary = useCallback(() => {
     setVocabularyCategory(null);
-    setScreen('landing');
-    setActiveTab('check');
+    setActiveTab('toolbox');
+    setScreen('toolbox');
   }, []);
 
   const handleTabChange = useCallback((tab: AppTab) => {
     setActiveTab(tab);
     setError(null);
     setClarificationError(null);
+    setVocabularyCategory(null);
 
     if (tab === 'history') {
       setScreen('history');
       return;
     }
 
-    setScreen('landing');
-  }, []);
+    if (tab === 'toolbox') {
+      setScreen('toolbox');
+      return;
+    }
+
+    setScreen(result ? 'results' : 'landing');
+  }, [result]);
 
   const handleOpenHistoryEntry = useCallback((entry: SearchHistoryEntry) => {
     const normalized = normalizeAnalysisResult(entry.result);
@@ -210,6 +218,7 @@ export default function App() {
 
   const handleOpenImport = useCallback(() => {
     setImportError(null);
+    setActiveTab('toolbox');
     setScreen('import');
   }, []);
 
@@ -239,12 +248,12 @@ export default function App() {
 
     setIsImporting(true);
     const items = collectSelectedImportItems(importReview);
-    const result = toolbox.applyImport(items);
+    const applyResult = toolbox.applyImport(items);
 
     setImportResult({
-      added: result.added,
+      added: applyResult.added,
       skipped: importReview.alreadyIn.length,
-      totalEntries: result.totalEntries,
+      totalEntries: applyResult.totalEntries,
     });
     setIsImporting(false);
     setImportReview(null);
@@ -255,13 +264,14 @@ export default function App() {
   const handleImportDone = useCallback(() => {
     setImportResult(null);
     setImportError(null);
-    setScreen('landing');
-    setActiveTab('check');
+    setActiveTab('toolbox');
+    setScreen('toolbox');
   }, []);
 
   const handleBackFromImport = useCallback(() => {
     setImportError(null);
-    setScreen('landing');
+    setActiveTab('toolbox');
+    setScreen('toolbox');
   }, []);
 
   const handleBackFromImportReview = useCallback(() => {
@@ -305,17 +315,24 @@ export default function App() {
     return <ImportSuccessScreen result={importResult} onDone={handleImportDone} />;
   }
 
+  const showTabs =
+    screen === 'landing' ||
+    screen === 'results' ||
+    screen === 'history' ||
+    screen === 'toolbox';
+
   if (screen === 'vocabulary' && vocabularyCategory) {
     return (
-      <VocabularyScreen
-        category={vocabularyCategory}
-        entries={toolbox.getByCategory(vocabularyCategory)}
-        onBack={handleBackFromVocabulary}
-      />
+      <div className="min-h-screen">
+        <AppTabs active="toolbox" onChange={handleTabChange} />
+        <VocabularyScreen
+          category={vocabularyCategory}
+          entries={toolbox.getByCategory(vocabularyCategory)}
+          onBack={handleBackFromVocabulary}
+        />
+      </div>
     );
   }
-
-  const showTabs = screen === 'landing' || screen === 'history' || screen === 'results';
 
   if (screen === 'results' && result) {
     return (
@@ -345,6 +362,21 @@ export default function App() {
     );
   }
 
+  if (screen === 'toolbox') {
+    return (
+      <div className="min-h-screen">
+        <AppTabs active={activeTab} onChange={handleTabChange} />
+        <ToolboxScreen
+          entries={toolbox.entries}
+          counts={toolbox.counts}
+          totalCount={toolbox.totalCount}
+          onSelectCategory={handleSelectCategory}
+          onImport={handleOpenImport}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       {error && (
@@ -358,10 +390,6 @@ export default function App() {
         onSentenceChange={setSentence}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
-        toolboxCounts={toolbox.counts}
-        toolboxTotal={toolbox.totalCount}
-        onSelectCategory={handleSelectCategory}
-        onImport={handleOpenImport}
       />
     </div>
   );

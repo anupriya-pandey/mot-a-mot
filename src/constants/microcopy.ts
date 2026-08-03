@@ -29,7 +29,9 @@ export const SCORES_ENGLISH_CLARIFICATION =
 export const SCORES_FRENCH_NOTE =
   'These ratings score what you wrote — not the corrected versions above.';
 export const HISTORY_EMPTY =
-  'No searches yet.\nCheck a French sentence — your history will appear here.';
+  'No practice history yet.\nCheck a French sentence — your past corrections will appear here.';
+export const HISTORY_SUBTITLE = 'Past corrections and analyses from your practice.';
+export const TOOLBOX_TAB_SUBTITLE = 'Everything you know — your personal French reference.';
 export const TOOLBOX_DESCRIPTION =
   'Your personal collection of French entries — words, expressions, and phrases you want to remember.';
 export const TOOLBOX_METHOD_PRACTICE =

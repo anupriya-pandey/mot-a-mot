@@ -86,6 +86,7 @@ export type AppScreen =
   | 'landing'
   | 'loading'
   | 'results'
+  | 'toolbox'
   | 'vocabulary'
   | 'history'
   | 'import'

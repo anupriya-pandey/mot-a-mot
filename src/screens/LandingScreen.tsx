@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { ERRORS, VOICE_HINT, VOICE_LISTENING } from '../constants/microcopy';
-import { FrenchToolboxDashboard } from '../components/FrenchToolboxDashboard';
 import { AppLogo } from '../components/AppLogo';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { StatusBanner } from '../components/StatusBanner';
@@ -9,17 +8,11 @@ import { TextInput } from '../components/TextInput';
 import { VoiceInputButton } from '../components/VoiceInputButton';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
-import type { CategoryCounts, PartOfSpeech } from '../types/toolbox';
-
 interface LandingScreenProps {
   sentence: string;
   onSentenceChange: (value: string) => void;
   onSubmit: () => void;
   isSubmitting: boolean;
-  toolboxCounts: CategoryCounts;
-  toolboxTotal: number;
-  onSelectCategory: (category: PartOfSpeech) => void;
-  onImport: () => void;
 }
 
 export function LandingScreen({
@@ -27,10 +20,6 @@ export function LandingScreen({
   onSentenceChange,
   onSubmit,
   isSubmitting,
-  toolboxCounts,
-  toolboxTotal,
-  onSelectCategory,
-  onImport,
 }: LandingScreenProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [showEmptyError, setShowEmptyError] = useState(false);
@@ -157,13 +146,6 @@ export function LandingScreen({
           <PrimaryButton onClick={handleSubmit} loading={isSubmitting}>
             Check My French
           </PrimaryButton>
-
-          <FrenchToolboxDashboard
-            counts={toolboxCounts}
-            totalCount={toolboxTotal}
-            onSelectCategory={onSelectCategory}
-            onImport={onImport}
-          />
         </div>
       </main>
 

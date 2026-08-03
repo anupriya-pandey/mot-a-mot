@@ -26,7 +26,7 @@ export function ImportSuccessScreen({ result, onDone }: ImportSuccessScreenProps
         </p>
 
         <div className="mt-xl">
-          <PrimaryButton onClick={onDone}>Back to Home</PrimaryButton>
+          <PrimaryButton onClick={onDone}>Back to Toolbox</PrimaryButton>
         </div>
       </div>
     </div>
