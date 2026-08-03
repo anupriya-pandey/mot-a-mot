@@ -26,8 +26,7 @@ function matchesQuery(entry: VocabularyEntry, query: string): boolean {
     entry.lemma.toLowerCase().includes(q) ||
     entry.meaning.toLowerCase().includes(q) ||
     entry.partOfSpeech.toLowerCase().includes(q) ||
-    entry.surfaces.some((surface) => surface.toLowerCase().includes(q)) ||
-    entry.examples.some((example) => example.toLowerCase().includes(q))
+    entry.surfaces.some((surface) => surface.toLowerCase().includes(q))
   );
 }
 
