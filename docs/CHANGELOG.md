@@ -8,11 +8,8 @@ All notable changes to Mot-à-Mot are documented here.
 
 - **Removed CEFR/DELF level labels (A1–C2)** — replaced with authentic communication options, not proficiency guessing
 - **Everyday French (Speaking)** — how a native would say it in conversation (replaces “Informal French”)
-- **Writing styles:** Simple, Natural, Refined — same meaning, different written register (not “harder = better”)
-- **Same as previous style** — when no better written version exists, the app says so explicitly
-- **What Changed** and **Why These Changes?** updated for speaking + three writing styles
-- Saved history from V1.2 still loads (legacy DELF results mapped to new format)
-- **Grouped Results UI:** each writing style (Simple / Natural / Refined) shows its sentence and **What changed** carousel together; speaking changes grouped with Everyday French
+- **Writing layers:** Foundation → Expanding → Fluent (learning journey, not proficiency labels)
+- **Everyday French (Conversation)** for speaking; grouped Results UI with per-layer **What changed** carousels
 
 ---
 

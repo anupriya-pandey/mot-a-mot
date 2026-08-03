@@ -22,33 +22,32 @@ Rules:
 
 Tone: friendly, calm, encouraging — like a patient French friend, never judgmental.`;
 
-const WRITING_STYLES_SYSTEM_PROMPT = `You generate THREE written French versions of the same message — Simple, Natural, and Refined — for learners who want to practice writing (not speaking).
+const WRITING_STYLES_SYSTEM_PROMPT = `You generate THREE written French versions of the same message — Foundation, Expanding, and Fluent (internal keys: simple, natural, refined) — for learners who want to practice writing (not speaking).
 
 CORE PHILOSOPHY — Mot-à-Mot is a practice buddy, NOT a proficiency examiner:
-- These are writing STYLES, not CEFR/DELF levels. Do NOT label anything A1, B2, etc.
+- These are writing LAYERS in a learning journey — not CEFR/DELF levels or judgments of ability.
 - Never increase complexity unless it creates real communicative value.
 - Never change, add, or remove meaning — only how the same idea is written.
-- Identical sentences across styles are ALLOWED and ENCOURAGED when no better version exists.
+- Identical sentences across layers are ALLOWED and ENCOURAGED when no better version exists.
 
-THE THREE STYLES:
+THE THREE LAYERS:
 
-Simple — Clear, everyday written French using common vocabulary. Appropriate for messages, notes, everyday correspondence. Include the FULL intended meaning using straightforward structures.
+Foundation (simple) — Clear, correct writing using common vocabulary. Include the FULL intended meaning using straightforward structures.
 
-Natural — A smoother, more polished written version that many native speakers would naturally write. May add richer vocabulary or smoother phrasing — same meaning only.
+Expanding (natural) — Introduces richer vocabulary and more varied sentence structures while keeping the same meaning.
 
-Refined — A more expressive or formal written alternative — ONLY when people actually write this way in real life (professional emails, formal notes). If no genuinely better refined version exists, repeat Natural.
+Fluent (refined) — Uses polished, natural written French where it genuinely adds value. If a simpler layer is already the best choice, repeat it (sameAsPrevious: true).
 
 RULES:
-1. Preserve meaning — every clause the learner intended must appear somewhere across the three styles when possible. Try to include the FULL message in Simple first; only omit if truly unwieldy and explain in note.
+1. Preserve meaning — include the FULL message in Foundation when possible; only omit if truly unwieldy and explain in note.
 2. Never invent new ideas or bureaucratic phrasing to sound "advanced."
-3. sameAsPrevious: true when this style's sentence is IDENTICAL to the previous style (Natural vs Simple, Refined vs Natural). This is a valid and common answer.
-4. coversFullMeaning: false only if a clause could not fit even in Simple — explain in note which part and why.
-5. Use appropriate written register (punctuation, line breaks for emails if natural) — not the same as casual speaking.
+3. sameAsPrevious: true when this layer's sentence is IDENTICAL to the previous layer. For Fluent, this often means "no richer wording adds value" — that is a valid and good answer.
+4. coversFullMeaning: false only if a clause could not fit even in Foundation — explain in note which part and why.
 
 Examples:
-- "Bonjour. Ça va?" → Simple: "Bonjour, comment allez-vous ?" / Natural & Refined: same (sameAsPrevious: true)
-- "Je suis fatigué." → Simple: "Je suis fatigué." / Natural: "Je suis très fatigué." / Refined: "Je suis complètement épuisé."
-- "Merci beaucoup." → Simple & Natural: "Merci beaucoup." / Refined: "Je vous remercie sincèrement." (only because people actually write this)
+- "Bonjour. Ça va?" → Foundation: "Bonjour, comment allez-vous ?" / Expanding & Fluent: same (sameAsPrevious: true)
+- "Je suis fatigué." → Foundation: "Je suis fatigué." / Expanding: "Je suis très fatigué." / Fluent: "Je suis complètement épuisé."
+- "Merci beaucoup." → Foundation & Expanding: "Merci beaucoup." / Fluent: "Je vous remercie sincèrement." (only because people actually write this)
 
 Return exactly 3 entries: simple, natural, refined.
 
@@ -372,7 +371,7 @@ function getUserFrenchForVocabulary(originalSentence, clarification) {
 
 function buildWritingStylesPrompt(sentence, understood, speakingSentence, clarification, retry = false) {
   let prompt = `Generate three written French versions (simple, natural, refined) for this message.
-Include the FULL intended meaning in Simple when possible. Never change meaning. Use sameAsPrevious when a style adds no value.
+Include the FULL intended meaning in Foundation when possible. Never change meaning. Use sameAsPrevious when a layer adds no value — especially at Fluent.
 
 Original learner message: "${sentence}"
 Full intended meaning: ${understood}

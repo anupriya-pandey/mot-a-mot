@@ -2,9 +2,11 @@ import {
   WRITING_STYLES,
   WRITING_STYLE_DESCRIPTIONS,
   WRITING_STYLE_LABELS,
+  WRITING_STYLE_LAYERS,
   WRITING_SECTION_INTRO,
+  getSameAsPreviousMessage,
 } from '../constants/writingStyles';
-import { PARTIAL_MEANING_AT_LEVEL, SAME_AS_PREVIOUS_STYLE } from '../constants/microcopy';
+import { PARTIAL_MEANING_AT_LAYER } from '../constants/microcopy';
 import type { CorrectionChange, WritingByStyle, WritingStyle } from '../types/analysis';
 import { PrimaryButton } from './PrimaryButton';
 import { SectionHeader } from './SectionHeader';
@@ -39,24 +41,27 @@ function WritingStyleGroup({
   changes: CorrectionChange[];
 }) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
-  const styleLabel = `${WRITING_STYLE_LABELS[style]} Writing`;
+  const layerLabel = WRITING_STYLE_LABELS[style];
 
   return (
     <article className="rounded-card bg-surface p-m shadow-card space-y-m">
       <div>
-        <h3 className="font-semibold text-text-primary">{styleLabel}</h3>
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+          {WRITING_STYLE_LAYERS[style]}
+        </p>
+        <h3 className="font-semibold text-text-primary">{layerLabel}</h3>
         <p className="mt-xs text-sm text-text-secondary">{WRITING_STYLE_DESCRIPTIONS[style]}</p>
       </div>
 
       {sameAsPrevious && previousLabel && (
         <p className="rounded-lg bg-success/10 px-m py-s text-sm font-medium text-success" role="status">
-          ✓ {SAME_AS_PREVIOUS_STYLE.replace('{style}', previousLabel)}
+          ✓ {getSameAsPreviousMessage(style, previousLabel)}
         </p>
       )}
 
       {coversFullMeaning === false && (
         <p className="rounded-lg bg-warning/10 px-m py-s text-sm font-medium text-text-primary" role="note">
-          {PARTIAL_MEANING_AT_LEVEL}
+          {PARTIAL_MEANING_AT_LAYER}
         </p>
       )}
 
@@ -69,7 +74,7 @@ function WritingStyleGroup({
           <PrimaryButton
             onClick={() => void copy(sentence)}
             success={copied}
-            aria-label={`Copy ${styleLabel}`}
+            aria-label={`Copy ${layerLabel} writing`}
           >
             Copy Message
           </PrimaryButton>
@@ -85,10 +90,10 @@ function WritingStyleGroup({
 
       <StyleChangesCarousel
         changes={changes}
-        styleLabel={styleLabel}
+        styleLabel={layerLabel}
         getFixPhrase={(change) => change.byStyle[style]}
         getExplanation={(change) => change.explanationsByStyle?.[style]}
-        ariaLabel={`What changed for ${styleLabel}`}
+        ariaLabel={`What changed for ${layerLabel}`}
       />
     </article>
   );

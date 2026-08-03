@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { NO_CHANGE_FORMAL_PHRASE } from '../constants/microcopy';
+import { NO_CHANGE_AT_LAYER } from '../constants/microcopy';
 import type { CorrectionChange } from '../types/analysis';
 import { SwipeCarousel } from './SwipeCarousel';
 
@@ -66,7 +66,7 @@ export function StyleChangesCarousel({
               <p className="break-words leading-relaxed text-success">{phrase}</p>
             ) : (
               <p className="text-sm italic leading-relaxed text-text-secondary">
-                {NO_CHANGE_FORMAL_PHRASE}
+                {NO_CHANGE_AT_LAYER}
               </p>
             )}
             {explanation && (

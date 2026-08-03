@@ -1,6 +1,11 @@
 import { InformationCard } from './InformationCard';
 import { PrimaryButton } from './PrimaryButton';
 import { StatusBanner } from './StatusBanner';
+import {
+  EVERYDAY_FRENCH_DESCRIPTION,
+  EVERYDAY_FRENCH_SUBTITLE,
+  EVERYDAY_FRENCH_TITLE,
+} from '../constants/writingStyles';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 
 interface SuggestedMessageCardProps {
@@ -10,13 +15,14 @@ interface SuggestedMessageCardProps {
 
 export function SuggestedMessageCard({ sentence, english }: SuggestedMessageCardProps) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
-  const title = '🗣 Everyday French (Speaking)';
-  const copyLabel = 'Copy everyday French message';
+  const title = `🗣 ${EVERYDAY_FRENCH_TITLE}`;
 
   return (
     <div className="space-y-m">
       <InformationCard icon="✅" title={title} highlight="success">
-        <p className="leading-relaxed">{sentence}</p>
+        <p className="text-sm font-medium text-text-secondary">{EVERYDAY_FRENCH_SUBTITLE}</p>
+        <p className="mt-xs text-sm text-text-secondary">{EVERYDAY_FRENCH_DESCRIPTION}</p>
+        <p className="mt-m leading-relaxed">{sentence}</p>
         {english?.trim() && (
           <p className="mt-s text-sm leading-relaxed text-text-secondary">{english.trim()}</p>
         )}
@@ -24,7 +30,7 @@ export function SuggestedMessageCard({ sentence, english }: SuggestedMessageCard
       <PrimaryButton
         onClick={() => void copy(sentence)}
         success={copied}
-        aria-label={copyLabel}
+        aria-label="Copy everyday French message"
       >
         Copy Message
       </PrimaryButton>
