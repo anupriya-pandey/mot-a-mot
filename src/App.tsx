@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { analyzeFrench } from './api/analyzeFrench';
 import { normalizeAnalysisResult } from './lib/normalizeAnalysisResult';
+import { applyConsistentRatings } from './lib/ratingsCache';
 import { AppTabs } from './components/AppTabs';
 import { StatusBanner } from './components/StatusBanner';
 import { ERRORS } from './constants/microcopy';
@@ -51,21 +52,24 @@ export default function App() {
       const shown = options?.display ?? sentence.trim();
       const language = options?.language ?? 'french';
 
-      setResult(analysis);
+      const consistentRatings = applyConsistentRatings(shown, language, analysis.ratings);
+      const analysisWithConsistentRatings = { ...analysis, ratings: consistentRatings };
+
+      setResult(analysisWithConsistentRatings);
       setDisplaySentence(shown);
       setSentenceLanguage(language);
 
-      toolbox.addUserVocabulary(analysis.userVocabulary ?? []);
+      toolbox.addUserVocabulary(analysisWithConsistentRatings.userVocabulary ?? []);
 
       if (options?.saveToHistory === false) return;
 
       if (options?.historyId) {
-        history.updateSearch(options.historyId, shown, sentence.trim(), analysis, language);
+        history.updateSearch(options.historyId, shown, sentence.trim(), analysisWithConsistentRatings, language);
         setCurrentHistoryId(options.historyId);
         return;
       }
 
-      const id = history.saveSearch(shown, sentence.trim(), analysis, language);
+      const id = history.saveSearch(shown, sentence.trim(), analysisWithConsistentRatings, language);
       setCurrentHistoryId(id);
     },
     [history, sentence, toolbox],

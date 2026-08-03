@@ -15,6 +15,10 @@ Rules:
 - explanations.speaking: 3–5 lines on why this sounds natural when speaking — conversational shortcuts, spoken French, texting conventions
 - Do NOT return a changes array — changes come in a separate step
 - Ratings are 0–100 integers for grammar and naturalness of the learner's French sentence ONLY
+- Rating rubric (apply consistently — the same French text must always receive the same scores):
+  - Grammar: count objective errors only (agreement, conjugation, spelling, word order, missing/extra words). Perfect = 95–100, one minor error = 75–90, several errors = 50–74, major errors = below 50
+  - Naturalness: how native the phrasing sounds if grammar is ignored. Awkward but understandable = 40–60, mostly natural = 70–85, fully natural = 90–100
+  - Round to whole numbers. Do not vary scores for identical input
 - If the learner clarified in ENGLISH, set both grammar and naturalness ratings to 0
 - If the learner clarified in French, rate that French clarification text
 - Never say "that's just how French works" — explain the underlying rule or pattern
@@ -584,6 +588,7 @@ async function runCorrection(config, sentence, clarification) {
     schemaName: 'french_correction',
     ollamaSchemaHint:
       'Keys: understood, suggestions ({speaking: {sentence, english}}), explanations ({speaking}), ratings ({grammar, naturalness}).',
+    temperature: 0.1,
   });
 }
 

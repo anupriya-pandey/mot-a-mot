@@ -79,10 +79,10 @@ function isValidKey(key) {
   return Boolean(key?.trim() && !/^your_.*_here$/i.test(key.trim()));
 }
 
-async function generateWithOpenAI(config, systemPrompt, userPrompt, schema, schemaName) {
+async function generateWithOpenAI(config, systemPrompt, userPrompt, schema, schemaName, temperature = 0.4) {
   const completion = await config.openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    temperature: 0.4,
+    temperature,
     response_format: {
       type: 'json_schema',
       json_schema: {
@@ -102,7 +102,7 @@ async function generateWithOpenAI(config, systemPrompt, userPrompt, schema, sche
   return JSON.parse(content);
 }
 
-async function generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model, attempt = 1) {
+async function generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model, temperature = 0.3, attempt = 1) {
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -116,7 +116,7 @@ async function generateWithGeminiModel(config, systemPrompt, userPrompt, schema,
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ parts: [{ text: userPrompt }] }],
           generationConfig: {
-            temperature: 0.3,
+            temperature,
             responseMimeType: 'application/json',
             responseSchema: schema,
           },
@@ -133,7 +133,7 @@ async function generateWithGeminiModel(config, systemPrompt, userPrompt, schema,
       error.model = model;
       if (isGeminiHighDemand(error) && attempt < 2) {
         await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
-        return generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model, attempt + 1);
+        return generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model, temperature, attempt + 1);
       }
       throw error;
     }
@@ -149,7 +149,7 @@ async function generateWithGeminiModel(config, systemPrompt, userPrompt, schema,
 
     if (isNetworkError && attempt < 3) {
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-      return generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model, attempt + 1);
+      return generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model, temperature, attempt + 1);
     }
 
     if (isNetworkError) {
@@ -163,12 +163,12 @@ async function generateWithGeminiModel(config, systemPrompt, userPrompt, schema,
   }
 }
 
-async function generateWithGemini(config, systemPrompt, userPrompt, schema) {
+async function generateWithGemini(config, systemPrompt, userPrompt, schema, temperature = 0.3) {
   let lastError;
 
   for (const model of config.geminiFallbackModels) {
     try {
-      return await generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model);
+      return await generateWithGeminiModel(config, systemPrompt, userPrompt, schema, model, temperature);
     } catch (error) {
       lastError = error;
       if (!isGeminiRetryableError(error)) throw error;
@@ -213,15 +213,15 @@ async function generateWithOllama(config, systemPrompt, userPrompt, schemaHint) 
 
 export async function generateStructured(
   config,
-  { systemPrompt, userPrompt, schema, schemaName, ollamaSchemaHint },
+  { systemPrompt, userPrompt, schema, schemaName, ollamaSchemaHint, temperature },
 ) {
   if (config.configuredProvider === 'gemini') {
-    return generateWithGemini(config, systemPrompt, userPrompt, schema);
+    return generateWithGemini(config, systemPrompt, userPrompt, schema, temperature);
   }
   if (config.configuredProvider === 'ollama') {
     return generateWithOllama(config, systemPrompt, userPrompt, ollamaSchemaHint);
   }
-  return generateWithOpenAI(config, systemPrompt, userPrompt, schema, schemaName);
+  return generateWithOpenAI(config, systemPrompt, userPrompt, schema, schemaName, temperature);
 }
 
 export { isVercel };
