@@ -1,4 +1,9 @@
-import { TOOLBOX_EMPTY } from '../constants/microcopy';
+import {
+  TOOLBOX_DESCRIPTION,
+  TOOLBOX_EMPTY,
+  TOOLBOX_METHOD_IMPORT,
+  TOOLBOX_METHOD_PRACTICE,
+} from '../constants/microcopy';
 import type { CategoryCounts, PartOfSpeech } from '../types/toolbox';
 import { SecondaryButton } from './SecondaryButton';
 
@@ -28,12 +33,30 @@ export function FrenchToolboxDashboard({
         )}
       </div>
 
+      <div className="mb-m rounded-card bg-surface p-m shadow-card">
+        <p className="text-sm leading-relaxed text-text-secondary">{TOOLBOX_DESCRIPTION}</p>
+        <ul className="mt-m space-y-s text-sm leading-relaxed text-text-secondary">
+          <li className="flex gap-s">
+            <span className="shrink-0 text-primary" aria-hidden>
+              ✦
+            </span>
+            <span>{TOOLBOX_METHOD_PRACTICE}</span>
+          </li>
+          <li className="flex gap-s">
+            <span className="shrink-0 text-primary" aria-hidden>
+              ✦
+            </span>
+            <span>{TOOLBOX_METHOD_IMPORT}</span>
+          </li>
+        </ul>
+      </div>
+
       <SecondaryButton onClick={onImport} className="mb-m">
         Import to Toolbox
       </SecondaryButton>
 
       {totalCount === 0 ? (
-        <p className="rounded-card bg-surface p-l text-sm text-text-secondary shadow-card whitespace-pre-line">
+        <p className="rounded-card bg-surface p-m text-sm text-text-secondary shadow-card">
           {TOOLBOX_EMPTY}
         </p>
       ) : (

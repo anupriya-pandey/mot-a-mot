@@ -30,8 +30,13 @@ export const SCORES_FRENCH_NOTE =
   'These ratings score what you wrote — not the corrected versions above.';
 export const HISTORY_EMPTY =
   'No searches yet.\nCheck a French sentence — your history will appear here.';
-export const TOOLBOX_EMPTY =
-  'Your French Toolbox is empty.\nStart checking sentences or import notes to build your entries.';
+export const TOOLBOX_DESCRIPTION =
+  'Your personal collection of French entries — words, expressions, and phrases you want to remember.';
+export const TOOLBOX_METHOD_PRACTICE =
+  'As you practice — check a sentence and the vocabulary from what you wrote is saved automatically; tap + on your results to add new entries from the corrected versions too.';
+export const TOOLBOX_METHOD_IMPORT =
+  'From your notes — import class lists, textbook pages, or pasted notes to add many entries at once.';
+export const TOOLBOX_EMPTY = 'No entries yet — your toolbox will grow as you check sentences and import notes.';
 
 export const VOICE_HINT =
   'Tap the mic — you\'ll hear a short chime when it\'s ready, then speak your French sentence.';
