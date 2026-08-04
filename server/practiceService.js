@@ -40,6 +40,9 @@ RULES:
   - Bad: showing the French lemma, conjugated form, or exact word that fills the blank
 - explanation: REQUIRED for every exercise — a short English note shown when the learner gets it wrong (and on success when helpful).
 - Mix exercise types: fill_blank, match_meaning, match_following, find_error, multiple_choice.
+- Across 10 exercises include at least 2 of each type when the toolbox allows — never make every question fill_blank or match_meaning.
+- NEVER use proper nouns or personal names (e.g. Anupriya, John) as French prompts or answers — only real French vocabulary from the toolbox.
+- hints must be specific grammar/meaning clues — NEVER "already in your toolbox" or "This noun is already in your toolbox".
 - CRITICAL: Every question MUST show French text the learner responds to. Never ask about a French word without displaying it. Never ask to complete a sentence without showing the French sentence.
 - Spread questions across grammatical categories; vary verb persons and adjective agreements.
 - Use English for instructions only. correctAnswer must match one option id or exact expected text.
@@ -167,6 +170,90 @@ function primaryMeaning(entry) {
     .trim();
 }
 
+const POS_LABEL = {
+  Verbs: 'verb',
+  Nouns: 'noun',
+  Adjectives: 'adjective',
+  Pronouns: 'pronoun',
+  Prepositions: 'preposition',
+  Adverbs: 'adverb',
+  Conjunctions: 'conjunction',
+};
+
+function posLabel(entry) {
+  return POS_LABEL[entry.partOfSpeech] ?? 'word';
+}
+
+function looksLikeProperNoun(entry) {
+  const lemma = String(entry.lemma ?? '').trim();
+  const meaning = primaryMeaning(entry);
+  if (!lemma) return true;
+
+  if (/^(name|proper noun|person|first name|given name)/i.test(meaning)) return true;
+
+  if (meaning.toLowerCase() === lemma.toLowerCase()) {
+    if (/^[A-Z][a-zA-Z'-]+$/.test(lemma) && !looksLikeFrench(lemma, [lemma])) {
+      return true;
+    }
+  }
+
+  if (/^[A-Z][a-z]+$/.test(lemma) && !/[àâäéèêëïîôùûüçœæ]/.test(lemma)) {
+    if (!looksLikeFrench(lemma, []) && !looksLikeFrench(meaning, [])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isPracticeEligibleEntry(entry) {
+  if (!entry?.lemma?.trim() || !entry?.meaning?.trim()) return false;
+  if (looksLikeProperNoun(entry)) return false;
+  return true;
+}
+
+function filterPracticeEntries(entries) {
+  return entries.filter(isPracticeEligibleEntry);
+}
+
+function buildPracticeHints(entry, exerciseType) {
+  const meaning = primaryMeaning(entry);
+  const label = posLabel(entry);
+  const lemma = entry.lemma;
+
+  const hintsByType = {
+    match_meaning: [
+      `Which English option matches this ${label} meaning "${meaning}"?`,
+      `Recall the everyday meaning of « ${lemma} » — ignore look-alike distractors.`,
+      `Think about when you would use this ${label} in a French sentence.`,
+    ],
+    fill_blank:
+      entry.partOfSpeech === 'Verbs'
+        ? [
+            `Conjugate « ${lemma} » (${meaning}) for je in the present tense.`,
+            `The blank needs the je form of the ${label} meaning "${meaning}".`,
+          ]
+        : [
+            `Fill in the ${label} that means "${meaning}".`,
+            `The missing word expresses "${meaning}" in French.`,
+          ],
+    multiple_choice: [
+      `Pick the French form that fits the sentence — it relates to "${meaning}".`,
+      `One option is the correct ${label} for this context.`,
+    ],
+    find_error: [
+      `Check agreement or verb form — one word does not fit the sentence.`,
+      `Look at how « ${lemma} » (${meaning}) is used in this sentence.`,
+    ],
+    match_following: [
+      `Match each French word to its English meaning carefully.`,
+      `Pair each ${label} with the English idea it expresses.`,
+    ],
+  };
+
+  return [shuffle(hintsByType[exerciseType] ?? hintsByType.match_meaning)[0]];
+}
+
 function normalizeCorrectAnswer(value) {
   if (value === null || value === undefined) return '';
   if (typeof value === 'object') return JSON.stringify(value);
@@ -231,7 +318,7 @@ function buildFallbackMatchMeaning(entry, poolEntries, index, stage) {
     instruction: 'Select the correct English meaning for this French word from your toolbox.',
     targetWords: [entry.lemma],
     focusCategory: entry.partOfSpeech,
-    hints: [`This ${String(entry.partOfSpeech ?? 'word').toLowerCase()} is already in your toolbox.`],
+    hints: buildPracticeHints(entry, 'match_meaning'),
     frenchPrompt: entry.lemma,
     options,
     correctAnswer,
@@ -242,6 +329,28 @@ function buildFallbackMatchMeaning(entry, poolEntries, index, stage) {
 function buildFallbackFillBlank(entry, poolEntries, index, stage) {
   if (entry.partOfSpeech === 'Verbs') {
     const conjugated = conjugateJePresent(entry.lemma);
+    const lemmaKey = entry.lemma.trim().toLowerCase().normalize('NFC');
+
+    if (!conjugated || conjugated === lemmaKey) {
+      return buildFallbackMatchMeaning(entry, poolEntries, index, stage);
+    }
+
+    const IRREGULAR_HINT_VERBS = new Set([
+      'être',
+      'etre',
+      'avoir',
+      'aller',
+      'faire',
+      'venir',
+      'prendre',
+      'pouvoir',
+      'vouloir',
+      'savoir',
+      'voir',
+      'dire',
+      'devoir',
+    ]);
+    const isIrregular = IRREGULAR_HINT_VERBS.has(lemmaKey);
 
     return enrichPrompt({
       id: `fallback-fill-${entry.lemma}-${index}`,
@@ -252,13 +361,71 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       instruction: `Complete the sentence with the correct present-tense form of « ${entry.lemma} ».`,
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      hints: [
-        `Conjugate the verb meaning "${primaryMeaning(entry)}" for je in the present tense.`,
-        'Use the regular present-tense ending for this verb group.',
-      ],
+      hints: isIrregular
+        ? [
+            `« ${entry.lemma} » is irregular — recall the je form for "${primaryMeaning(entry)}".`,
+            'This verb does not follow the regular -er pattern.',
+          ]
+        : buildPracticeHints(entry, 'fill_blank').concat([
+            'Use the regular present-tense ending for this verb group.',
+          ]).slice(0, 2),
       sentenceWithBlank: `Chaque jour, je ___ près de la gare.`,
       correctAnswer: conjugated,
       explanation: `For je in the present tense, « ${entry.lemma} » becomes « ${conjugated} ».`,
+    });
+  }
+
+  if (entry.partOfSpeech === 'Nouns') {
+    return enrichPrompt({
+      id: `fallback-fill-${entry.lemma}-${index}`,
+      index,
+      stage,
+      type: 'fill_blank',
+      title: 'Fill in the blank',
+      instruction: 'Complete the sentence with the correct French word from your toolbox.',
+      targetWords: [entry.lemma],
+      focusCategory: entry.partOfSpeech,
+      hints: buildPracticeHints(entry, 'fill_blank'),
+      sentenceWithBlank: 'Hier, j\'ai visité le ___.',
+      correctAnswer: entry.lemma,
+      explanation: `The missing word is « ${entry.lemma} », which means ${primaryMeaning(entry)}.`,
+    });
+  }
+
+  if (entry.partOfSpeech === 'Adjectives') {
+    return enrichPrompt({
+      id: `fallback-fill-${entry.lemma}-${index}`,
+      index,
+      stage,
+      type: 'fill_blank',
+      title: 'Fill in the blank',
+      instruction: 'Complete the sentence with the correct French adjective from your toolbox.',
+      targetWords: [entry.lemma],
+      focusCategory: entry.partOfSpeech,
+      hints: buildPracticeHints(entry, 'fill_blank'),
+      sentenceWithBlank: 'Ce tableau est vraiment ___.',
+      correctAnswer: entry.lemma,
+      explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)} and fits this sentence naturally.`,
+    });
+  }
+
+  if (entry.partOfSpeech === 'Adverbs' || entry.partOfSpeech === 'Prepositions') {
+    return enrichPrompt({
+      id: `fallback-fill-${entry.lemma}-${index}`,
+      index,
+      stage,
+      type: 'fill_blank',
+      title: 'Fill in the blank',
+      instruction: 'Complete the sentence with the correct French word from your toolbox.',
+      targetWords: [entry.lemma],
+      focusCategory: entry.partOfSpeech,
+      hints: buildPracticeHints(entry, 'fill_blank'),
+      sentenceWithBlank:
+        entry.partOfSpeech === 'Prepositions'
+          ? 'Je vais ___ Paris demain matin.'
+          : 'Il parle ___ bien français.',
+      correctAnswer: entry.lemma,
+      explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)}.`,
     });
   }
 
@@ -266,6 +433,12 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
 }
 
 function buildFallbackFindError(entry, poolEntries, index, stage) {
+  const adjectiveResult = buildFallbackFindErrorAdjective(entry, poolEntries, index, stage);
+  if (adjectiveResult) return adjectiveResult;
+  return buildFallbackFindErrorVerb(entry, poolEntries, index, stage);
+}
+
+function buildFallbackFindErrorAdjective(entry, poolEntries, index, stage) {
   const forms = entry.adjectiveForms;
   const masculine = String(forms?.masculineSingular ?? '').trim();
   const feminine = String(forms?.feminineSingular ?? '').trim();
@@ -308,14 +481,118 @@ function buildFallbackFindError(entry, poolEntries, index, stage) {
     instruction: 'Read the French sentence and choose the fix that corrects the grammar mistake.',
     targetWords: [entry.lemma],
     focusCategory: entry.partOfSpeech,
-    hints: [
-      `Look at adjective agreement — the subject is ${subjectLabel} (${subject}).`,
-      `The adjective "${primaryMeaning(entry)}" must match the subject in gender.`,
-    ],
+    hints: buildPracticeHints(entry, 'find_error'),
     flawedSentence,
     options,
     correctAnswer: correctOption?.id ?? 'a',
     explanation: `${subject} is ${subjectLabel}, so the adjective needs the ${subjectLabel} form "${correctForm}", not "${wrongForm}".`,
+  });
+}
+
+function buildFallbackFindErrorVerb(entry, poolEntries, index, stage) {
+  if (entry.partOfSpeech !== 'Verbs') return null;
+
+  const conjugated = conjugateJePresent(entry.lemma);
+  if (!conjugated || conjugated === entry.lemma.trim().toLowerCase()) return null;
+
+  const flawedSentence = `Chaque jour, je ${entry.lemma} à l'école.`;
+  const correctFix = `Change '${entry.lemma}' to '${conjugated}'`;
+
+  const optionTexts = shuffle([
+    correctFix,
+    `Change '${conjugated}' to '${entry.lemma}'`,
+    `Change 'je' to 'nous'`,
+    `Change 'à' to 'de'`,
+  ]).slice(0, 4);
+
+  const options = optionTexts.map((text, optionIndex) => ({
+    id: String.fromCharCode(97 + optionIndex),
+    text,
+  }));
+
+  const correctOption = options.find((option) => option.text === correctFix);
+
+  return enrichPrompt({
+    id: `fallback-find-error-verb-${entry.lemma}-${index}`,
+    index,
+    stage,
+    type: 'find_error',
+    title: 'Find the error',
+    instruction: 'Read the French sentence and choose the fix that corrects the grammar mistake.',
+    targetWords: [entry.lemma],
+    focusCategory: entry.partOfSpeech,
+    hints: [
+      `After "je", you need a conjugated verb — not the infinitive « ${entry.lemma} ».`,
+      `Recall the je present-tense form for "${primaryMeaning(entry)}".`,
+    ],
+    flawedSentence,
+    options,
+    correctAnswer: correctOption?.id ?? 'a',
+    explanation: `After "je", use the conjugated form « ${conjugated} », not the infinitive « ${entry.lemma} ».`,
+  });
+}
+
+function buildFallbackMultipleChoice(entry, poolEntries, index, stage) {
+  const meaning = primaryMeaning(entry);
+  let sentenceWithBlank;
+  let correctText;
+
+  if (entry.partOfSpeech === 'Verbs') {
+    const conjugated = conjugateJePresent(entry.lemma);
+    if (!conjugated || conjugated === entry.lemma.trim().toLowerCase()) return null;
+    sentenceWithBlank = 'Ce matin, je ___ avec mes collègues.';
+    correctText = conjugated;
+  } else if (entry.partOfSpeech === 'Pronouns') {
+    sentenceWithBlank = '___ habite dans un petit village.';
+    correctText = entry.lemma;
+  } else {
+    sentenceWithBlank = 'Pour le déjeuner, j\'ai choisi ___.';
+    correctText = entry.lemma;
+  }
+
+  const sameCategory = poolEntries.filter(
+    (item) => item.lemma !== entry.lemma && item.partOfSpeech === entry.partOfSpeech,
+  );
+  const distractorPool = shuffle(sameCategory.length >= 3 ? sameCategory : poolEntries.filter((item) => item.lemma !== entry.lemma));
+
+  const distractorTexts = [];
+  for (const item of distractorPool) {
+    if (distractorTexts.length >= 3) break;
+    const text =
+      item.partOfSpeech === 'Verbs'
+        ? conjugateJePresent(item.lemma) ?? item.lemma
+        : item.lemma;
+    if (!text || text.toLowerCase() === correctText.toLowerCase()) continue;
+    if (distractorTexts.some((value) => value.toLowerCase() === text.toLowerCase())) continue;
+    distractorTexts.push(text);
+  }
+
+  if (distractorTexts.length < 3) return null;
+
+  const options = shuffle([
+    { id: 'a', text: correctText },
+    ...distractorTexts.map((text, optionIndex) => ({
+      id: String.fromCharCode(98 + optionIndex),
+      text,
+    })),
+  ]).slice(0, 4);
+
+  const correctOption = options.find((option) => option.text.toLowerCase() === correctText.toLowerCase());
+
+  return enrichPrompt({
+    id: `fallback-mcq-${entry.lemma}-${index}`,
+    index,
+    stage,
+    type: 'multiple_choice',
+    title: 'Choose the correct form',
+    instruction: 'Read the French sentence and select the word that completes it correctly.',
+    targetWords: [entry.lemma],
+    focusCategory: entry.partOfSpeech,
+    hints: buildPracticeHints(entry, 'multiple_choice'),
+    sentenceWithBlank,
+    options,
+    correctAnswer: correctOption?.id ?? 'a',
+    explanation: `« ${correctText} » fits here — it relates to "${meaning}".`,
   });
 }
 
@@ -354,7 +631,7 @@ function buildFallbackMatchFollowing(entries, index, stage) {
     instruction: 'Match each French word to its English meaning.',
     targetWords: rows.map((row) => row.french),
     focusCategory: entries[0]?.partOfSpeech,
-    hints: ['These words all come from your toolbox — think about each meaning carefully.'],
+    hints: buildPracticeHints(entries[0] ?? { partOfSpeech: 'word' }, 'match_following'),
     matchRows: rows,
     options,
     correctAnswer: JSON.stringify(answerMap),
@@ -362,43 +639,103 @@ function buildFallbackMatchFollowing(entries, index, stage) {
   });
 }
 
+const QUICK_TYPE_ROTATION = [
+  'match_meaning',
+  'fill_blank',
+  'multiple_choice',
+  'find_error',
+  'match_following',
+];
+
+function tryBuildFallbackByType(type, entry, pool, index, stage) {
+  switch (type) {
+    case 'match_meaning':
+      return buildFallbackMatchMeaning(entry, pool, index, stage);
+    case 'fill_blank':
+      return buildFallbackFillBlank(entry, pool, index, stage);
+    case 'multiple_choice':
+      return buildFallbackMultipleChoice(entry, pool, index, stage);
+    case 'find_error':
+      return buildFallbackFindError(entry, pool, index, stage);
+    case 'match_following':
+      if (pool.length >= 3) {
+        return buildFallbackMatchFollowing(pool, index, stage);
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+function canAddFallbackPrompt(candidate, prompts, completed) {
+  if (!candidate) return false;
+  if (completed.has(candidate.id)) return false;
+  if (prompts.some((prompt) => prompt.id === candidate.id)) return false;
+  return true;
+}
+
 function buildFallbackQuickPrompts(entries, count, completedQuestionIds = []) {
   const completed = new Set(completedQuestionIds);
-  const pool = shuffle(entries);
+  const pool = shuffle(filterPracticeEntries(entries));
   const prompts = [];
   let index = 1;
+  let entryCursor = 0;
 
-  for (const entry of pool) {
+  const nextEntry = () => {
+    if (pool.length === 0) return null;
+    const entry = pool[entryCursor % pool.length];
+    entryCursor += 1;
+    return entry;
+  };
+
+  for (const type of QUICK_TYPE_ROTATION) {
     if (prompts.length >= count) break;
 
-    const candidates = [
-      buildFallbackMatchMeaning(entry, pool, index, 'quick'),
-      buildFallbackFillBlank(entry, pool, index, 'quick'),
-      buildFallbackFindError(entry, pool, index, 'quick'),
-    ].filter(Boolean);
+    if (type === 'match_following') {
+      const candidate = tryBuildFallbackByType(type, null, pool, index, 'quick');
+      if (canAddFallbackPrompt(candidate, prompts, completed)) {
+        prompts.push({ ...candidate, index: index++ });
+      }
+      continue;
+    }
 
-    for (const candidate of candidates) {
-      if (prompts.length >= count) break;
-      if (completed.has(candidate.id)) continue;
-      if (prompts.some((prompt) => prompt.id === candidate.id)) continue;
+    for (let attempt = 0; attempt < pool.length; attempt += 1) {
+      const entry = nextEntry();
+      if (!entry) break;
+      const candidate = tryBuildFallbackByType(type, entry, pool, index, 'quick');
+      if (!canAddFallbackPrompt(candidate, prompts, completed)) continue;
       prompts.push({ ...candidate, index: index++ });
+      break;
     }
   }
 
-  if (pool.length >= 3 && prompts.length < count) {
-    const following = buildFallbackMatchFollowing(pool, index, 'quick');
-    if (!completed.has(following.id) && !prompts.some((prompt) => prompt.id === following.id)) {
-      prompts.push({ ...following, index: index++ });
-    }
-  }
-
-  let repeatRound = 0;
+  let typeRound = 0;
   while (prompts.length < count && pool.length > 0) {
-    const entry = pool[prompts.length % pool.length];
-    const candidate = buildFallbackMatchMeaning(entry, pool, index, 'quick');
-    candidate.id = `${candidate.id}-extra-${repeatRound}-${prompts.length}`;
-    prompts.push({ ...candidate, index: index++ });
-    repeatRound += 1;
+    const type = QUICK_TYPE_ROTATION[typeRound % QUICK_TYPE_ROTATION.length];
+    typeRound += 1;
+
+    if (type === 'match_following') {
+      const candidate = tryBuildFallbackByType(type, null, pool, index, 'quick');
+      if (canAddFallbackPrompt(candidate, prompts, completed)) {
+        candidate.id = `${candidate.id}-round-${typeRound}`;
+        prompts.push({ ...candidate, index: index++ });
+      }
+      continue;
+    }
+
+    let added = false;
+    for (let attempt = 0; attempt < pool.length; attempt += 1) {
+      const entry = nextEntry();
+      if (!entry) break;
+      const candidate = tryBuildFallbackByType(type, entry, pool, index, 'quick');
+      if (!canAddFallbackPrompt(candidate, prompts, completed)) continue;
+      candidate.id = `${candidate.id}-round-${typeRound}-${prompts.length}`;
+      prompts.push({ ...candidate, index: index++ });
+      added = true;
+      break;
+    }
+
+    if (!added && typeRound > QUICK_TYPE_ROTATION.length * pool.length) break;
   }
 
   return prompts.slice(0, count);
@@ -458,8 +795,45 @@ function buildFallbackSentencePrompts(entries, count) {
   return prompts.slice(0, count);
 }
 
-function mergePromptLists(primary, fallback, completedQuestionIds, targetCount = SESSION_QUESTION_COUNT) {
+function ensureQuickTypeMix(prompts, fallback, targetCount) {
+  const types = STAGE_CONFIG.quick.types;
+  const pool = dedupePrompts([...prompts, ...fallback], []);
+  const result = [];
+  const usedIds = new Set();
+
+  const takeNext = (type) => {
+    const candidate = pool.find((prompt) => prompt.type === type && !usedIds.has(prompt.id));
+    if (!candidate) return false;
+    result.push(candidate);
+    usedIds.add(candidate.id);
+    return true;
+  };
+
+  for (const type of types) {
+    takeNext(type);
+  }
+
+  while (result.length < targetCount) {
+    const counts = Object.fromEntries(types.map((type) => [type, 0]));
+    result.forEach((prompt) => {
+      counts[prompt.type] = (counts[prompt.type] ?? 0) + 1;
+    });
+    const minCount = Math.min(...types.map((type) => counts[type] ?? 0));
+    const preferredTypes = types.filter((type) => (counts[type] ?? 0) === minCount);
+    const next = pool.find((prompt) => preferredTypes.includes(prompt.type) && !usedIds.has(prompt.id));
+    if (!next) break;
+    result.push(next);
+    usedIds.add(next.id);
+  }
+
+  return result.slice(0, targetCount).map((prompt, index) => ({ ...prompt, index: index + 1 }));
+}
+
+function mergePromptLists(primary, fallback, completedQuestionIds, targetCount = SESSION_QUESTION_COUNT, stage = 'quick') {
   const merged = dedupePrompts([...primary, ...fallback], completedQuestionIds);
+  if (stage === 'quick') {
+    return ensureQuickTypeMix(merged, fallback, targetCount);
+  }
   return merged.slice(0, targetCount).map((prompt, index) => ({ ...prompt, index: index + 1 }));
 }
 
@@ -696,6 +1070,7 @@ function isSingleGenericHint(hint) {
   return (
     hint === GENERIC_PRACTICE_HINT ||
     /hints describe the idea/i.test(hint) ||
+    /already in your toolbox/i.test(hint) ||
     hint.length < 12
   );
 }
@@ -724,11 +1099,44 @@ function hintsRevealAnswer(hints, correctAnswer, acceptableAnswers = []) {
 }
 
 function conjugateJePresent(lemma) {
-  const verb = String(lemma ?? '').trim().toLowerCase();
+  const verb = String(lemma ?? '').trim().toLowerCase().normalize('NFC');
+
+  const IRREGULAR_JE_PRESENT = {
+    être: 'suis',
+    etre: 'suis',
+    avoir: 'ai',
+    aller: 'vais',
+    faire: 'fais',
+    venir: 'viens',
+    prendre: 'prends',
+    pouvoir: 'peux',
+    vouloir: 'veux',
+    savoir: 'sais',
+    voir: 'vois',
+    dire: 'dis',
+    devoir: 'dois',
+    mettre: 'mets',
+    tenir: 'tiens',
+    partir: 'pars',
+    sortir: 'sors',
+    dormir: 'dors',
+    ouvrir: 'ouvre',
+    écrire: 'écris',
+    ecrire: 'écris',
+    lire: 'lis',
+    boire: 'bois',
+    connaître: 'connais',
+    connaitre: 'connais',
+  };
+
+  if (IRREGULAR_JE_PRESENT[verb]) {
+    return IRREGULAR_JE_PRESENT[verb];
+  }
+
   if (verb.endsWith('er')) return `${verb.slice(0, -2)}e`;
   if (verb.endsWith('ir')) return `${verb.slice(0, -2)}is`;
   if (verb.endsWith('re')) return `${verb.slice(0, -2)}s`;
-  return verb;
+  return null;
 }
 
 function isValidFillBlank(prompt) {
@@ -741,6 +1149,24 @@ function isValidFillBlank(prompt) {
   if (!hasUsableHints(prompt.hints)) return false;
   if (hintsRevealAnswer(prompt.hints, prompt.correctAnswer, prompt.acceptableAnswers)) return false;
   if (isGenericPracticeExplanation(prompt.explanation)) return false;
+
+  const instruction = String(prompt.instruction ?? '').toLowerCase();
+  if (/present-tense|conjugat/.test(instruction)) {
+    for (const word of prompt.targetWords ?? []) {
+      const lemma = String(word).trim().toLowerCase().normalize('NFC');
+      const answer = String(prompt.correctAnswer ?? '').trim().toLowerCase();
+      if (
+        (lemma === 'être' ||
+          lemma === 'etre' ||
+          lemma.endsWith('er') ||
+          lemma.endsWith('re') ||
+          lemma.endsWith('ir')) &&
+        answer === lemma
+      ) {
+        return false;
+      }
+    }
+  }
 
   return true;
 }
@@ -755,6 +1181,7 @@ function isGenericPracticeHint(hints) {
     (hint) =>
       hint === GENERIC_PRACTICE_HINT ||
       /hints describe the idea/i.test(hint) ||
+      /already in your toolbox/i.test(hint) ||
       hint.length < 12,
   );
 }
@@ -890,7 +1317,11 @@ function isValidFrenchContext(prompt) {
 
   switch (prompt.type) {
     case 'match_meaning':
-      return Boolean(prompt.frenchPrompt?.trim()) && looksLikeFrench(prompt.frenchPrompt, words);
+      return (
+        Boolean(prompt.frenchPrompt?.trim()) &&
+        looksLikeFrench(prompt.frenchPrompt, words) &&
+        !looksLikeProperNoun({ lemma: prompt.frenchPrompt, meaning: prompt.frenchPrompt })
+      );
     case 'fill_blank':
       return (
         Boolean(prompt.sentenceWithBlank?.trim()) &&
@@ -994,7 +1425,9 @@ ${avoidLine}
 
 ${lines}
 
-Generate ${SESSION_QUESTION_COUNT} randomized exercises using ONLY words from this toolbox.`;
+Generate ${SESSION_QUESTION_COUNT} randomized exercises using ONLY words from this toolbox.
+Use at least 2 of each Spot & Match type (fill_blank, match_meaning, match_following, find_error, multiple_choice) when possible.
+Never use proper nouns or personal names. Hints must be specific — never say "already in your toolbox".`;
 }
 
 function buildQuestionFingerprint(type, focusCategory, targetWords, title) {
@@ -1121,7 +1554,7 @@ export async function generatePracticeSession(body) {
     };
   }
 
-  const entries = filterEntries(allEntries, focusCategory);
+  const entries = filterPracticeEntries(filterEntries(allEntries, focusCategory));
   if (entries.length < 3) {
     return {
       status: 400,
@@ -1162,7 +1595,7 @@ export async function generatePracticeSession(body) {
       estimatedMinutes = String(aiResult.estimatedMinutes ?? estimatedMinutes).trim();
     }
 
-    const prompts = mergePromptLists(aiPrompts, fallbackPrompts, completedQuestionIds, SESSION_QUESTION_COUNT);
+    const prompts = mergePromptLists(aiPrompts, fallbackPrompts, completedQuestionIds, SESSION_QUESTION_COUNT, stage);
 
     if (prompts.length < SESSION_MIN_QUESTIONS) {
       return {
@@ -1186,7 +1619,7 @@ export async function generatePracticeSession(body) {
   } catch (error) {
     console.error('Practice session generation failed:', error);
 
-    const prompts = mergePromptLists([], fallbackPrompts, completedQuestionIds, SESSION_QUESTION_COUNT);
+    const prompts = mergePromptLists([], fallbackPrompts, completedQuestionIds, SESSION_QUESTION_COUNT, stage);
 
     if (prompts.length >= SESSION_MIN_QUESTIONS) {
       return {

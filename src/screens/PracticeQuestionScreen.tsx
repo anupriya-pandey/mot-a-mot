@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { PracticeWritingFeedback } from '../components/PracticeWritingFeedback';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { StatusBanner } from '../components/StatusBanner';
 import { TextInput } from '../components/TextInput';
 import {
+  PRACTICE_END_SESSION,
   PRACTICE_HINTS_LABEL,
   PRACTICE_QUICK_CORRECT,
   PRACTICE_QUICK_INCORRECT,
@@ -14,14 +16,7 @@ import {
   sanitizeFillBlankSentence,
   sanitizeFrenchDisplayText,
 } from '../lib/practiceHelpers';
-import type { PracticePrompt } from '../types/practice';
-
-export interface PracticeQuestionFeedback {
-  correct: boolean;
-  userAnswer: string;
-  correctAnswer: string;
-  explanation?: string;
-}
+import type { PracticePrompt, PracticeQuestionFeedback } from '../types/practice';
 
 interface PracticeQuestionScreenProps {
   prompt: PracticePrompt;
@@ -30,6 +25,7 @@ interface PracticeQuestionScreenProps {
   feedback: PracticeQuestionFeedback | null;
   onSubmit: (answer: string) => void;
   onNext: () => void;
+  onEndSession: () => void;
   isChecking: boolean;
 }
 
@@ -63,6 +59,7 @@ export function PracticeQuestionScreen({
   feedback,
   onSubmit,
   onNext,
+  onEndSession,
   isChecking,
 }: PracticeQuestionScreenProps) {
   const [answer, setAnswer] = useState('');
@@ -133,9 +130,18 @@ export function PracticeQuestionScreen({
 
   return (
     <div className="mx-auto w-full max-w-content px-m py-xl">
-      <p className="mb-m text-sm font-medium text-text-secondary">
-        Question {questionNumber} of {totalQuestions}
-      </p>
+      <div className="mb-m flex items-center justify-between gap-m">
+        <p className="text-sm font-medium text-text-secondary">
+          Question {questionNumber} of {totalQuestions}
+        </p>
+        <button
+          type="button"
+          onClick={onEndSession}
+          className="text-sm font-medium text-text-secondary underline-offset-2 hover:text-text-primary hover:underline"
+        >
+          {PRACTICE_END_SESSION}
+        </button>
+      </div>
 
       <p className="text-xs font-medium uppercase tracking-wide text-primary">
         {exerciseTypeLabel(prompt.type)}
@@ -264,7 +270,11 @@ export function PracticeQuestionScreen({
         </div>
       )}
 
-      {feedback && (
+      {feedback?.grading && (
+        <PracticeWritingFeedback grading={feedback.grading} userAnswer={feedback.userAnswer} />
+      )}
+
+      {feedback && !feedback.grading && (
         <div
           className={[
             'mt-l rounded-card border px-m py-m',
@@ -277,7 +287,7 @@ export function PracticeQuestionScreen({
           <p className="font-semibold text-text-primary">
             {feedback.correct ? PRACTICE_QUICK_CORRECT : PRACTICE_QUICK_INCORRECT}
           </p>
-          {!feedback.correct && (
+          {!feedback.correct && feedback.correctAnswer && (
             <p className="mt-s text-base text-text-primary">
               <span className="font-medium">Answer: </span>
               {feedback.correctAnswer}
@@ -314,7 +324,7 @@ export function PracticeQuestionScreen({
           </PrimaryButton>
         ) : (
           <PrimaryButton onClick={handleSubmit} loading={isChecking}>
-            {isTextProduction ? 'Check' : 'Submit'}
+            {isTextProduction ? 'Submit' : 'Submit'}
           </PrimaryButton>
         )}
       </div>

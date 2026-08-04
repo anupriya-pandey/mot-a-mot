@@ -2,7 +2,8 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import {
   PRACTICE_SUMMARY_CATEGORIES,
   PRACTICE_SUMMARY_COMPLETED,
-  PRACTICE_SUMMARY_CORRECT,
+  PRACTICE_SUMMARY_ENDED_EARLY,
+  PRACTICE_SUMMARY_FULL_CREDIT,
   PRACTICE_SUMMARY_REINFORCED,
   PRACTICE_SUMMARY_SCORE,
   PRACTICE_SUMMARY_SCORE_NOTE,
@@ -27,11 +28,7 @@ function StarRating({ score, total }: { score: number; total: number }) {
 }
 
 export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreenProps) {
-  const isSentenceStage = summary.stage === 'sentence';
-  const scoreLabel = isSentenceStage ? PRACTICE_SUMMARY_SCORE : PRACTICE_SUMMARY_CORRECT;
-  const scoreDisplay = isSentenceStage
-    ? `${formatPracticeScore(summary.totalScore)}/${summary.totalCount}`
-    : `${summary.correctCount}/${summary.totalCount}`;
+  const scoreDisplay = `${formatPracticeScore(summary.totalScore)}/${summary.totalCount}`;
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-content flex-col justify-center px-m py-xl">
@@ -40,15 +37,18 @@ export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreen
         <p className="mt-xs text-sm font-medium text-success">{PRACTICE_SUMMARY_COMPLETED}</p>
 
         <div className="mt-l">
-          <StarRating score={isSentenceStage ? summary.totalScore : summary.correctCount} total={summary.totalCount} />
+          <StarRating score={summary.totalScore} total={summary.totalCount} />
           <p className="mt-s text-base text-text-primary">
-            {summary.completedCount}/{summary.totalCount} prompts
+            {summary.completedCount}/{summary.totalCount} prompts answered
           </p>
         </div>
 
         <ul className="mt-l space-y-s text-base text-text-primary">
           <li>
-            {scoreLabel}: {scoreDisplay}
+            {PRACTICE_SUMMARY_SCORE}: {scoreDisplay}
+          </li>
+          <li>
+            {PRACTICE_SUMMARY_FULL_CREDIT}: {summary.correctCount}/{summary.totalCount}
           </li>
           <li>
             {PRACTICE_SUMMARY_REINFORCED}: {summary.toolboxWordsReinforced}
@@ -58,15 +58,11 @@ export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreen
           </li>
         </ul>
 
-        {isSentenceStage && (
-          <p className="mt-m text-sm leading-relaxed text-text-secondary">{PRACTICE_SUMMARY_SCORE_NOTE}</p>
+        {summary.endedEarly && (
+          <p className="mt-m text-sm leading-relaxed text-text-secondary">{PRACTICE_SUMMARY_ENDED_EARLY}</p>
         )}
 
-        <p className="mt-m text-sm leading-relaxed text-text-secondary">
-          {summary.stage === 'sentence'
-            ? 'Nice work — your written answers are saved in History.'
-            : 'Keep going — each correct answer reinforces words from your toolbox.'}
-        </p>
+        <p className="mt-m text-sm leading-relaxed text-text-secondary">{PRACTICE_SUMMARY_SCORE_NOTE}</p>
 
         <div className="mt-xl">
           <PrimaryButton onClick={onDone}>Back to Practice Lab</PrimaryButton>

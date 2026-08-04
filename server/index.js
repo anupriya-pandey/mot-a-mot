@@ -4,6 +4,7 @@ import express from 'express';
 import { analyzeSentence, getHealthStatus, isConfigured } from './analyzeService.js';
 import { importToolboxText } from './importService.js';
 import { generatePracticeSession } from './practiceService.js';
+import { gradePracticeExercise } from './practiceGradeService.js';
 
 dotenv.config();
 
@@ -49,6 +50,18 @@ app.post('/api/import-toolbox', async (req, res) => {
   }
 });
 
+app.post('/api/practice-grade', async (req, res) => {
+  try {
+    const result = await gradePracticeExercise(req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('POST /api/practice-grade failed:', error);
+    return res.status(500).json({
+      message: "We couldn't grade your answer right now. Please try again.",
+    });
+  }
+});
+
 app.post('/api/practice-session', async (req, res) => {
   try {
     const result = await generatePracticeSession(req.body);
@@ -72,6 +85,7 @@ app.get('/', (_req, res) => {
       analyze: 'POST /api/analyze',
       importToolbox: 'POST /api/import-toolbox',
       practiceSession: 'POST /api/practice-session',
+      practiceGrade: 'POST /api/practice-grade',
     },
   });
 });

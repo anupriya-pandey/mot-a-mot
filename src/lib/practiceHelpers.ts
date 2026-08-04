@@ -44,6 +44,9 @@ export function computeQuestionScore(result: PracticeQuestionResult): number {
   if (result.score !== undefined && !Number.isNaN(result.score)) {
     return Math.max(0, Math.min(1, result.score));
   }
+  if (result.grading) {
+    return Math.max(0, Math.min(1, result.grading.overall));
+  }
   if (isProductionExercise(result.prompt.type) && result.analysis) {
     return computeRatingScore(result.analysis.ratings.grammar, result.analysis.ratings.naturalness);
   }
@@ -81,7 +84,7 @@ export function computeSessionSummary(
   for (const result of questionResults) {
     const score = computeQuestionScore(result);
     totalScore += score;
-    if (score >= 1) correctCount += 1;
+    if (score >= 0.95) correctCount += 1;
 
     let categoryFromWords = false;
     for (const word of result.prompt.targetWords ?? []) {
@@ -138,7 +141,14 @@ function expandEquivalentAnswers(answers: string[]): string[] {
 }
 
 export function getAcceptedFillAnswers(prompt: PracticePrompt): string[] {
-  const answers = [prompt.correctAnswer, ...(prompt.acceptableAnswers ?? []), ...(prompt.targetWords ?? [])];
+  const answers = [prompt.correctAnswer, ...(prompt.acceptableAnswers ?? [])];
+
+  for (const word of prompt.targetWords ?? []) {
+    if (normalizePracticeAnswer(word) === normalizePracticeAnswer(prompt.correctAnswer)) {
+      answers.push(word);
+    }
+  }
+
   return expandEquivalentAnswers(answers.filter(Boolean));
 }
 

@@ -58,24 +58,58 @@ export interface PracticeSessionPlan {
   prompts: PracticePrompt[];
 }
 
+export interface PracticeExerciseGrading {
+  meaning: number;
+  grammar: number;
+  vocabulary: number;
+  naturalness: number;
+  overall: number;
+  confidence: number;
+  feedback: string;
+  suggestedAnswer: string;
+  headline: string;
+  acceptedAlternatives: string[];
+}
+
 export interface PracticeQuestionResult {
   prompt: PracticePrompt;
   userAnswer: string;
-  /** @deprecated Prefer score — true when score is 1 (quick) or ratings average 100 */
+  /** @deprecated Prefer score — true when score is 1 (quick) or overall ≥ 0.95 (writing) */
   correct: boolean;
-  /** 0–1 partial credit; production uses avg(grammar, naturalness)/100 */
+  /** 0–1 per exercise; writing uses structured AI grading */
   score: number;
+  grading?: PracticeExerciseGrading;
   analysis?: AnalysisResult;
   wordsUsed: string[];
+}
+
+export interface GradePracticeExerciseRequest {
+  sentence: string;
+  practicePrompt: {
+    title: string;
+    instruction: string;
+    targetWords: string[];
+    englishPrompt?: string;
+    type?: PracticeExerciseType;
+  };
+}
+
+export interface PracticeQuestionFeedback {
+  correct?: boolean;
+  userAnswer: string;
+  correctAnswer?: string;
+  explanation?: string;
+  grading?: PracticeExerciseGrading;
 }
 
 export interface PracticeSessionSummary {
   stage: PracticeStageId;
   completedCount: number;
   totalCount: number;
-  /** Sum of per-question scores (0–totalCount) */
+  /** Sum of per-question scores; unanswered questions count as 0 toward totalCount */
   totalScore: number;
   correctCount: number;
+  endedEarly?: boolean;
   toolboxWordsReinforced: number;
   categoriesPracticed: number;
   questionResults: PracticeQuestionResult[];

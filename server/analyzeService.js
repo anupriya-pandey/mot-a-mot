@@ -251,7 +251,7 @@ export function getHealthStatus() {
   };
 }
 
-function configurationMessage() {
+export function configurationMessage() {
   const { configuredProvider } = getRuntimeConfig();
   const envHint = isVercel()
     ? 'Add it in Vercel → Project → Settings → Environment Variables, then redeploy.'
