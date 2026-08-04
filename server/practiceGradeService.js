@@ -1,5 +1,6 @@
 import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
 import { isConfigured, configurationMessage } from './analyzeService.js';
+import { sentenceUsesAllTargetWords, sentenceUsesTargetWord } from './frenchWordForms.js';
 
 const COMPONENT_WEIGHTS = {
   meaning: 0.4,
@@ -17,10 +18,10 @@ BINARY scoring — the learner gets 1 point or 0:
 - Award a PASS (all component scores = 1.0) ONLY if the French translation conveys the English meaning EXACTLY and is fully grammatically correct.
 - Any wrong meaning, missing nuance, added information, or grammar/spelling/agreement error → FAIL (all component scores = 0.0).
 - Accept valid alternative phrasings ONLY if meaning stays exact and grammar is correct.
-- Required toolbox words must appear in the translation where natural.
+- Required toolbox words must appear in the translation where natural — conjugated verb forms count (e.g. « aller » satisfied by allez, vais, va).
 
 Return meaning, grammar, vocabulary, and naturalness each as exactly 1.0 (pass) or 0.0 (fail).
-Also return suggestedAnswer (model translation), feedback (why pass/fail), headline, acceptedAlternatives, confidence.
+Also return suggestedAnswer (model translation in French), feedback (1–3 sentences in plain ENGLISH explaining pass/fail — never French), headline (English encouragement), acceptedAlternatives, confidence.
 Do NOT return overall — the server computes it.
 Return ONLY valid JSON.`;
 
@@ -31,12 +32,12 @@ The learner read a French prompt and answered in French.
 Score each component from 0.00 to 1.00:
 - meaning (40%): Does the answer appropriately address the French prompt?
 - grammar (30%): Correct French — conjugation, agreement, spelling, word order.
-- vocabulary (20%): Required toolbox word(s) must appear in the answer.
+- vocabulary (20%): Required toolbox word(s) must appear in the answer — conjugated forms count (e.g. « manger » satisfied by mange, manges, mangeons).
 - naturalness (10%): Coherent, conversational response.
 
 If required toolbox words are missing, vocabulary must be ≤ 0.25.
 
-Return suggestedAnswer, feedback, headline, acceptedAlternatives, confidence.
+Return suggestedAnswer (French), feedback (1–3 sentences in plain ENGLISH — the "Why?" note; never write feedback in French), headline (English), acceptedAlternatives, confidence.
 Do NOT return overall — the server computes it.
 Return ONLY valid JSON.`;
 
@@ -45,12 +46,12 @@ const BUILD_SENTENCE_GRADE_SYSTEM_PROMPT = `You are Mot-à-Mot's grader for Buil
 The learner wrote ONE cohesive French sentence using multiple required toolbox words.
 
 Score each component from 0.00 to 1.00:
-- vocabulary (20%): Every required toolbox word must appear — if any is missing, vocabulary ≤ 0.25.
+- vocabulary (20%): Every required toolbox word must appear — conjugated forms count; if any lemma is missing, vocabulary ≤ 0.25.
 - meaning (40%): The sentence is coherent and reads as one unified idea, not a word list.
 - grammar (30%): Correct French.
 - naturalness (10%): Sounds like a real sentence a French speaker might say.
 
-Return suggestedAnswer, feedback, headline, acceptedAlternatives, confidence.
+Return suggestedAnswer (one model sentence in French), feedback (1–3 sentences in plain ENGLISH explaining the score — the "Why?" note; NEVER write feedback in French), headline (short English encouragement), acceptedAlternatives, confidence.
 Do NOT return overall — the server computes it.
 Return ONLY valid JSON.`;
 
@@ -62,7 +63,7 @@ const PRACTICE_GRADE_SCHEMA = {
     vocabulary: { type: 'number' },
     naturalness: { type: 'number' },
     confidence: { type: 'number' },
-    feedback: { type: 'string' },
+    feedback: { type: 'string', description: 'Plain English explanation for the learner (Why?) — never French' },
     suggestedAnswer: { type: 'string' },
     headline: { type: 'string' },
     acceptedAlternatives: {
@@ -141,26 +142,26 @@ Learner's French answer:
 Required toolbox words (ALL must appear in one cohesive sentence): ${words || 'none specified'}
 
 Learner's French sentence:
-"${sentence}"`;
+"${sentence}"
+
+Write feedback and headline in plain English only. suggestedAnswer must be in French.`;
 }
 
 function answerIncludesTargetWord(sentence, targetWords) {
-  const lower = String(sentence ?? '').toLowerCase();
-  return (targetWords ?? []).some((word) => {
-    const normalized = String(word).trim().toLowerCase();
-    if (!normalized) return false;
-    if (lower.includes(normalized)) return true;
-    if (normalized.startsWith("j'") && lower.includes(normalized.slice(2))) return true;
-    return false;
-  });
+  return (targetWords ?? []).some((word) => sentenceUsesTargetWord(sentence, word));
 }
 
 function answerIncludesAllTargetWords(sentence, targetWords) {
-  if (!targetWords?.length) return true;
-  return targetWords.every((word) => answerIncludesTargetWord(sentence, [word]));
+  return sentenceUsesAllTargetWords(sentence, targetWords);
 }
 
 function applyTargetWordRequirement(grading, sentence, targetWords, exerciseType) {
+  const normalizedSentence = String(sentence ?? '').trim().toLowerCase();
+  const normalizedSuggested = String(grading?.suggestedAnswer ?? '').trim().toLowerCase();
+  if (normalizedSuggested && normalizedSuggested === normalizedSentence) {
+    return grading;
+  }
+
   const wordsPresent =
     exerciseType === 'build_sentence'
       ? answerIncludesAllTargetWords(sentence, targetWords)
@@ -293,7 +294,7 @@ export async function gradePracticeExercise(body) {
       schema: PRACTICE_GRADE_SCHEMA,
       schemaName: 'practice_exercise_grade',
       ollamaSchemaHint:
-        'Keys: meaning, grammar, vocabulary, naturalness (0-1), feedback, suggestedAnswer, headline, acceptedAlternatives, confidence.',
+        'Keys: meaning, grammar, vocabulary, naturalness (0-1), feedback (English only), suggestedAnswer (French), headline (English), acceptedAlternatives, confidence.',
       temperature: 0.2,
     });
 

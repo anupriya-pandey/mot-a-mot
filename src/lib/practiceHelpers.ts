@@ -1,13 +1,11 @@
 import type { AnalysisResult, VocabularyItem } from '../types/analysis';
 import type { PracticePrompt, PracticeQuestionResult, PracticeReflection } from '../types/practice';
+import { detectWordsUsed } from './frenchWordForms';
+
+export { detectWordsUsed } from './frenchWordForms';
 
 function normalizeWord(word: string): string {
   return word.trim().toLowerCase();
-}
-
-export function detectWordsUsed(sentence: string, targetWords: string[]): string[] {
-  const lowerSentence = sentence.toLowerCase();
-  return targetWords.filter((word) => lowerSentence.includes(normalizeWord(word)));
 }
 
 export function buildPracticeReflection(

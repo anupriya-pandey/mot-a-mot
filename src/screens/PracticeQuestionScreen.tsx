@@ -121,7 +121,10 @@ export function PracticeQuestionScreen({
   const displaySentence =
     prompt.type === 'fill_blank' && prompt.sentenceWithBlank
       ? sanitizeFillBlankSentence(prompt.sentenceWithBlank)
-      : prompt.sentenceWithBlank
+      : prompt.type !== 'translation' &&
+          prompt.type !== 'question_answer' &&
+          prompt.type !== 'build_sentence' &&
+          prompt.sentenceWithBlank
         ? sanitizeFrenchDisplayText(prompt.sentenceWithBlank)
         : null;
 
@@ -165,7 +168,10 @@ export function PracticeQuestionScreen({
         </p>
       )}
 
-      {prompt.englishPrompt && prompt.type !== 'translation' && (
+      {prompt.englishPrompt &&
+        prompt.type !== 'translation' &&
+        prompt.type !== 'question_answer' &&
+        prompt.type !== 'build_sentence' && (
         <p className="mt-m rounded-lg bg-background px-m py-s text-base text-text-primary">
           {prompt.englishPrompt}
         </p>

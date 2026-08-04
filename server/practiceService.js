@@ -93,10 +93,13 @@ TYPE: translation
 - Do NOT set frenchPrompt for translation — the English sentence is the prompt.
 
 TYPE: question_answer
-- frenchPrompt REQUIRED: a short prompt in French built ONLY from words in the toolbox (plus the target word).
+- frenchPrompt REQUIRED: a short French QUESTION ending with "?" — built ONLY from words in the toolbox (plus the target word).
 - NEVER use French words the learner has not collected — no "décrire", "utiliser", "pense", etc. unless that lemma is in the toolbox list.
-- If you cannot form a natural question from toolbox words alone, set frenchPrompt to just the target word in guillemets, e.g. « pour »
-- The learner reads the French prompt and writes their answer in French using the target toolbox word.
+- NEVER set frenchPrompt to just « word » — that is not a question. Use patterns like "Tu travailles ?" or "Tu aimes manger ?" when toolbox words allow.
+- Do NOT set englishPrompt, sentenceWithBlank, or flawedSentence for question_answer.
+- instruction: "Read the French question and write your answer in French."
+- title: "Question & answer"
+- The learner reads the French question and writes their answer in French using the target toolbox word.
 
 TYPE: build_sentence
 - targetWords REQUIRED: exactly 2 (or 3) toolbox lemmas the learner must weave into ONE cohesive French sentence.
@@ -1248,9 +1251,10 @@ function buildFallbackSentencePrompts(entries, count) {
         ? buildTranslationPrompt(entry)
         : buildQuestionAnswerPrompt(entry, pool);
 
-    prompts.push(
-      enrichPrompt(
-        {
+    if (!writing) continue;
+
+    const enriched = enrichPrompt(
+      {
         id: `fallback-${exerciseType}-${entry.lemma}-${index}`,
         index: index++,
         stage: 'sentence',
@@ -1263,10 +1267,13 @@ function buildFallbackSentencePrompts(entries, count) {
         frenchPrompt: writing.frenchPrompt,
         correctAnswer: writing.correctAnswer,
         explanation: writing.explanation,
-        },
-        pool,
-      ),
+      },
+      pool,
     );
+
+    if (!isValidWritingPrompt(enriched, pool)) continue;
+
+    prompts.push(enriched);
   }
 
   return prompts.slice(0, count);
@@ -1326,6 +1333,75 @@ function buildTranslationPrompt(entry) {
   };
 }
 
+function cleanOptionalString(value) {
+  if (value == null) return undefined;
+  const text = String(value).trim();
+  if (!text || /^(null|undefined|none|n\/a)$/i.test(text)) return undefined;
+  return text;
+}
+
+function isRealFrenchQuestion(text) {
+  const value = String(text ?? '').trim();
+  if (!value) return false;
+  if (/[?？]/.test(value)) return true;
+
+  const lower = value.toLowerCase();
+  return /^(comment|pourquoi|quand|où|ou|qui|que|quoi|est-ce|peux-tu|as-tu|es-tu|tu\s)/i.test(lower);
+}
+
+function isGuillemetsOnlyWordPrompt(text) {
+  const value = String(text ?? '').trim();
+  if (!value) return true;
+
+  const inner = value.replace(/[«»"'\s·]/g, '').trim();
+  if (!inner) return true;
+
+  const tokens = tokenizeFrenchPrompt(value);
+  return tokens.length <= 1 && !/[?？]/.test(value);
+}
+
+function conjugateTuPresent(lemma) {
+  const verb = String(lemma ?? '').trim().toLowerCase().normalize('NFC');
+  if (!verb) return null;
+
+  const IRREGULAR_TU_PRESENT = {
+    être: 'es',
+    etre: 'es',
+    avoir: 'as',
+    aller: 'vas',
+    faire: 'fais',
+    venir: 'viens',
+    prendre: 'prends',
+    pouvoir: 'peux',
+    vouloir: 'veux',
+    savoir: 'sais',
+    voir: 'vois',
+    dire: 'dis',
+    devoir: 'dois',
+    mettre: 'mets',
+    tenir: 'tiens',
+    partir: 'pars',
+    sortir: 'sors',
+    dormir: 'dors',
+    ouvrir: 'ouvres',
+    écrire: 'écris',
+    ecrire: 'écris',
+    lire: 'lis',
+    boire: 'bois',
+    connaître: 'connais',
+    connaitre: 'connais',
+  };
+
+  if (IRREGULAR_TU_PRESENT[verb]) {
+    return IRREGULAR_TU_PRESENT[verb];
+  }
+
+  if (verb.endsWith('er')) return `${verb.slice(0, -2)}es`;
+  if (verb.endsWith('ir')) return `${verb.slice(0, -2)}is`;
+  if (verb.endsWith('re')) return `${verb.slice(0, -2)}s`;
+  return null;
+}
+
 function buildQuestionAnswerPrompt(entry, toolboxEntries = []) {
   const lemma = entry.lemma;
   const toolboxSet = buildToolboxLemmaSet(toolboxEntries);
@@ -1334,8 +1410,20 @@ function buildQuestionAnswerPrompt(entry, toolboxEntries = []) {
 
   const candidates = [];
 
-  if ((/verb/i.test(pos) || /noun/i.test(pos)) && has('aimer') && has('tu')) {
-    candidates.push(`Tu aimes ${lemma} ?`);
+  if (/verb/i.test(pos) && has('tu')) {
+    const tuForm = conjugateTuPresent(lemma);
+    if (tuForm) candidates.push(`Tu ${tuForm} ?`);
+    if (has('aimer')) candidates.push(`Tu aimes ${lemma} ?`);
+    if (has('où') || has('ou')) candidates.push(`Où tu ${tuForm} ?`);
+    if (has('quand')) candidates.push(`Quand tu ${tuForm} ?`);
+    if (has('souvent')) candidates.push(`Tu ${tuForm} souvent ?`);
+    if (has('maintenant')) candidates.push(`Tu ${tuForm} maintenant ?`);
+  }
+
+  if (/noun/i.test(pos)) {
+    if (has('tu') && has('aimer')) candidates.push(`Tu aimes ${lemma} ?`);
+    if (has('tu') && has('as')) candidates.push(`Tu as ${lemma} ?`);
+    if (has('tu') && has('veux')) candidates.push(`Tu veux ${lemma} ?`);
   }
 
   if (/adjective/i.test(pos) && has('être') && has('tu')) {
@@ -1343,24 +1431,21 @@ function buildQuestionAnswerPrompt(entry, toolboxEntries = []) {
   }
 
   for (const frenchQuestion of candidates) {
-    if (frenchTextUsesOnlyToolbox(frenchQuestion, toolboxSet, [lemma])) {
+    if (
+      isRealFrenchQuestion(frenchQuestion) &&
+      frenchTextUsesOnlyToolbox(frenchQuestion, toolboxSet, [lemma])
+    ) {
       return {
         frenchPrompt: frenchQuestion,
         targetWords: [lemma],
-        instruction: 'Read the French prompt and write your answer in French.',
+        instruction: 'Read the French question and write your answer in French.',
         explanation: `Answer in a complete French sentence that includes « ${lemma} ».`,
         correctAnswer: lemma,
       };
     }
   }
 
-  return {
-    frenchPrompt: `« ${lemma} »`,
-    targetWords: [lemma],
-    instruction: 'Write a French answer using this toolbox word.',
-    explanation: `Answer with a complete sentence that includes « ${lemma} ».`,
-    correctAnswer: lemma,
-  };
+  return null;
 }
 
 function buildToolboxLemmaSet(entries) {
@@ -1601,7 +1686,7 @@ IMPORTANT: Generate ${SESSION_QUESTION_COUNT} valid exercises. Each MUST include
 - No hints — questions must be self-contained
 - Every exercise must have exactly ONE natural correct answer; discard broken templates
 - frenchPrompt OR sentenceWithBlank with "___" showing French text (match_meaning MUST show the French word)
-- For question_answer: frenchPrompt must use ONLY toolbox words — otherwise use just « targetWord »
+- For question_answer: frenchPrompt must be a real French question ending with "?" using ONLY toolbox words — never « word » alone and never null
 - For multiple_choice: French sentence with blank + French options — test each option in the blank; only one may be natural French
 All question ids must be new.`,
       schema: EXERCISE_SCHEMA,
@@ -2081,6 +2166,8 @@ function enrichPrompt(prompt, toolboxEntries = []) {
 
     if (enriched.type === 'question_answer') {
       enriched.englishPrompt = undefined;
+      enriched.sentenceWithBlank = undefined;
+      enriched.flawedSentence = undefined;
 
       const targetEntry = {
         lemma: enriched.targetWords[0],
@@ -2088,21 +2175,27 @@ function enrichPrompt(prompt, toolboxEntries = []) {
       };
       const needsRebuild =
         !enriched.frenchPrompt?.trim() ||
+        isGuillemetsOnlyWordPrompt(enriched.frenchPrompt) ||
+        !isRealFrenchQuestion(enriched.frenchPrompt) ||
         !frenchTextUsesOnlyToolbox(enriched.frenchPrompt, toolboxSet, enriched.targetWords);
 
       if (needsRebuild && enriched.targetWords[0]) {
         const rebuilt = buildQuestionAnswerPrompt(targetEntry, toolboxEntries);
-        enriched.frenchPrompt = rebuilt.frenchPrompt;
-        if (!enriched.instruction?.trim()) {
-          enriched.instruction = rebuilt.instruction;
-        }
-        if (!enriched.explanation?.trim() || isGenericPracticeExplanation(enriched.explanation)) {
-          enriched.explanation = rebuilt.explanation;
+        if (rebuilt) {
+          enriched.frenchPrompt = rebuilt.frenchPrompt;
+          if (!enriched.instruction?.trim()) {
+            enriched.instruction = rebuilt.instruction;
+          }
+          if (!enriched.explanation?.trim() || isGenericPracticeExplanation(enriched.explanation)) {
+            enriched.explanation = rebuilt.explanation;
+          }
+        } else {
+          enriched.frenchPrompt = undefined;
         }
       }
 
       if (!enriched.instruction?.trim()) {
-        enriched.instruction = 'Write a French answer using this toolbox word.';
+        enriched.instruction = 'Read the French question and write your answer in French.';
       }
     }
 
@@ -2144,6 +2237,12 @@ function isValidWritingPrompt(prompt, toolboxEntries = []) {
       );
     case 'question_answer': {
       if (!prompt.frenchPrompt?.trim() || prompt.targetWords.length < 1) return false;
+      if (
+        isGuillemetsOnlyWordPrompt(prompt.frenchPrompt) ||
+        !isRealFrenchQuestion(prompt.frenchPrompt)
+      ) {
+        return false;
+      }
       if (!toolboxEntries.length) {
         return looksLikeFrench(prompt.frenchPrompt, prompt.targetWords);
       }
@@ -2332,12 +2431,10 @@ function normalizePrompts(rawPrompts, stage, toolboxEntries = []) {
             ? prompt.acceptableAnswers.map((value) => String(value).trim()).filter(Boolean)
             : undefined,
           explanation: String(prompt.explanation ?? '').trim(),
-          sentenceWithBlank: prompt.sentenceWithBlank
-            ? String(prompt.sentenceWithBlank).trim()
-            : undefined,
-          flawedSentence: prompt.flawedSentence ? String(prompt.flawedSentence).trim() : undefined,
-          englishPrompt: prompt.englishPrompt ? String(prompt.englishPrompt).trim() : undefined,
-          frenchPrompt: prompt.frenchPrompt ? String(prompt.frenchPrompt).trim() : undefined,
+          sentenceWithBlank: cleanOptionalString(prompt.sentenceWithBlank),
+          flawedSentence: cleanOptionalString(prompt.flawedSentence),
+          englishPrompt: cleanOptionalString(prompt.englishPrompt),
+          frenchPrompt: cleanOptionalString(prompt.frenchPrompt),
         },
         toolboxEntries,
       );
