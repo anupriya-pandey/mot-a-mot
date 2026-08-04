@@ -127,12 +127,267 @@ const EXERCISE_SCHEMA = {
           englishPrompt: { type: 'string' },
           frenchPrompt: { type: 'string' },
         },
-        required: ['id', 'index', 'type', 'title', 'instruction', 'targetWords', 'hints', 'correctAnswer', 'explanation'],
+        required: ['id', 'index', 'type', 'title', 'instruction', 'targetWords', 'correctAnswer'],
       },
     },
   },
   required: ['estimatedMinutes', 'prompts'],
 };
+
+function shuffle(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swap]] = [copy[swap], copy[index]];
+  }
+  return copy;
+}
+
+function primaryMeaning(entry) {
+  return String(entry.meaning ?? '')
+    .split(/[;,/]|(\s+or\s+)/i)[0]
+    .trim();
+}
+
+function normalizeCorrectAnswer(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value).trim();
+}
+
+const FALLBACK_MEANING_DISTRACTORS = [
+  'to go',
+  'to eat',
+  'to see',
+  'a house',
+  'happy',
+  'quickly',
+  'yesterday',
+  'with friends',
+];
+
+function buildMeaningOptions(correctEntry, poolEntries) {
+  const correctText = primaryMeaning(correctEntry);
+  const usedMeanings = new Set([correctText.toLowerCase()]);
+  const distractorTexts = [];
+
+  for (const entry of shuffle(poolEntries)) {
+    if (entry.lemma === correctEntry.lemma) continue;
+    const meaning = primaryMeaning(entry);
+    const key = meaning.toLowerCase();
+    if (!meaning || usedMeanings.has(key)) continue;
+    usedMeanings.add(key);
+    distractorTexts.push(meaning);
+    if (distractorTexts.length >= 3) break;
+  }
+
+  for (const meaning of shuffle(FALLBACK_MEANING_DISTRACTORS)) {
+    if (distractorTexts.length >= 3) break;
+    const key = meaning.toLowerCase();
+    if (usedMeanings.has(key)) continue;
+    usedMeanings.add(key);
+    distractorTexts.push(meaning);
+  }
+
+  const options = shuffle([
+    { id: 'a', text: correctText },
+    ...distractorTexts.slice(0, 3).map((text, index) => ({
+      id: String.fromCharCode(98 + index),
+      text,
+    })),
+  ]);
+
+  const correctOption = options.find((option) => option.text === correctText);
+  return { options, correctAnswer: correctOption?.id ?? 'a' };
+}
+
+function buildFallbackMatchMeaning(entry, poolEntries, index, stage) {
+  const { options, correctAnswer } = buildMeaningOptions(entry, poolEntries);
+
+  return enrichPrompt({
+    id: `fallback-match-${entry.lemma}-${index}`,
+    index,
+    stage,
+    type: 'match_meaning',
+    title: 'Match the meaning',
+    instruction: 'Select the correct English meaning for this French word from your toolbox.',
+    targetWords: [entry.lemma],
+    hints: [`This ${String(entry.partOfSpeech ?? 'word').toLowerCase()} is already in your toolbox.`],
+    frenchPrompt: entry.lemma,
+    options,
+    correctAnswer,
+    explanation: `"${entry.lemma}" means ${primaryMeaning(entry)}.`,
+  });
+}
+
+function buildFallbackFillBlank(entry, poolEntries, index, stage) {
+  if (entry.partOfSpeech === 'Verbs') {
+    return enrichPrompt({
+      id: `fallback-fill-${entry.lemma}-${index}`,
+      index,
+      stage,
+      type: 'fill_blank',
+      title: 'Fill in the blank',
+      instruction: 'Complete the sentence with the correct form of the verb from your toolbox.',
+      targetWords: [entry.lemma],
+      hints: [`Use "${entry.lemma}" (${primaryMeaning(entry)}) in the present tense with je.`],
+      sentenceWithBlank: `Aujourd'hui, je ___ au marché.`,
+      correctAnswer: entry.lemma,
+      explanation: `The sentence needs a conjugated form related to "${entry.lemma}" (${primaryMeaning(entry)}).`,
+    });
+  }
+
+  return buildFallbackMatchMeaning(entry, poolEntries, index, stage);
+}
+
+function buildFallbackMatchFollowing(entries, index, stage) {
+  const rows = shuffle(entries)
+    .slice(0, Math.min(3, entries.length))
+    .map((entry, rowIndex) => ({
+      id: `r${rowIndex + 1}`,
+      french: entry.lemma,
+    }));
+
+  const options = shuffle(
+    rows.map((row, optionIndex) => {
+      const entry = entries.find((item) => item.lemma === row.french);
+      return {
+        id: `o${optionIndex + 1}`,
+        text: primaryMeaning(entry ?? { meaning: row.french }),
+      };
+    }),
+  );
+
+  const answerMap = {};
+  rows.forEach((row) => {
+    const entry = entries.find((item) => item.lemma === row.french);
+    const meaning = primaryMeaning(entry ?? { meaning: row.french });
+    const option = options.find((item) => item.text === meaning);
+    if (option) answerMap[row.id] = option.id;
+  });
+
+  return enrichPrompt({
+    id: `fallback-following-${index}-${rows.map((row) => row.french).join('-')}`,
+    index,
+    stage,
+    type: 'match_following',
+    title: 'Match the following',
+    instruction: 'Match each French word to its English meaning.',
+    targetWords: rows.map((row) => row.french),
+    hints: ['These words all come from your toolbox — think about each meaning carefully.'],
+    matchRows: rows,
+    options,
+    correctAnswer: JSON.stringify(answerMap),
+    explanation: 'Each French word should pair with its English meaning from your toolbox.',
+  });
+}
+
+function buildFallbackQuickPrompts(entries, count, completedQuestionIds = []) {
+  const completed = new Set(completedQuestionIds);
+  const pool = shuffle(entries);
+  const prompts = [];
+  let index = 1;
+
+  for (const entry of pool) {
+    if (prompts.length >= count) break;
+
+    const candidates = [
+      buildFallbackMatchMeaning(entry, pool, index, 'quick'),
+      buildFallbackFillBlank(entry, pool, index, 'quick'),
+    ];
+
+    for (const candidate of candidates) {
+      if (prompts.length >= count) break;
+      if (completed.has(candidate.id)) continue;
+      if (prompts.some((prompt) => prompt.id === candidate.id)) continue;
+      prompts.push({ ...candidate, index: index++ });
+    }
+  }
+
+  if (pool.length >= 3 && prompts.length < count) {
+    const following = buildFallbackMatchFollowing(pool, index, 'quick');
+    if (!completed.has(following.id) && !prompts.some((prompt) => prompt.id === following.id)) {
+      prompts.push({ ...following, index: index++ });
+    }
+  }
+
+  return prompts.slice(0, count);
+}
+
+function buildFallbackSentencePrompts(entries, count) {
+  const pool = shuffle(entries);
+  const prompts = [];
+  let index = 1;
+
+  for (const entry of pool) {
+    if (prompts.length >= count) break;
+    prompts.push(
+      enrichPrompt({
+        id: `fallback-translate-${entry.lemma}-${index}`,
+        index: index++,
+        stage: 'sentence',
+        type: 'translation',
+        title: 'Write in French',
+        instruction: 'Write a short French sentence using this word naturally.',
+        targetWords: [entry.lemma],
+        hints: [
+          `Include "${primaryMeaning(entry)}" as your theme — the word is a ${String(entry.partOfSpeech ?? 'word').toLowerCase()}.`,
+        ],
+        englishPrompt: `Write a sentence using the French word for "${primaryMeaning(entry)}".`,
+        correctAnswer: entry.lemma,
+        explanation: `A strong answer uses "${entry.lemma}" naturally in a complete French sentence.`,
+      }),
+    );
+  }
+
+  return prompts.slice(0, count);
+}
+
+function mergePromptLists(primary, fallback, completedQuestionIds, targetCount = 5) {
+  const merged = dedupePrompts([...primary, ...fallback], completedQuestionIds);
+  return merged.slice(0, targetCount).map((prompt, index) => ({ ...prompt, index: index + 1 }));
+}
+
+async function tryGenerateAiPrompts(config, { systemPrompt, userPrompt, stage, completedQuestionIds }) {
+  const result = await generateStructured(config, {
+    systemPrompt,
+    userPrompt,
+    schema: EXERCISE_SCHEMA,
+    schemaName: 'practice_session',
+    ollamaSchemaHint:
+      'Keys: estimatedMinutes, prompts (array of exercises with id, type, instruction, targetWords, correctAnswer, hints, explanation, frenchPrompt, sentenceWithBlank, options, matchRows).',
+    temperature: 0.5,
+  });
+
+  let prompts = dedupePrompts(normalizePrompts(result?.prompts, stage), completedQuestionIds);
+
+  if (prompts.length < 5) {
+    console.warn('Practice session returned fewer than 5 unique prompts — retrying once.');
+    const retry = await generateStructured(config, {
+      systemPrompt,
+      userPrompt: `${userPrompt}
+
+IMPORTANT: Generate 5 valid exercises. Each MUST include:
+- targetWords from the toolbox
+- hints (English, do not reveal the answer)
+- explanation (English)
+- frenchPrompt OR sentenceWithBlank with "___" showing French text (match_meaning MUST show the French word)
+- For multiple_choice: French sentence with blank + French options
+All question ids must be new.`,
+      schema: EXERCISE_SCHEMA,
+      schemaName: 'practice_session_retry',
+      ollamaSchemaHint: 'Same as practice_session.',
+      temperature: 0.6,
+    });
+
+    prompts = dedupePrompts(
+      [...prompts, ...normalizePrompts(retry?.prompts, stage)],
+      completedQuestionIds,
+    );
+  }
+
+  return { prompts, estimatedMinutes: result?.estimatedMinutes };
+}
 
 function configurationMessage() {
   const { configuredProvider } = getRuntimeConfig();
@@ -241,7 +496,7 @@ function enrichPrompt(prompt) {
       : undefined;
   }
 
-  if (enriched.hints.length === 0) {
+  if (!Array.isArray(enriched.hints) || enriched.hints.length === 0) {
     enriched.hints = ['Think about meaning and grammar — hints describe the idea, not the exact French word.'];
   }
 
@@ -402,7 +657,7 @@ function normalizePrompts(rawPrompts, stage) {
               }))
               .filter((row) => row.id && row.french)
           : undefined,
-        correctAnswer: String(prompt.correctAnswer ?? '').trim(),
+        correctAnswer: normalizeCorrectAnswer(prompt.correctAnswer),
         explanation: String(prompt.explanation ?? '').trim(),
         sentenceWithBlank: prompt.sentenceWithBlank
           ? String(prompt.sentenceWithBlank).trim()
@@ -483,51 +738,34 @@ export async function generatePracticeSession(body) {
   }
 
   if (!isConfigured()) {
-    return { status: 500, body: { message: configurationMessage() } };
+    console.warn('AI not configured — using toolbox fallback for practice session.');
   }
 
   const config = getRuntimeConfig();
   const systemPrompt = stage === 'quick' ? QUICK_SYSTEM_PROMPT : SENTENCE_SYSTEM_PROMPT;
+  const userPrompt = buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds });
+
+  const fallbackPrompts =
+    stage === 'quick'
+      ? buildFallbackQuickPrompts(entries, 5, completedQuestionIds)
+      : buildFallbackSentencePrompts(entries, 5);
 
   try {
-    const result = await generateStructured(config, {
-      systemPrompt,
-      userPrompt: buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds }),
-      schema: EXERCISE_SCHEMA,
-      schemaName: 'practice_session',
-      ollamaSchemaHint:
-        'Keys: estimatedMinutes, prompts (array of 5 exercises with id, type, instruction, targetWords, correctAnswer, options?).',
-      temperature: 0.5,
-    });
+    let aiPrompts = [];
+    let estimatedMinutes = '4–5';
 
-    let prompts = dedupePrompts(
-      normalizePrompts(result?.prompts, stage),
-      completedQuestionIds,
-    );
-
-    if (prompts.length < 5) {
-      console.warn('Practice session returned fewer than 5 unique prompts — retrying once.');
-      const retry = await generateStructured(config, {
+    if (isConfigured()) {
+      const aiResult = await tryGenerateAiPrompts(config, {
         systemPrompt,
-        userPrompt: `${buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds })}
-
-IMPORTANT: Generate 5 valid exercises. Each MUST include:
-- hints (English, do not reveal the answer)
-- explanation (English)
-- frenchPrompt OR sentenceWithBlank with "___" showing French text (match_meaning MUST show the French word)
-- For multiple_choice: French sentence with blank + French options
-All question ids must be new.`,
-        schema: EXERCISE_SCHEMA,
-        schemaName: 'practice_session_retry',
-        ollamaSchemaHint: 'Same as practice_session.',
-        temperature: 0.6,
-      });
-
-      prompts = dedupePrompts(
-        [...prompts, ...normalizePrompts(retry?.prompts, stage)],
+        userPrompt,
+        stage,
         completedQuestionIds,
-      ).slice(0, 5);
+      });
+      aiPrompts = aiResult.prompts;
+      estimatedMinutes = String(aiResult.estimatedMinutes ?? estimatedMinutes).trim();
     }
+
+    const prompts = mergePromptLists(aiPrompts, fallbackPrompts, completedQuestionIds, 5);
 
     if (prompts.length < 3) {
       return {
@@ -544,15 +782,39 @@ All question ids must be new.`,
       body: {
         stage,
         focusCategory,
-        estimatedMinutes: String(result?.estimatedMinutes ?? '4–5').trim(),
+        estimatedMinutes,
         prompts,
       },
     };
   } catch (error) {
     console.error('Practice session generation failed:', error);
+
+    const prompts = mergePromptLists([], fallbackPrompts, completedQuestionIds, 5);
+
+    if (prompts.length >= 3) {
+      return {
+        status: 200,
+        body: {
+          stage,
+          focusCategory,
+          estimatedMinutes: '4–5',
+          prompts,
+        },
+      };
+    }
+
+    const detail =
+      error instanceof Error && error.message && !/api key|unauthorized|401|403/i.test(error.message)
+        ? error.message.slice(0, 120)
+        : null;
+
     return {
       status: 500,
-      body: { message: "We couldn't create your practice session right now. Please try again." },
+      body: {
+        message: detail
+          ? `We couldn't create your practice session: ${detail}`
+          : "We couldn't create your practice session right now. Please try again.",
+      },
     };
   }
 }
