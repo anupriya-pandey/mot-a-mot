@@ -62,6 +62,7 @@ FILL_BLANK rules (strict):
 - The blank MUST accept the correctAnswer in context. Never use "Je vais ___ Paris" for "avec" — that sentence needs "à". Match sentence frame to the preposition's meaning.
 - NEVER use generic frames like "Hier, j'ai visité le ___." or "Ce tableau est vraiment ___." — many toolbox words could fit. Use a sentence where ONLY the target word works, or set acceptableAnswers when multiple answers are valid (e.g. car and parce que).
 - Match articles to gender: never "le femme" — use "Cette ___ est…" for feminine nouns.
+- VERB fill_blank: the completed sentence must be semantically complete. Transitive verbs (aider, voir, manger…) need a direct object — never "je aide près de la gare". Use "Chaque jour, j'___ mes collègues." for aider. Use j'___ (not je ___) when the je-form starts with a vowel. Location-only frames (près de la gare) only for intransitive verbs like travailler, habiter.
 - explanation: goes in the explanation field only — never inside sentenceWithBlank.
 - match_meaning: frenchPrompt REQUIRED — the French toolbox word displayed large; options are English meanings only; instruction: "Pick the English meaning."
 - match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings; instruction: "Match each French word to its English meaning."
@@ -356,7 +357,167 @@ const AMBIGUOUS_FILL_BLANK_PATTERNS = [
   /est vraiment ___\.\s*$/i,
   /j'ai le ___/i,
   /j'ai la ___/i,
+  /je ___ près de la gare/i,
+  /j'___ près de la gare/i,
 ];
+
+const TRANSITIVE_VERBS = new Set([
+  'aider',
+  'voir',
+  'entendre',
+  'chercher',
+  'trouver',
+  'regarder',
+  'écouter',
+  'ecouter',
+  'connaître',
+  'connaitre',
+  'aimer',
+  'manger',
+  'boire',
+  'lire',
+  'écrire',
+  'ecrire',
+  'appeler',
+  'porter',
+  'donner',
+  'prendre',
+  'dire',
+  'acheter',
+  'vendre',
+  'apprendre',
+  'enseigner',
+  'inviter',
+  'remercier',
+  'saluer',
+]);
+
+const LOCATION_ONLY_VERBS = new Set([
+  'habiter',
+  'travailler',
+  'étudier',
+  'etudier',
+  'aller',
+  'venir',
+  'dormir',
+  'marcher',
+  'rester',
+  'partir',
+  'arriver',
+  'vivre',
+  'courir',
+  'nager',
+  'étudier',
+  'etudier',
+  'séjourner',
+  'sejourner',
+]);
+
+const DEFAULT_DIRECT_OBJECTS = [
+  'mes collègues',
+  'ma mère',
+  'mes amis',
+  'mon frère',
+  'ma famille',
+  'les touristes',
+];
+
+const VERB_LOCATION_FRAMES = ["à l'école", 'à Paris', 'près de la gare', 'au bureau'];
+
+function verbNeedsDirectObject(lemma) {
+  return TRANSITIVE_VERBS.has(normalizeLemmaKey(lemma));
+}
+
+function jeVerbBlankFrame(conjugated) {
+  if (/^[aeiouhâêîôùûéèëïü]/i.test(String(conjugated ?? ''))) {
+    return "Chaque jour, j'___";
+  }
+  return 'Chaque jour, je ___';
+}
+
+function jeSubjectLabel(conjugated) {
+  return /^[aeiouhâêîôùûéèëïü]/i.test(String(conjugated ?? '')) ? "j'" : 'je ';
+}
+
+function pickDirectObjectPhrase(poolEntries, index) {
+  const nouns = poolEntries.filter((entry) => entry.partOfSpeech === 'Nouns');
+  if (nouns.length > 0) {
+    const entry = nouns[index % nouns.length];
+    const lemma = entry.lemma;
+    if (isLikelyFeminineNoun(lemma)) {
+      return `ma ${lemma}`;
+    }
+    if (/^[aeiouhâêîôùûéèëïü]/i.test(lemma)) {
+      return `l'${lemma}`;
+    }
+    return `mon ${lemma}`;
+  }
+  return DEFAULT_DIRECT_OBJECTS[index % DEFAULT_DIRECT_OBJECTS.length];
+}
+
+function buildVerbFillBlank(entry, poolEntries, index) {
+  const lemma = entry.lemma;
+  const conjugated = conjugateJePresent(lemma);
+  const lemmaKey = normalizeLemmaKey(lemma);
+
+  if (!conjugated || conjugated === lemmaKey) {
+    return null;
+  }
+
+  const slot = jeVerbBlankFrame(conjugated);
+  const subject = jeSubjectLabel(conjugated);
+
+  if (verbNeedsDirectObject(lemma)) {
+    const object = pickDirectObjectPhrase(poolEntries, index);
+    return {
+      sentenceWithBlank: `${slot} ${object}.`,
+      correctAnswer: conjugated,
+      explanation: `For je in the present tense, « ${lemma} » becomes « ${subject}${conjugated} ».`,
+    };
+  }
+
+  if (!LOCATION_ONLY_VERBS.has(lemmaKey)) {
+    return null;
+  }
+
+  const location = VERB_LOCATION_FRAMES[index % VERB_LOCATION_FRAMES.length];
+  return {
+    sentenceWithBlank: `${slot} ${location}.`,
+    correctAnswer: conjugated,
+    explanation: `For je in the present tense, « ${lemma} » becomes « ${subject}${conjugated} ».`,
+  };
+}
+
+function filledFillBlankIsNatural(sentenceWithBlank, answer, prompt) {
+  const filled = fillBlankSlot(sentenceWithBlank, answer);
+  if (!filled) return false;
+
+  if (/\bje\s+[aeiouhâêîôùûéèëïüâêîôù]/i.test(filled)) {
+    return false;
+  }
+
+  if (prompt.focusCategory !== 'Verbs') {
+    return true;
+  }
+
+  const lemma = normalizeLemmaKey(prompt.targetWords?.[0] ?? '');
+  const conjugated = String(answer ?? '').trim().toLowerCase();
+
+  if (verbNeedsDirectObject(lemma)) {
+    const lower = filled.toLowerCase();
+    const idx = lower.indexOf(conjugated);
+    if (idx >= 0) {
+      const after = lower.slice(idx + conjugated.length);
+      const hasDirectObject =
+        /^\s*(?:mon|ma|mes|ton|ta|tes|son|sa|ses|le|la|les|un|une|des|l'|leur|leurs|m'|t'|s')\s+\S+/i.test(
+          after,
+        );
+      if (!hasDirectObject) return false;
+    }
+  }
+
+  return true;
+}
 
 function isAmbiguousFillBlankFrame(sentence) {
   return AMBIGUOUS_FILL_BLANK_PATTERNS.some((pattern) => pattern.test(String(sentence ?? '')));
@@ -572,10 +733,8 @@ function buildFallbackMatchMeaning(entry, poolEntries, index, stage) {
 
 function buildFallbackFillBlank(entry, poolEntries, index, stage) {
   if (entry.partOfSpeech === 'Verbs') {
-    const conjugated = conjugateJePresent(entry.lemma);
-    const lemmaKey = entry.lemma.trim().toLowerCase().normalize('NFC');
-
-    if (!conjugated || conjugated === lemmaKey) {
+    const verbFill = buildVerbFillBlank(entry, poolEntries, index);
+    if (!verbFill) {
       return buildFallbackMatchMeaning(entry, poolEntries, index, stage);
     }
 
@@ -588,9 +747,9 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      sentenceWithBlank: `Chaque jour, je ___ près de la gare.`,
-      correctAnswer: conjugated,
-      explanation: `For je in the present tense, « ${entry.lemma} » becomes « ${conjugated} ».`,
+      sentenceWithBlank: verbFill.sentenceWithBlank,
+      correctAnswer: verbFill.correctAnswer,
+      explanation: verbFill.explanation,
     });
   }
 
@@ -827,11 +986,11 @@ function buildFallbackMultipleChoice(entry, poolEntries, index, stage) {
   let distractorTexts = [];
 
   if (entry.partOfSpeech === 'Verbs') {
-    const conjugated = conjugateJePresent(entry.lemma);
-    if (!conjugated || conjugated === entry.lemma.trim().toLowerCase()) return null;
+    const verbFill = buildVerbFillBlank(entry, poolEntries, index);
+    if (!verbFill) return null;
 
-    sentenceWithBlank = 'Chaque jour, je ___ à l\'école.';
-    const verbForms = buildVerbFormMcqOptions(entry.lemma, conjugated);
+    sentenceWithBlank = verbFill.sentenceWithBlank;
+    const verbForms = buildVerbFormMcqOptions(entry.lemma, verbFill.correctAnswer);
     correctText = verbForms.correctText;
     distractorTexts = verbForms.distractorTexts;
   } else if (entry.partOfSpeech === 'Pronouns') {
@@ -1731,6 +1890,8 @@ function isValidFillBlank(prompt) {
   if (isGenericPracticeExplanation(prompt.explanation)) return false;
 
   if (!blankCompletionIsValid(sentence, prompt.correctAnswer, prompt)) return false;
+
+  if (!filledFillBlankIsNatural(sentence, prompt.correctAnswer, prompt)) return false;
 
   const hasExplicitAlternatives =
     Array.isArray(prompt.acceptableAnswers) && prompt.acceptableAnswers.length > 0;
