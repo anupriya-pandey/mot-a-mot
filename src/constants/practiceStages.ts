@@ -4,6 +4,7 @@ export interface PracticeStageDefinition {
   id: PracticeStageId;
   emoji: string;
   title: string;
+  exerciseLabel: string;
   description: string;
   minEntries: number;
   exerciseTypes: PracticeExerciseType[];
@@ -14,8 +15,10 @@ export const PRACTICE_STAGES: PracticeStageDefinition[] = [
   {
     id: 'quick',
     emoji: '🌱',
-    title: 'Quick Practice',
-    description: 'Fill in the blanks, match meanings, spot errors, and multiple choice.',
+    title: 'Spot & Match',
+    exerciseLabel: 'Fill-in-the-blank · Match meanings · Find the error · Multiple choice',
+    description:
+      'Quick recognition drills from your toolbox — spot mistakes, match words to meanings, and choose the right answer.',
     minEntries: 15,
     exerciseTypes: ['fill_blank', 'match_meaning', 'find_error', 'multiple_choice'],
     comingSoon: false,
@@ -23,8 +26,10 @@ export const PRACTICE_STAGES: PracticeStageDefinition[] = [
   {
     id: 'sentence',
     emoji: '🌿',
-    title: 'Sentence Builder',
-    description: 'Translation, question ↔ answer, and build-a-sentence prompts.',
+    title: 'Write in French',
+    exerciseLabel: 'Translation · Question & answer · Build a sentence',
+    description:
+      'Production practice — translate into French, answer prompts, and build sentences using the words you have collected.',
     minEntries: 40,
     exerciseTypes: ['translation', 'question_answer', 'build_sentence'],
     comingSoon: false,
@@ -32,8 +37,9 @@ export const PRACTICE_STAGES: PracticeStageDefinition[] = [
   {
     id: 'reading',
     emoji: '🌳',
-    title: 'Reading & Listening',
-    description: 'Short passages built from your vocabulary.',
+    title: 'Read & Listen',
+    exerciseLabel: 'Reading passages · Listening passages',
+    description: 'Short passages built entirely from your toolbox vocabulary.',
     minEntries: 75,
     exerciseTypes: [],
     comingSoon: true,
@@ -41,8 +47,9 @@ export const PRACTICE_STAGES: PracticeStageDefinition[] = [
   {
     id: 'conversation',
     emoji: '🌍',
-    title: 'Conversations',
-    description: 'Role-play, dialogues, and story generation.',
+    title: 'Talk & Play',
+    exerciseLabel: 'Conversations · Role-play · Story generation',
+    description: 'Role-play scenarios, dialogues, and stories powered by your growing French.',
     minEntries: 150,
     exerciseTypes: [],
     comingSoon: true,

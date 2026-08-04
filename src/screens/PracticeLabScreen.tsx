@@ -122,6 +122,7 @@ function LockedPracticeView({
 function StageCard({
   emoji,
   title,
+  exerciseLabel,
   description,
   unlocked,
   comingSoon,
@@ -131,6 +132,7 @@ function StageCard({
 }: {
   emoji: string;
   title: string;
+  exerciseLabel: string;
   description: string;
   unlocked: boolean;
   comingSoon: boolean;
@@ -164,6 +166,7 @@ function StageCard({
         )}
       </div>
 
+      <p className="mt-xs text-xs font-medium text-primary">{exerciseLabel}</p>
       <p className="mt-s text-sm leading-relaxed text-text-secondary">{description}</p>
 
       {!comingSoon && !unlocked && (
@@ -226,11 +229,12 @@ export function PracticeLabScreen({
                   key={stage.id}
                   emoji={stage.emoji}
                   title={stage.title}
+                  exerciseLabel={stage.exerciseLabel}
                   description={stage.description}
                   comingSoon={stage.comingSoon}
                   entriesNeeded={stage.minEntries}
                   totalEntries={totalEntries}
-                  unlocked={isStageUnlocked(stage.id, totalEntries, readiness.unlocked)}
+                  unlocked={isStageUnlocked(stage.id, totalEntries, readiness)}
                   onSelect={() => onSelectStage(stage.id)}
                 />
               ))}

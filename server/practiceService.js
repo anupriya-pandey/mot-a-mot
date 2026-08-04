@@ -1,24 +1,36 @@
 import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
 import { isConfigured } from './analyzeService.js';
 
-const READINESS_MIN_ENTRIES = 25;
-const READINESS_MIN_CATEGORIES = 5;
+const READINESS_TARGETS = {
+  entries: 25,
+  categories: 5,
+  verbs: 5,
+  history: 10,
+};
+
+const READINESS_WEIGHTS = {
+  entries: 0.4,
+  categories: 0.3,
+  verbs: 0.2,
+  history: 0.1,
+};
+
 const CORE_CATEGORIES = ['Verbs', 'Nouns', 'Adjectives', 'Pronouns', 'Prepositions', 'Adverbs'];
 
 const STAGE_CONFIG = {
   quick: {
     minEntries: 15,
     types: ['fill_blank', 'match_meaning', 'find_error', 'multiple_choice'],
-    intro: 'Quick Practice',
+    intro: 'Spot & Match',
   },
   sentence: {
     minEntries: 40,
     types: ['translation', 'question_answer', 'build_sentence'],
-    intro: 'Sentence Builder',
+    intro: 'Write in French',
   },
 };
 
-const QUICK_SYSTEM_PROMPT = `You are Mot-à-Mot's Quick Practice engine. Create structured French exercises ONLY from the learner's toolbox.
+const QUICK_SYSTEM_PROMPT = `You are Mot-à-Mot's Spot & Match engine. Create structured French exercises ONLY from the learner's toolbox.
 
 RULES:
 - Every target word MUST come from the toolbox list.
@@ -31,16 +43,17 @@ RULES:
 - id: stable slug like "fill-verb-aller-je" — unique per question.
 - NEVER repeat a question whose id appears in the avoid list.
 - Randomize order and word selection each session.
+- For match_meaning, find_error, and multiple_choice: provide exactly 4 options with UNIQUE text — no duplicates, no near-duplicates.
 
 Exercise types:
 - fill_blank: sentenceWithBlank uses "___" for the blank; correctAnswer is the French word/phrase.
 - match_meaning: instruction asks to pick the English meaning; options are English; correctAnswer is option id.
 - find_error: flawedSentence has one error using toolbox words; options describe the fix; correctAnswer is option id.
-- multiple_choice: French question with 4 options; correctAnswer is option id.
+- multiple_choice: French question with 4 distinct options; correctAnswer is option id.
 
 Return exactly 5 exercises. Return ONLY valid JSON.`;
 
-const SENTENCE_SYSTEM_PROMPT = `You are Mot-à-Mot's Sentence Builder engine. Create production exercises ONLY from the learner's toolbox.
+const SENTENCE_SYSTEM_PROMPT = `You are Mot-à-Mot's Write in French engine. Create production exercises ONLY from the learner's toolbox.
 
 RULES:
 - Every target word MUST come from the toolbox list.
@@ -133,6 +146,62 @@ function countCoreCategories(entries) {
   return present.size;
 }
 
+function factorScore(current, target) {
+  if (target <= 0) return 100;
+  return Math.min(100, Math.round((current / target) * 100));
+}
+
+function countVerbs(entries) {
+  return entries.filter((entry) => entry.partOfSpeech === 'Verbs').length;
+}
+
+function computeReadinessScore(entries, historyCount = 0) {
+  const totalEntries = entries.length;
+  const coreCategoryCount = countCoreCategories(entries);
+  const verbCount = countVerbs(entries);
+
+  const entriesScore = factorScore(totalEntries, READINESS_TARGETS.entries);
+  const categoriesScore = factorScore(coreCategoryCount, READINESS_TARGETS.categories);
+  const verbsScore = factorScore(verbCount, READINESS_TARGETS.verbs);
+  const historyScore = factorScore(historyCount, READINESS_TARGETS.history);
+
+  const score = Math.round(
+    entriesScore * READINESS_WEIGHTS.entries +
+      categoriesScore * READINESS_WEIGHTS.categories +
+      verbsScore * READINESS_WEIGHTS.verbs +
+      historyScore * READINESS_WEIGHTS.history,
+  );
+
+  return { score, unlocked: score >= 100 };
+}
+
+function dedupeOptions(options) {
+  if (!Array.isArray(options)) return undefined;
+
+  const seen = new Set();
+  const deduped = [];
+
+  for (const option of options) {
+    const id = String(option?.id ?? '').trim();
+    const text = String(option?.text ?? '').trim();
+    const key = text.toLowerCase();
+    if (!id || !text || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push({ id, text });
+  }
+
+  return deduped.length > 0 ? deduped : undefined;
+}
+
+function isValidChoicePrompt(prompt) {
+  const choiceTypes = ['multiple_choice', 'match_meaning', 'find_error'];
+  if (!choiceTypes.includes(prompt.type)) return true;
+  if (!prompt.options || prompt.options.length < 2) return false;
+
+  const optionIds = new Set(prompt.options.map((option) => option.id));
+  return optionIds.has(prompt.correctAnswer);
+}
+
 function filterEntries(entries, focusCategory) {
   if (!focusCategory || focusCategory === 'all') return entries;
   return entries.filter((entry) => entry.partOfSpeech === focusCategory);
@@ -174,7 +243,7 @@ function buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds }
       ? `\nAVOID these question ids (already completed):\n${completedQuestionIds.slice(0, 100).join(', ')}`
       : '';
 
-  return `Stage: ${stageConfig.intro}
+  return `Mode: ${stageConfig.intro}
 Toolbox size: ${entries.length} entries
 Allowed exercise types: ${stageConfig.types.join(', ')}
 ${focusLine}
@@ -221,14 +290,7 @@ function normalizePrompts(rawPrompts, stage) {
         targetWords,
         focusCategory: prompt.focusCategory ? String(prompt.focusCategory).trim() : undefined,
         formFocus: prompt.formFocus ? String(prompt.formFocus).trim() : undefined,
-        options: Array.isArray(prompt.options)
-          ? prompt.options
-              .map((option) => ({
-                id: String(option.id ?? '').trim(),
-                text: String(option.text ?? '').trim(),
-              }))
-              .filter((option) => option.id && option.text)
-          : undefined,
+        options: dedupeOptions(prompt.options),
         correctAnswer: String(prompt.correctAnswer ?? '').trim(),
         explanation: prompt.explanation ? String(prompt.explanation).trim() : undefined,
         sentenceWithBlank: prompt.sentenceWithBlank
@@ -243,7 +305,8 @@ function normalizePrompts(rawPrompts, stage) {
         prompt.targetWords.length > 0 &&
         prompt.correctAnswer &&
         prompt.instruction &&
-        allowedTypes.includes(prompt.type),
+        allowedTypes.includes(prompt.type) &&
+        isValidChoicePrompt(prompt),
     )
     .slice(0, 5);
 }
@@ -265,18 +328,19 @@ export async function generatePracticeSession(body) {
   const completedQuestionIds = Array.isArray(body?.completedQuestionIds)
     ? body.completedQuestionIds.map(String)
     : [];
+  const historyCount = typeof body?.historyCount === 'number' ? body.historyCount : 0;
 
   if (!stage) {
-    return { status: 400, body: { message: 'Please choose a practice stage.' } };
+    return { status: 400, body: { message: 'Please choose a practice mode.' } };
   }
 
-  const coreCategories = countCoreCategories(allEntries);
-  if (allEntries.length < READINESS_MIN_ENTRIES || coreCategories < READINESS_MIN_CATEGORIES) {
+  const readiness = computeReadinessScore(allEntries, historyCount);
+  if (!readiness.unlocked) {
     return {
       status: 400,
       body: {
         message:
-          'Keep building your toolbox — Practice unlocks with enough entries and grammatical variety.',
+          'Practice unlocks at 100% readiness — keep building your toolbox and checking sentences.',
       },
     };
   }
@@ -286,7 +350,7 @@ export async function generatePracticeSession(body) {
     return {
       status: 400,
       body: {
-        message: `This stage unlocks at ${stageMin} toolbox entries. Keep collecting French first.`,
+        message: `This mode unlocks at ${stageMin} toolbox entries. Keep collecting French first.`,
       },
     };
   }

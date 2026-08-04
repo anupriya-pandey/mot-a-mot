@@ -75,4 +75,5 @@ export interface CreatePracticeSessionRequest {
   stage: PracticeStageId;
   focusCategory: PracticeFocusFilter;
   completedQuestionIds: string[];
+  historyCount: number;
 }

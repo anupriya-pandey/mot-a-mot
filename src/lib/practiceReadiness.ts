@@ -106,9 +106,7 @@ export function computePracticeReadiness(
       historyFactor.score * READINESS_WEIGHTS.history,
   );
 
-  const unlocked =
-    totalEntries >= READINESS_TARGETS.entries &&
-    coreCategoryCount >= READINESS_TARGETS.categories;
+  const unlocked = score >= 100;
 
   const missingCategories = READINESS_CATEGORY_CHECKLIST.filter(
     (category) => !representedCategories.includes(category),
@@ -132,9 +130,9 @@ export function computePracticeReadiness(
 export function isStageUnlocked(
   stageId: string,
   totalEntries: number,
-  practiceUnlocked: boolean,
+  readiness: PracticeReadiness,
 ): boolean {
-  if (!practiceUnlocked) return false;
+  if (!readiness.unlocked || readiness.score < 100) return false;
 
   const stage = {
     quick: 15,

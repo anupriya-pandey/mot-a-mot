@@ -70,6 +70,17 @@ export function PracticeQuestionScreen({
     prompt.type === 'question_answer' ||
     prompt.type === 'build_sentence';
 
+  const choiceOptions = (() => {
+    if (!prompt.options) return [];
+    const seen = new Set<string>();
+    return prompt.options.filter((option) => {
+      const key = option.text.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
   useEffect(() => {
     setAnswer('');
     setSelectedOption('');
@@ -133,10 +144,10 @@ export function PracticeQuestionScreen({
         ))}
       </ul>
 
-      {!feedback && isChoiceType && prompt.options && (
+      {!feedback && isChoiceType && choiceOptions.length > 0 && (
         <fieldset className="mt-l space-y-s">
           <legend className="sr-only">Choose an answer</legend>
-          {prompt.options.map((option) => (
+          {choiceOptions.map((option) => (
             <label
               key={option.id}
               className={[

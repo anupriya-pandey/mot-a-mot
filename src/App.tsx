@@ -407,6 +407,7 @@ export default function App() {
           stage: selectedPracticeStage,
           focusCategory,
           completedQuestionIds: getCompletedQuestionIds(),
+          historyCount: getHistoryCount(),
         });
         setPracticeSession(session);
         setPracticeQuestionIndex(0);

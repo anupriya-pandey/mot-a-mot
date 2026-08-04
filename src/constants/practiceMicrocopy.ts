@@ -22,7 +22,7 @@ export const PRACTICE_PROGRESS_TITLE = 'Toolbox Progress';
 
 export const PRACTICE_CATEGORIES_TITLE = 'Categories discovered';
 
-export const PRACTICE_STAGES_TITLE = 'Practice Stages';
+export const PRACTICE_STAGES_TITLE = 'Ways to Practice';
 
 export const PRACTICE_COMING_SOON = 'Coming soon';
 
@@ -53,13 +53,13 @@ export const PRACTICE_QUICK_CORRECT = 'Correct!';
 export const PRACTICE_QUICK_INCORRECT = 'Not quite — here\'s the answer';
 
 export const PRACTICE_STAGE_LOCKED =
-  'Keep growing your toolbox to unlock this stage.';
+  'Keep growing your toolbox to unlock this mode.';
 
 export const PRACTICE_QUICK_INTRO =
-  'Five quick exercises from your toolbox — pick, match, and spot errors. Instant feedback after each question.';
+  'Five Spot & Match exercises — fill-in-the-blank, matching, error spotting, and multiple choice. Instant feedback after each question.';
 
 export const PRACTICE_SENTENCE_INTRO =
-  'Five production prompts — write in French and get full feedback with model answers, just like Check.';
+  'Five Write in French prompts — translation, Q&A, and sentence building with full feedback and model answers, just like Check.';
 
 export const PRACTICE_DEDUP_NOTE =
   'Questions you\'ve already completed won\'t repeat.';
