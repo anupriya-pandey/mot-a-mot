@@ -42,7 +42,10 @@ export function getReinforcedWords(result: PracticeQuestionResult): string[] {
   return result.prompt.targetWords;
 }
 
-export function computeSessionSummary(questionResults: PracticeQuestionResult[]): {
+export function computeSessionSummary(
+  questionResults: PracticeQuestionResult[],
+  resolveCategory?: (lemma: string) => string | undefined,
+): {
   toolboxWordsReinforced: number;
   categoriesPracticed: number;
   correctCount: number;
@@ -54,7 +57,16 @@ export function computeSessionSummary(questionResults: PracticeQuestionResult[])
   for (const result of questionResults) {
     if (result.correct) correctCount += 1;
 
-    if (result.prompt.focusCategory) {
+    let categoryFromWords = false;
+    for (const word of result.prompt.targetWords ?? []) {
+      const category = resolveCategory?.(word);
+      if (category) {
+        categories.add(category);
+        categoryFromWords = true;
+      }
+    }
+
+    if (!categoryFromWords && result.prompt.focusCategory) {
       categories.add(result.prompt.focusCategory);
     }
 

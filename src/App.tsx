@@ -467,7 +467,12 @@ export default function App() {
     (updatedResults: PracticeQuestionResult[]) => {
       if (!practiceSession) return;
 
-      const stats = computeSessionSummary(updatedResults);
+      const stats = computeSessionSummary(updatedResults, (lemma) => {
+        const match = toolbox.entries.find(
+          (entry) => entry.lemma.trim().toLowerCase() === lemma.trim().toLowerCase(),
+        );
+        return match?.partOfSpeech;
+      });
       setPracticeResults(updatedResults);
       setPracticeSummary({
         stage: practiceSession.stage,
@@ -483,7 +488,7 @@ export default function App() {
       setPracticeQuickFeedback(null);
       setScreen('practice-summary');
     },
-    [practiceSession],
+    [practiceSession, toolbox.entries],
   );
 
   const handlePracticeSubmit = useCallback(

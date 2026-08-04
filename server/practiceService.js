@@ -1,6 +1,9 @@
 import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
 import { isConfigured } from './analyzeService.js';
 
+const SESSION_QUESTION_COUNT = 10;
+const SESSION_MIN_QUESTIONS = 10;
+
 const READINESS_TARGETS = {
   entries: 25,
   categories: 5,
@@ -50,7 +53,7 @@ Exercise types:
 - find_error: flawedSentence REQUIRED — full French sentence with one error; options describe fixes in English; correctAnswer is option id.
 - multiple_choice: sentenceWithBlank REQUIRED — French sentence with "___" where the answer goes; options are French words/forms (e.g. je, tu, nous); correctAnswer is option id. NEVER use English-only options without a visible French sentence.
 
-Return exactly 5 exercises. Return ONLY valid JSON.`;
+Return exactly 10 exercises. Return ONLY valid JSON.`;
 
 const SENTENCE_SYSTEM_PROMPT = `You are Mot-à-Mot's Write in French engine. Create production exercises ONLY from the learner's toolbox.
 
@@ -66,7 +69,7 @@ RULES:
 - build_sentence: instruction to build a sentence using toolbox themes from hints.
 - id: stable unique slug. NEVER repeat ids from the avoid list.
 
-Return exactly 5 exercises. Return ONLY valid JSON.`;
+Return exactly 10 exercises. Return ONLY valid JSON.`;
 
 const EXERCISE_SCHEMA = {
   type: 'object',
@@ -212,6 +215,7 @@ function buildFallbackMatchMeaning(entry, poolEntries, index, stage) {
     title: 'Match the meaning',
     instruction: 'Select the correct English meaning for this French word from your toolbox.',
     targetWords: [entry.lemma],
+    focusCategory: entry.partOfSpeech,
     hints: [`This ${String(entry.partOfSpeech ?? 'word').toLowerCase()} is already in your toolbox.`],
     frenchPrompt: entry.lemma,
     options,
@@ -230,6 +234,7 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       title: 'Fill in the blank',
       instruction: 'Complete the sentence with the correct form of the verb from your toolbox.',
       targetWords: [entry.lemma],
+      focusCategory: entry.partOfSpeech,
       hints: [`Use "${entry.lemma}" (${primaryMeaning(entry)}) in the present tense with je.`],
       sentenceWithBlank: `Aujourd'hui, je ___ au marché.`,
       correctAnswer: entry.lemma,
@@ -274,6 +279,7 @@ function buildFallbackMatchFollowing(entries, index, stage) {
     title: 'Match the following',
     instruction: 'Match each French word to its English meaning.',
     targetWords: rows.map((row) => row.french),
+    focusCategory: entries[0]?.partOfSpeech,
     hints: ['These words all come from your toolbox — think about each meaning carefully.'],
     matchRows: rows,
     options,
@@ -311,6 +317,15 @@ function buildFallbackQuickPrompts(entries, count, completedQuestionIds = []) {
     }
   }
 
+  let repeatRound = 0;
+  while (prompts.length < count && pool.length > 0) {
+    const entry = pool[prompts.length % pool.length];
+    const candidate = buildFallbackMatchMeaning(entry, pool, index, 'quick');
+    candidate.id = `${candidate.id}-extra-${repeatRound}-${prompts.length}`;
+    prompts.push({ ...candidate, index: index++ });
+    repeatRound += 1;
+  }
+
   return prompts.slice(0, count);
 }
 
@@ -330,6 +345,7 @@ function buildFallbackSentencePrompts(entries, count) {
         title: 'Write in French',
         instruction: 'Write a short French sentence using this word naturally.',
         targetWords: [entry.lemma],
+        focusCategory: entry.partOfSpeech,
         hints: [
           `Include "${primaryMeaning(entry)}" as your theme — the word is a ${String(entry.partOfSpeech ?? 'word').toLowerCase()}.`,
         ],
@@ -340,10 +356,34 @@ function buildFallbackSentencePrompts(entries, count) {
     );
   }
 
+  let repeatRound = 0;
+  while (prompts.length < count && pool.length > 0) {
+    const entry = pool[prompts.length % pool.length];
+    prompts.push(
+      enrichPrompt({
+        id: `fallback-translate-${entry.lemma}-extra-${repeatRound}-${prompts.length}`,
+        index: index++,
+        stage: 'sentence',
+        type: 'translation',
+        title: 'Write in French',
+        instruction: 'Write a short French sentence using this word naturally.',
+        targetWords: [entry.lemma],
+        focusCategory: entry.partOfSpeech,
+        hints: [
+          `Include "${primaryMeaning(entry)}" as your theme — the word is a ${String(entry.partOfSpeech ?? 'word').toLowerCase()}.`,
+        ],
+        englishPrompt: `Write a sentence using the French word for "${primaryMeaning(entry)}".`,
+        correctAnswer: entry.lemma,
+        explanation: `A strong answer uses "${entry.lemma}" naturally in a complete French sentence.`,
+      }),
+    );
+    repeatRound += 1;
+  }
+
   return prompts.slice(0, count);
 }
 
-function mergePromptLists(primary, fallback, completedQuestionIds, targetCount = 5) {
+function mergePromptLists(primary, fallback, completedQuestionIds, targetCount = SESSION_QUESTION_COUNT) {
   const merged = dedupePrompts([...primary, ...fallback], completedQuestionIds);
   return merged.slice(0, targetCount).map((prompt, index) => ({ ...prompt, index: index + 1 }));
 }
@@ -361,13 +401,13 @@ async function tryGenerateAiPrompts(config, { systemPrompt, userPrompt, stage, c
 
   let prompts = dedupePrompts(normalizePrompts(result?.prompts, stage), completedQuestionIds);
 
-  if (prompts.length < 5) {
-    console.warn('Practice session returned fewer than 5 unique prompts — retrying once.');
+  if (prompts.length < SESSION_QUESTION_COUNT) {
+    console.warn(`Practice session returned fewer than ${SESSION_QUESTION_COUNT} unique prompts — retrying once.`);
     const retry = await generateStructured(config, {
       systemPrompt,
       userPrompt: `${userPrompt}
 
-IMPORTANT: Generate 5 valid exercises. Each MUST include:
+IMPORTANT: Generate ${SESSION_QUESTION_COUNT} valid exercises. Each MUST include:
 - targetWords from the toolbox
 - hints (English, do not reveal the answer)
 - explanation (English)
@@ -604,7 +644,7 @@ ${avoidLine}
 
 ${lines}
 
-Generate 5 randomized exercises using ONLY words from this toolbox.`;
+Generate ${SESSION_QUESTION_COUNT} randomized exercises using ONLY words from this toolbox.`;
 }
 
 function buildQuestionFingerprint(type, focusCategory, targetWords, title) {
@@ -679,7 +719,7 @@ function normalizePrompts(rawPrompts, stage) {
         isValidMatchFollowing(prompt) &&
         isValidFrenchContext(prompt),
     )
-    .slice(0, 5);
+    .slice(0, SESSION_QUESTION_COUNT);
 }
 
 function dedupePrompts(prompts, completedQuestionIds) {
@@ -747,12 +787,12 @@ export async function generatePracticeSession(body) {
 
   const fallbackPrompts =
     stage === 'quick'
-      ? buildFallbackQuickPrompts(entries, 5, completedQuestionIds)
-      : buildFallbackSentencePrompts(entries, 5);
+      ? buildFallbackQuickPrompts(entries, SESSION_QUESTION_COUNT, completedQuestionIds)
+      : buildFallbackSentencePrompts(entries, SESSION_QUESTION_COUNT);
 
   try {
     let aiPrompts = [];
-    let estimatedMinutes = '4–5';
+    let estimatedMinutes = '8–10';
 
     if (isConfigured()) {
       const aiResult = await tryGenerateAiPrompts(config, {
@@ -765,9 +805,9 @@ export async function generatePracticeSession(body) {
       estimatedMinutes = String(aiResult.estimatedMinutes ?? estimatedMinutes).trim();
     }
 
-    const prompts = mergePromptLists(aiPrompts, fallbackPrompts, completedQuestionIds, 5);
+    const prompts = mergePromptLists(aiPrompts, fallbackPrompts, completedQuestionIds, SESSION_QUESTION_COUNT);
 
-    if (prompts.length < 3) {
+    if (prompts.length < SESSION_MIN_QUESTIONS) {
       return {
         status: 500,
         body: {
@@ -789,15 +829,15 @@ export async function generatePracticeSession(body) {
   } catch (error) {
     console.error('Practice session generation failed:', error);
 
-    const prompts = mergePromptLists([], fallbackPrompts, completedQuestionIds, 5);
+    const prompts = mergePromptLists([], fallbackPrompts, completedQuestionIds, SESSION_QUESTION_COUNT);
 
-    if (prompts.length >= 3) {
+    if (prompts.length >= SESSION_MIN_QUESTIONS) {
       return {
         status: 200,
         body: {
           stage,
           focusCategory,
-          estimatedMinutes: '4–5',
+          estimatedMinutes: '8–10',
           prompts,
         },
       };
