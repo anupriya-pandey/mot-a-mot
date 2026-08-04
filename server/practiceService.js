@@ -68,6 +68,7 @@ FILL_BLANK rules (strict):
 - match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings; instruction: "Match each French word to its English meaning."
 - find_error: flawedSentence REQUIRED — full French sentence with one clear error; options describe fixes in English; instruction: "Which fix makes this sentence correct?"
 - multiple_choice: sentenceWithBlank REQUIRED — French sentence with "___"; options are French words/forms; instruction: "Pick the word that completes the sentence."
+- PRONOUN multiple_choice: subject and verb must agree — e.g. "___ habite…" → only J', il, elle, or on; use "___ habitez…" for vous, "___ habites…" for tu. Never mark vous with habite (wrong: vous habite).
 
 FIND_ERROR rules (strict):
 - flawedSentence must be French ONLY — no English, no notes in parentheses, no meta-text.
@@ -589,6 +590,70 @@ function fillBlankSlot(sentenceWithBlank, answer) {
   return String(sentenceWithBlank ?? '').replace('___', String(answer ?? '').trim());
 }
 
+function normalizePronounKey(lemma) {
+  const key = normalizeLemmaKey(lemma);
+  if (key === "j'" || key === 'j') return 'je';
+  return key;
+}
+
+function subjectAgreesWithFollowingVerb(subject, verbForm) {
+  const normalizedSubject = String(subject ?? '').trim().toLowerCase();
+  const verb = String(verbForm ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[.,!?;:]$/, '');
+
+  if (!normalizedSubject || !verb) return false;
+
+  if (normalizedSubject === 'je' && /^[aeiouhâêîôùûéèëïü]/.test(verb)) {
+    return false;
+  }
+
+  if (verb.endsWith('ez')) return normalizedSubject === 'vous';
+  if (verb.endsWith('ons')) return normalizedSubject === 'nous';
+  if (verb.endsWith('ent')) return normalizedSubject === 'ils' || normalizedSubject === 'elles';
+  if (verb.endsWith('es')) return normalizedSubject === 'tu';
+  if (verb.endsWith('e')) {
+    if (normalizedSubject === 'je') return false;
+    if (normalizedSubject === "j'") return /^[aeiouhâêîôùûéèëïü]/.test(verb);
+    return normalizedSubject === 'il' || normalizedSubject === 'elle' || normalizedSubject === 'on';
+  }
+
+  return true;
+}
+
+const PRONOUN_MCQ_FRAMES = {
+  je: { sentence: "___ habite dans un petit village.", correct: "J'" },
+  tu: { sentence: "___ habites dans un petit village.", correct: 'tu' },
+  il: { sentence: "___ habite dans un petit village.", correct: 'il' },
+  elle: { sentence: "___ habite dans un petit village.", correct: 'elle' },
+  on: { sentence: "___ habite dans un petit village.", correct: 'on' },
+  nous: { sentence: "___ habitons dans un petit village.", correct: 'nous' },
+  vous: { sentence: "___ habitez dans un petit village.", correct: 'vous' },
+};
+
+function buildPronounMcq(entry, poolEntries) {
+  const pronounKey = normalizePronounKey(entry.lemma);
+  const frame = PRONOUN_MCQ_FRAMES[pronounKey];
+  if (!frame) return null;
+
+  const distractorEntries = shuffle(
+    poolEntries.filter((item) => {
+      if (item.partOfSpeech !== 'Pronouns') return false;
+      const key = normalizePronounKey(item.lemma);
+      return key !== pronounKey && Boolean(PRONOUN_MCQ_FRAMES[key]);
+    }),
+  ).slice(0, 3);
+
+  if (distractorEntries.length < 3) return null;
+
+  return {
+    sentenceWithBlank: frame.sentence,
+    correctText: frame.correct,
+    distractorTexts: distractorEntries.map((item) => PRONOUN_MCQ_FRAMES[normalizePronounKey(item.lemma)].correct),
+  };
+}
+
 function isDanglingPrepositionCompletion(filled) {
   return /\b(à|a|au|aux|en|dans|sur|sous|avec|sans|pour|de|du|des|chez|par|vers|entre)\s*[.!?]?$/i.test(
     String(filled ?? '').trim(),
@@ -624,6 +689,10 @@ function blankCompletionIsValid(sentenceWithBlank, answer, prompt) {
   }
 
   if (prompt.focusCategory === 'Pronouns' && /\b___\s+[a-zàâäéèêëïîôùûüç]/i.test(sentenceWithBlank)) {
+    const verbMatch = String(sentenceWithBlank).match(/___\s+([^\s.,!?]+)/);
+    if (verbMatch) {
+      return subjectAgreesWithFollowingVerb(text, verbMatch[1]);
+    }
     return normalizeLemmaKey(text) === normalizeLemmaKey(targetLemma);
   }
 
@@ -997,15 +1066,11 @@ function buildFallbackMultipleChoice(entry, poolEntries, index, stage) {
     correctText = verbForms.correctText;
     distractorTexts = verbForms.distractorTexts;
   } else if (entry.partOfSpeech === 'Pronouns') {
-    sentenceWithBlank = '___ habite dans un petit village.';
-    correctText = entry.lemma;
-    distractorTexts = shuffle(
-      poolEntries.filter(
-        (item) => item.partOfSpeech === 'Pronouns' && item.lemma !== entry.lemma,
-      ),
-    )
-      .slice(0, 3)
-      .map((item) => item.lemma);
+    const pronounMcq = buildPronounMcq(entry, poolEntries);
+    if (!pronounMcq) return null;
+    sentenceWithBlank = pronounMcq.sentenceWithBlank;
+    correctText = pronounMcq.correctText;
+    distractorTexts = pronounMcq.distractorTexts;
   } else if (entry.partOfSpeech === 'Prepositions') {
     sentenceWithBlank = getPrepositionFillTemplate(entry.lemma);
     if (!sentenceWithBlank) return null;
