@@ -654,6 +654,7 @@ export default function App() {
           onBack={handleBackFromPracticeSetup}
           onStart={(focusCategory) => void handleStartPracticeSession(focusCategory)}
           isStarting={isStartingPractice}
+          error={practiceError}
         />
       </div>
     );

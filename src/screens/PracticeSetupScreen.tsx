@@ -17,6 +17,7 @@ interface PracticeSetupScreenProps {
   onBack: () => void;
   onStart: (focusCategory: PracticeFocusFilter) => void;
   isStarting: boolean;
+  error?: string | null;
 }
 
 const FILTER_OPTIONS: { value: PracticeFocusFilter; label: string }[] = [
@@ -33,6 +34,7 @@ export function PracticeSetupScreen({
   onBack,
   onStart,
   isStarting,
+  error,
 }: PracticeSetupScreenProps) {
   const [focusCategory, setFocusCategory] = useState<PracticeFocusFilter>('all');
 
@@ -81,6 +83,12 @@ export function PracticeSetupScreen({
       </div>
 
       <p className="mt-m text-sm text-text-secondary">{PRACTICE_DEDUP_NOTE}</p>
+
+      {error && (
+        <p className="mt-m rounded-lg bg-error/10 px-m py-s text-sm text-error" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="mt-xl">
         <PrimaryButton onClick={() => onStart(focusCategory)} loading={isStarting}>

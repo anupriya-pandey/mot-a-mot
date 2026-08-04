@@ -205,30 +205,72 @@ function dedupeOptions(options) {
   return deduped.length > 0 ? deduped : undefined;
 }
 
-function hasFrenchText(text) {
+function looksLikeFrench(text, targetWords = []) {
   if (!text || typeof text !== 'string') return false;
   const value = text.trim();
   if (!value) return false;
-  if (/[àâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]/.test(value)) return true;
-  return /\b(je|tu|il|elle|on|nous|vous|ils|elles|le|la|les|un|une|des|du|de|au|aux)\b/i.test(value);
+
+  const lower = value.toLowerCase();
+  if (targetWords.some((word) => word.trim() && lower.includes(word.trim().toLowerCase()))) {
+    return true;
+  }
+  if (/[àâäéèêëïîôùûüçœæ]/.test(value)) return true;
+  if (/l'|d'|j'|n'|m'|t'|s'|c'|qu'|aujourd'hui/i.test(value)) return true;
+  if (
+    /\b(hier|demain|bonjour|merci|oui|non|chez|avec|sans|pour|dans|sur|sous|maison|chat|chien|aller|être|avoir|faire|très|bien|mal|toujours|jamais|souvent|maintenant)\b/i.test(
+      value,
+    )
+  ) {
+    return true;
+  }
+  return /\b(je|tu|il|elle|on|nous|vous|ils|elles|le|la|les|un|une|des|du|de|au|aux|est|suis|es|sommes|êtes|sont|ai|as|a|avons|avez|ont)\b/i.test(
+    value,
+  );
+}
+
+function enrichPrompt(prompt) {
+  const enriched = { ...prompt };
+
+  if (enriched.type === 'match_meaning' && !enriched.frenchPrompt?.trim() && enriched.targetWords[0]) {
+    enriched.frenchPrompt = enriched.targetWords[0];
+  }
+
+  if (enriched.type === 'multiple_choice' && !enriched.sentenceWithBlank?.trim() && enriched.frenchPrompt?.trim()) {
+    enriched.sentenceWithBlank = enriched.frenchPrompt.includes('___')
+      ? enriched.frenchPrompt
+      : undefined;
+  }
+
+  if (enriched.hints.length === 0) {
+    enriched.hints = ['Think about meaning and grammar — hints describe the idea, not the exact French word.'];
+  }
+
+  if (!enriched.explanation?.trim()) {
+    enriched.explanation =
+      'Compare your answer with the correct one and notice the meaning or grammatical difference.';
+  }
+
+  return enriched;
 }
 
 function isValidFrenchContext(prompt) {
+  const words = prompt.targetWords ?? [];
+
   switch (prompt.type) {
     case 'match_meaning':
-      return Boolean(prompt.frenchPrompt?.trim()) && hasFrenchText(prompt.frenchPrompt);
+      return Boolean(prompt.frenchPrompt?.trim()) && looksLikeFrench(prompt.frenchPrompt, words);
     case 'fill_blank':
       return (
         Boolean(prompt.sentenceWithBlank?.trim()) &&
         prompt.sentenceWithBlank.includes('___') &&
-        hasFrenchText(prompt.sentenceWithBlank)
+        looksLikeFrench(prompt.sentenceWithBlank, words)
       );
     case 'multiple_choice': {
       const sentence = prompt.sentenceWithBlank?.trim() || prompt.frenchPrompt?.trim();
-      return Boolean(sentence) && hasFrenchText(sentence);
+      return Boolean(sentence) && looksLikeFrench(sentence, words);
     }
     case 'find_error':
-      return Boolean(prompt.flawedSentence?.trim()) && hasFrenchText(prompt.flawedSentence);
+      return Boolean(prompt.flawedSentence?.trim()) && looksLikeFrench(prompt.flawedSentence, words);
     default:
       return true;
   }
@@ -340,7 +382,7 @@ function normalizePrompts(rawPrompts, stage) {
         .map((hint) => String(hint).trim())
         .filter(Boolean);
 
-      return {
+      return enrichPrompt({
         id,
         index: typeof prompt.index === 'number' ? prompt.index : index + 1,
         stage,
@@ -368,7 +410,7 @@ function normalizePrompts(rawPrompts, stage) {
         flawedSentence: prompt.flawedSentence ? String(prompt.flawedSentence).trim() : undefined,
         englishPrompt: prompt.englishPrompt ? String(prompt.englishPrompt).trim() : undefined,
         frenchPrompt: prompt.frenchPrompt ? String(prompt.frenchPrompt).trim() : undefined,
-      };
+      });
     })
     .filter(
       (prompt) =>
@@ -467,7 +509,14 @@ export async function generatePracticeSession(body) {
       console.warn('Practice session returned fewer than 5 unique prompts — retrying once.');
       const retry = await generateStructured(config, {
         systemPrompt,
-        userPrompt: `${buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds })}\n\nIMPORTANT: Previous batch had duplicates. Generate 5 entirely NEW question ids.`,
+        userPrompt: `${buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds })}
+
+IMPORTANT: Generate 5 valid exercises. Each MUST include:
+- hints (English, do not reveal the answer)
+- explanation (English)
+- frenchPrompt OR sentenceWithBlank with "___" showing French text (match_meaning MUST show the French word)
+- For multiple_choice: French sentence with blank + French options
+All question ids must be new.`,
         schema: EXERCISE_SCHEMA,
         schemaName: 'practice_session_retry',
         ollamaSchemaHint: 'Same as practice_session.',
