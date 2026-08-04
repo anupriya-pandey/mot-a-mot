@@ -33,36 +33,39 @@ export function buildPracticeReflection(
   };
 }
 
-export function computeSessionSummary(
-  questionResults: PracticeQuestionResult[],
-  isInToolbox: (lemma: string, partOfSpeech: string) => boolean,
-): {
-  newWordsDiscovered: number;
-  wordsStrengthened: number;
+/** Unique toolbox target words from questions answered correctly. */
+export function getReinforcedWords(result: PracticeQuestionResult): string[] {
+  if (!result.correct) return [];
+  if (isProductionExercise(result.prompt.type)) {
+    return result.wordsUsed.length > 0 ? result.wordsUsed : result.prompt.targetWords;
+  }
+  return result.prompt.targetWords;
+}
+
+export function computeSessionSummary(questionResults: PracticeQuestionResult[]): {
+  toolboxWordsReinforced: number;
+  categoriesPracticed: number;
   correctCount: number;
 } {
-  const strengthened = new Set<string>();
-  const discovered = new Set<string>();
+  const reinforced = new Set<string>();
+  const categories = new Set<string>();
   let correctCount = 0;
 
   for (const result of questionResults) {
     if (result.correct) correctCount += 1;
 
-    for (const word of result.wordsUsed) {
-      strengthened.add(normalizeWord(word));
+    if (result.prompt.focusCategory) {
+      categories.add(result.prompt.focusCategory);
     }
 
-    for (const item of result.analysis?.suggestedAdditions ?? []) {
-      const key = `${normalizeWord(item.lemma)}|${item.partOfSpeech.toLowerCase()}`;
-      if (!isInToolbox(item.lemma, item.partOfSpeech)) {
-        discovered.add(key);
-      }
+    for (const word of getReinforcedWords(result)) {
+      reinforced.add(normalizeWord(word));
     }
   }
 
   return {
-    newWordsDiscovered: discovered.size,
-    wordsStrengthened: strengthened.size,
+    toolboxWordsReinforced: reinforced.size,
+    categoriesPracticed: categories.size,
     correctCount,
   };
 }
@@ -103,7 +106,6 @@ export function answersMatch(userAnswer: string, correctAnswer: string): boolean
 
   if (normalizedUser === normalizedCorrect) return true;
 
-  // Allow matching by option id for multiple choice
   if (normalizedUser === correctAnswer.trim().toLowerCase()) return true;
 
   return false;

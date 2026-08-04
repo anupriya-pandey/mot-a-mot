@@ -1,5 +1,11 @@
 import { PrimaryButton } from '../components/PrimaryButton';
-import { PRACTICE_SUMMARY_COMPLETED, PRACTICE_SUMMARY_TITLE } from '../constants/practiceMicrocopy';
+import {
+  PRACTICE_SUMMARY_CATEGORIES,
+  PRACTICE_SUMMARY_COMPLETED,
+  PRACTICE_SUMMARY_CORRECT,
+  PRACTICE_SUMMARY_REINFORCED,
+  PRACTICE_SUMMARY_TITLE,
+} from '../constants/practiceMicrocopy';
 import type { PracticeSessionSummary } from '../types/practice';
 
 interface PracticeSummaryScreenProps {
@@ -31,17 +37,21 @@ export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreen
         </div>
 
         <ul className="mt-l space-y-s text-base text-text-primary">
-          <li>New entries discovered: {summary.newWordsDiscovered}</li>
-          <li>Words strengthened: {summary.wordsStrengthened}</li>
-          {summary.stage === 'quick' && (
-            <li>
-              Correct answers: {summary.correctCount}/{summary.totalCount}
-            </li>
-          )}
+          <li>
+            {PRACTICE_SUMMARY_CORRECT}: {summary.correctCount}/{summary.totalCount}
+          </li>
+          <li>
+            {PRACTICE_SUMMARY_REINFORCED}: {summary.toolboxWordsReinforced}
+          </li>
+          <li>
+            {PRACTICE_SUMMARY_CATEGORIES}: {summary.categoriesPracticed}
+          </li>
         </ul>
 
         <p className="mt-m text-sm leading-relaxed text-text-secondary">
-          Nice work — your practice is saved in History, and anything you added goes to your Toolbox.
+          {summary.stage === 'sentence'
+            ? 'Nice work — your written answers are saved in History.'
+            : 'Keep going — each correct answer reinforces words from your toolbox.'}
         </p>
 
         <div className="mt-xl">

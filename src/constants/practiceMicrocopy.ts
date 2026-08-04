@@ -39,6 +39,12 @@ export const PRACTICE_SUMMARY_TITLE = 'Today\'s Practice';
 
 export const PRACTICE_SUMMARY_COMPLETED = 'Completed';
 
+export const PRACTICE_SUMMARY_CORRECT = 'Correct answers';
+
+export const PRACTICE_SUMMARY_REINFORCED = 'Toolbox words reinforced';
+
+export const PRACTICE_SUMMARY_CATEGORIES = 'Categories practiced';
+
 export const PRACTICE_REFLECTION_TITLE = 'Your practice';
 
 export const PRACTICE_MODEL_ANSWERS_HINT =

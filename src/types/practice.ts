@@ -45,6 +45,8 @@ export interface PracticePrompt {
   sentenceWithBlank?: string;
   flawedSentence?: string;
   englishPrompt?: string;
+  /** French word or sentence the learner must respond to — required for match/mc/fill types */
+  frenchPrompt?: string;
 }
 
 export interface PracticeSessionPlan {
@@ -67,8 +69,8 @@ export interface PracticeSessionSummary {
   completedCount: number;
   totalCount: number;
   correctCount: number;
-  newWordsDiscovered: number;
-  wordsStrengthened: number;
+  toolboxWordsReinforced: number;
+  categoriesPracticed: number;
   questionResults: PracticeQuestionResult[];
 }
 

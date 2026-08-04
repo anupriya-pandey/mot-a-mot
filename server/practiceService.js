@@ -37,17 +37,18 @@ RULES:
   - Bad: showing the French lemma, conjugated form, or exact word that fills the blank
 - explanation: REQUIRED for every exercise — a short English note shown when the learner gets it wrong (and on success when helpful).
 - Mix exercise types: fill_blank, match_meaning, match_following, find_error, multiple_choice.
+- CRITICAL: Every question MUST show French text the learner responds to. Never ask about a French word without displaying it. Never ask to complete a sentence without showing the French sentence.
 - Spread questions across grammatical categories; vary verb persons and adjective agreements.
-- Use English for instructions. correctAnswer must match one option id or exact expected text.
+- Use English for instructions only. correctAnswer must match one option id or exact expected text.
 - id: stable unique slug. NEVER repeat ids from the avoid list.
 - For choice-based types: exactly 4 UNIQUE options — no duplicate text.
 
 Exercise types:
-- fill_blank: sentenceWithBlank uses "___"; correctAnswer is the French word/phrase; hints in English only.
-- match_meaning: pick English meaning for one French toolbox word; options are English; correctAnswer is option id.
-- match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings (one per row, plus 0–1 distractor); correctAnswer = JSON object mapping row id → option id, e.g. {"r1":"o2","r2":"o1"}.
-- find_error: flawedSentence with one error; options describe fixes in English; correctAnswer is option id.
-- multiple_choice: French question with 4 distinct French options; correctAnswer is option id.
+- fill_blank: sentenceWithBlank REQUIRED — French sentence with "___" for the blank; correctAnswer is the French word/phrase; hints in English only.
+- match_meaning: frenchPrompt REQUIRED — the French toolbox word displayed large (e.g. "aujourd'hui"); options are English meanings only; correctAnswer is option id.
+- match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings; correctAnswer = JSON mapping row id → option id.
+- find_error: flawedSentence REQUIRED — full French sentence with one error; options describe fixes in English; correctAnswer is option id.
+- multiple_choice: sentenceWithBlank REQUIRED — French sentence with "___" where the answer goes; options are French words/forms (e.g. je, tu, nous); correctAnswer is option id. NEVER use English-only options without a visible French sentence.
 
 Return exactly 5 exercises. Return ONLY valid JSON.`;
 
@@ -124,6 +125,7 @@ const EXERCISE_SCHEMA = {
           sentenceWithBlank: { type: 'string' },
           flawedSentence: { type: 'string' },
           englishPrompt: { type: 'string' },
+          frenchPrompt: { type: 'string' },
         },
         required: ['id', 'index', 'type', 'title', 'instruction', 'targetWords', 'hints', 'correctAnswer', 'explanation'],
       },
@@ -201,6 +203,35 @@ function dedupeOptions(options) {
   }
 
   return deduped.length > 0 ? deduped : undefined;
+}
+
+function hasFrenchText(text) {
+  if (!text || typeof text !== 'string') return false;
+  const value = text.trim();
+  if (!value) return false;
+  if (/[àâäéèêëïîôùûüçœæÀÂÄÉÈÊËÏÎÔÙÛÜÇŒÆ]/.test(value)) return true;
+  return /\b(je|tu|il|elle|on|nous|vous|ils|elles|le|la|les|un|une|des|du|de|au|aux)\b/i.test(value);
+}
+
+function isValidFrenchContext(prompt) {
+  switch (prompt.type) {
+    case 'match_meaning':
+      return Boolean(prompt.frenchPrompt?.trim()) && hasFrenchText(prompt.frenchPrompt);
+    case 'fill_blank':
+      return (
+        Boolean(prompt.sentenceWithBlank?.trim()) &&
+        prompt.sentenceWithBlank.includes('___') &&
+        hasFrenchText(prompt.sentenceWithBlank)
+      );
+    case 'multiple_choice': {
+      const sentence = prompt.sentenceWithBlank?.trim() || prompt.frenchPrompt?.trim();
+      return Boolean(sentence) && hasFrenchText(sentence);
+    }
+    case 'find_error':
+      return Boolean(prompt.flawedSentence?.trim()) && hasFrenchText(prompt.flawedSentence);
+    default:
+      return true;
+  }
 }
 
 function isValidMatchFollowing(prompt) {
@@ -336,6 +367,7 @@ function normalizePrompts(rawPrompts, stage) {
           : undefined,
         flawedSentence: prompt.flawedSentence ? String(prompt.flawedSentence).trim() : undefined,
         englishPrompt: prompt.englishPrompt ? String(prompt.englishPrompt).trim() : undefined,
+        frenchPrompt: prompt.frenchPrompt ? String(prompt.frenchPrompt).trim() : undefined,
       };
     })
     .filter(
@@ -347,7 +379,8 @@ function normalizePrompts(rawPrompts, stage) {
         prompt.explanation &&
         allowedTypes.includes(prompt.type) &&
         isValidChoicePrompt(prompt) &&
-        isValidMatchFollowing(prompt),
+        isValidMatchFollowing(prompt) &&
+        isValidFrenchContext(prompt),
     )
     .slice(0, 5);
 }

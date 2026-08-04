@@ -8,7 +8,6 @@ import { categorizeImportEntries } from './lib/categorizeImport';
 import {
   buildPracticeReflection,
   computeSessionSummary,
-  detectWordsUsed,
   getCorrectAnswerDisplay,
   gradePracticeAnswer,
   isProductionExercise,
@@ -468,15 +467,15 @@ export default function App() {
     (updatedResults: PracticeQuestionResult[]) => {
       if (!practiceSession) return;
 
-      const stats = computeSessionSummary(updatedResults, toolbox.isInToolbox);
+      const stats = computeSessionSummary(updatedResults);
       setPracticeResults(updatedResults);
       setPracticeSummary({
         stage: practiceSession.stage,
         completedCount: updatedResults.length,
         totalCount: practiceSession.prompts.length,
         correctCount: stats.correctCount,
-        newWordsDiscovered: stats.newWordsDiscovered,
-        wordsStrengthened: stats.wordsStrengthened,
+        toolboxWordsReinforced: stats.toolboxWordsReinforced,
+        categoriesPracticed: stats.categoriesPracticed,
         questionResults: updatedResults,
       });
       setResult(null);
@@ -484,7 +483,7 @@ export default function App() {
       setPracticeQuickFeedback(null);
       setScreen('practice-summary');
     },
-    [practiceSession, toolbox.isInToolbox],
+    [practiceSession],
   );
 
   const handlePracticeSubmit = useCallback(
@@ -520,7 +519,7 @@ export default function App() {
       prompt,
       userAnswer: practiceQuickFeedback.userAnswer,
       correct: practiceQuickFeedback.correct,
-      wordsUsed: detectWordsUsed(practiceQuickFeedback.userAnswer, prompt.targetWords),
+      wordsUsed: practiceQuickFeedback.correct ? prompt.targetWords : [],
     };
 
     markQuestionCompleted(prompt, practiceSession.stage);

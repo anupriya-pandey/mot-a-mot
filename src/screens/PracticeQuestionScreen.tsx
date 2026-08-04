@@ -136,9 +136,21 @@ export function PracticeQuestionScreen({
         </p>
       )}
 
+      {prompt.type === 'match_meaning' && prompt.frenchPrompt && (
+        <p className="mt-m rounded-lg border border-primary/20 bg-primary/5 px-m py-m text-2xl font-semibold text-text-primary">
+          {prompt.frenchPrompt}
+        </p>
+      )}
+
       {prompt.sentenceWithBlank && (
         <p className="mt-m rounded-lg bg-background px-m py-s text-lg text-text-primary">
           {prompt.sentenceWithBlank}
+        </p>
+      )}
+
+      {prompt.type === 'multiple_choice' && !prompt.sentenceWithBlank && prompt.frenchPrompt && (
+        <p className="mt-m rounded-lg bg-background px-m py-s text-lg text-text-primary">
+          {prompt.frenchPrompt}
         </p>
       )}
 
