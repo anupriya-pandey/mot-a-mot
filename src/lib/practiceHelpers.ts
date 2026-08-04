@@ -90,9 +90,37 @@ export function isQuickExercise(type: string): boolean {
   return !isProductionExercise(type);
 }
 
+/** Known equivalent answers for fill-in-the-blank grading. */
+const EQUIVALENT_FILL_ANSWER_GROUPS = [
+  ['parce que', "parce qu'", 'car'],
+  ['cependant', 'pourtant'],
+  ['donc', 'alors'],
+];
+
+function expandEquivalentAnswers(answers: string[]): string[] {
+  const normalized = new Set(answers.map(normalizePracticeAnswer));
+
+  for (const group of EQUIVALENT_FILL_ANSWER_GROUPS) {
+    const normalizedGroup = group.map(normalizePracticeAnswer);
+    if (normalizedGroup.some((value) => normalized.has(value))) {
+      normalizedGroup.forEach((value) => normalized.add(value));
+    }
+  }
+
+  return [...normalized];
+}
+
+export function getAcceptedFillAnswers(prompt: PracticePrompt): string[] {
+  const answers = [prompt.correctAnswer, ...(prompt.acceptableAnswers ?? []), ...(prompt.targetWords ?? [])];
+  return expandEquivalentAnswers(answers.filter(Boolean));
+}
+
 export function gradePracticeAnswer(userAnswer: string, prompt: PracticePrompt): boolean {
   if (prompt.type === 'match_following') {
     return gradeMatchFollowing(userAnswer, prompt);
+  }
+  if (prompt.type === 'fill_blank') {
+    return getAcceptedFillAnswers(prompt).some((answer) => answersMatch(userAnswer, answer));
   }
   return answersMatch(userAnswer, prompt.correctAnswer);
 }
@@ -112,6 +140,60 @@ export function normalizePracticeAnswer(answer: string): string {
   return answer.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+export function sanitizeFrenchDisplayText(text: string): string {
+  return text
+    .trim()
+    .split(/\n+/)[0]
+    .trim()
+    .replace(/\([^)]*\b(?:wait|check|toolbox|hint|note|error|agreement|form)\b[^)]*\)/gi, '')
+    .replace(/\s*\([A-Za-z][^)]*\)/g, (match) => (/[àâäéèêëïîôùûüçœæ]/i.test(match) ? match : ''))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const GENERIC_PRACTICE_HINT =
+  'Think about meaning and grammar — hints describe the idea, not the exact French word.';
+
+export function isGenericPracticeHintText(hint: string): boolean {
+  return (
+    hint === GENERIC_PRACTICE_HINT ||
+    /hints describe the idea/i.test(hint) ||
+    hint.length < 12
+  );
+}
+
+export function sanitizeFillBlankSentence(text: string): string {
+  let value = sanitizeFrenchDisplayText(text);
+
+  const leakIndex = value.search(
+    /\s+(?:___\s+is the|Hint\s*:|Explanation\s*:|The verb is|The correct form|first person singular)/i,
+  );
+  if (leakIndex > 0) {
+    value = value.slice(0, leakIndex).trim();
+  }
+
+  value = value.replace(
+    /\s*\([^)]*(?:form|tense|person|indicative|conjugat|present|singular|plural|je form|tu form|verb)[^)]*\)/gi,
+    '',
+  );
+
+  const blankSentence = value.match(/[^.!?]*___[^.!?]*[.!?]?/);
+  if (blankSentence) {
+    value = blankSentence[0].trim();
+  }
+
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+export function getDisplayHints(hints: string[] | undefined): string[] {
+  return (hints ?? []).filter((hint) => !isGenericPracticeHintText(hint));
+}
+
+function parseChangeFix(text: string): { from: string; to: string } | null {
+  const match = text.match(/change\s+'([^']+)'\s+to\s+'([^']+)'/i);
+  return match ? { from: match[1], to: match[2] } : null;
+}
+
 export function answersMatch(userAnswer: string, correctAnswer: string): boolean {
   const normalizedUser = normalizePracticeAnswer(userAnswer);
   const normalizedCorrect = normalizePracticeAnswer(correctAnswer);
@@ -119,6 +201,10 @@ export function answersMatch(userAnswer: string, correctAnswer: string): boolean
   if (normalizedUser === normalizedCorrect) return true;
 
   if (normalizedUser === correctAnswer.trim().toLowerCase()) return true;
+
+  const elisionUser = normalizedUser.replace(/parce qu'$/, 'parce que');
+  const elisionCorrect = normalizedCorrect.replace(/parce qu'$/, 'parce que');
+  if (elisionUser === elisionCorrect) return true;
 
   return false;
 }
@@ -149,6 +235,22 @@ export function getCorrectAnswerDisplay(prompt: PracticePrompt): string {
       );
     } catch {
       return prompt.correctAnswer;
+    }
+  }
+
+  if (prompt.type === 'find_error' && prompt.flawedSentence) {
+    const sentence = sanitizeFrenchDisplayText(prompt.flawedSentence);
+    const match = prompt.options?.find((option) => option.id === prompt.correctAnswer);
+    const fix = match?.text ? parseChangeFix(match.text) : null;
+    if (fix) {
+      return sentence.replace(new RegExp(fix.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), fix.to);
+    }
+  }
+
+  if (prompt.type === 'fill_blank') {
+    const uniqueAnswers = [...new Set(getAcceptedFillAnswers(prompt))];
+    if (uniqueAnswers.length > 1) {
+      return uniqueAnswers.join(' or ');
     }
   }
 

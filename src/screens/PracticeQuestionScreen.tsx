@@ -9,6 +9,11 @@ import {
   PRACTICE_WRONG_EXPLANATION_LABEL,
 } from '../constants/practiceMicrocopy';
 import { ERRORS } from '../constants/microcopy';
+import {
+  getDisplayHints,
+  sanitizeFillBlankSentence,
+  sanitizeFrenchDisplayText,
+} from '../lib/practiceHelpers';
 import type { PracticePrompt } from '../types/practice';
 
 export interface PracticeQuestionFeedback {
@@ -118,6 +123,14 @@ export function PracticeQuestionScreen({
     onSubmit(value);
   };
 
+  const displayHints = getDisplayHints(prompt.hints);
+  const displaySentence =
+    prompt.type === 'fill_blank' && prompt.sentenceWithBlank
+      ? sanitizeFillBlankSentence(prompt.sentenceWithBlank)
+      : prompt.sentenceWithBlank
+        ? sanitizeFrenchDisplayText(prompt.sentenceWithBlank)
+        : null;
+
   return (
     <div className="mx-auto w-full max-w-content px-m py-xl">
       <p className="mb-m text-sm font-medium text-text-secondary">
@@ -142,9 +155,9 @@ export function PracticeQuestionScreen({
         </p>
       )}
 
-      {prompt.sentenceWithBlank && (
+      {displaySentence && (
         <p className="mt-m rounded-lg bg-background px-m py-s text-lg text-text-primary">
-          {prompt.sentenceWithBlank}
+          {displaySentence}
         </p>
       )}
 
@@ -156,17 +169,17 @@ export function PracticeQuestionScreen({
 
       {prompt.flawedSentence && (
         <p className="mt-m rounded-lg border border-warning/30 bg-warning/5 px-m py-s text-lg text-text-primary">
-          {prompt.flawedSentence}
+          {sanitizeFrenchDisplayText(prompt.flawedSentence)}
         </p>
       )}
 
-      { (prompt.hints ?? []).length > 0 && (
+      {displayHints.length > 0 && (
         <div className="mt-m rounded-lg border border-border bg-background px-m py-s">
           <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
             {PRACTICE_HINTS_LABEL}
           </p>
           <ul className="mt-s space-y-xs">
-            {(prompt.hints ?? []).map((hint) => (
+            {displayHints.map((hint) => (
               <li key={hint} className="text-sm leading-relaxed text-text-primary">
                 {hint}
               </li>

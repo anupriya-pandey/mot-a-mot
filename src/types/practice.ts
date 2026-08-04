@@ -41,6 +41,8 @@ export interface PracticePrompt {
   options?: PracticeOption[];
   matchRows?: PracticeMatchRow[];
   correctAnswer: string;
+  /** Other valid written answers for fill-in-the-blank (e.g. car and parce que) */
+  acceptableAnswers?: string[];
   explanation?: string;
   sentenceWithBlank?: string;
   flawedSentence?: string;
