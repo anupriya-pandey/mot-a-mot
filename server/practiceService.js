@@ -35,41 +35,34 @@ const QUICK_SYSTEM_PROMPT = `You are Mot-à-Mot's Spot & Match engine. Create st
 
 RULES:
 - Every targetWords entry MUST come from the toolbox list (internal use — NOT shown to learner).
-- hints: 1–3 ENGLISH strings that guide the learner WITHOUT revealing the French answer.
-  - Good: "Use the verb meaning 'to go', je form, present tense", "Think of a word for 'market'", "Watch adjective agreement — feminine singular"
-  - Bad: showing the French lemma, conjugated form, or exact word that fills the blank
+- Do NOT include hints — every exercise must be fully answerable from its title, instruction, and on-screen French/English prompt alone.
 - explanation: REQUIRED for every exercise — a short English note shown when the learner gets it wrong (and on success when helpful).
 - Mix exercise types: fill_blank, match_meaning, match_following, find_error, multiple_choice.
 - Across 10 exercises include at least 2 of each type when the toolbox allows — never make every question fill_blank or match_meaning.
 - NEVER use proper nouns or personal names (e.g. Anupriya, John) as French prompts or answers — only real French vocabulary from the toolbox.
-- hints must be specific grammar/meaning clues — NEVER "already in your toolbox" or "This noun is already in your toolbox".
 - CRITICAL: Every question MUST show French text the learner responds to. Never ask about a French word without displaying it. Never ask to complete a sentence without showing the French sentence.
+- Instructions must be short and self-contained — the learner should never need extra clues beyond what is on screen.
 - Spread questions across grammatical categories; vary verb persons and adjective agreements.
 - Use English for instructions only. correctAnswer must match one option id or exact expected text.
 - id: stable unique slug. NEVER repeat ids from the avoid list.
 - For choice-based types: exactly 4 UNIQUE options — no duplicate text.
 
 Exercise types:
-- fill_blank: sentenceWithBlank REQUIRED — French sentence with "___" for the blank; correctAnswer is the French word/phrase; hints in English only. If multiple toolbox conjunctions/phrases fit (e.g. car and parce que for "because"), set acceptableAnswers with all valid options. sentenceWithBlank must be French only — no English translation in parentheses.
+- fill_blank: sentenceWithBlank REQUIRED — French sentence with "___" for the blank; correctAnswer is the French word/phrase. If multiple toolbox conjunctions/phrases fit (e.g. car and parce que for "because"), set acceptableAnswers with all valid options. sentenceWithBlank must be French only — no English translation in parentheses.
 
 FILL_BLANK rules (strict):
-- sentenceWithBlank = ONE French sentence with a single "___" blank — nothing else. No English, no grammar notes in parentheses, no "Hint:", no "Explanation:", no second ___, no text after the sentence explaining the answer.
+- sentenceWithBlank = ONE French sentence with a single "___" blank — the surrounding sentence must make the expected answer clear without hints.
 - The blank MUST accept the correctAnswer in context. Never use "Je vais ___ Paris" for "avec" — that sentence needs "à". Match sentence frame to the preposition's meaning.
-- hints: 1–3 specific English clues about tense/person/meaning — NEVER the conjugated French form, NEVER "ends in -e", NEVER duplicate generic filler.
 - explanation: goes in the explanation field only — never inside sentenceWithBlank.
-- Bad sentenceWithBlank: "Je ___ à Paris. (habiter: je form.) ___ is the correct form..."
-- Good sentenceWithBlank: "Je ___ à Paris pour mes études."
-- match_meaning: frenchPrompt REQUIRED — the French toolbox word displayed large (e.g. "aujourd'hui"); options are English meanings only; correctAnswer is option id.
-- match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings; correctAnswer = JSON mapping row id → option id.
-- find_error: flawedSentence REQUIRED — full French sentence with one error; options describe fixes in English; correctAnswer is option id.
-- multiple_choice: sentenceWithBlank REQUIRED — French sentence with "___" where the answer goes; options are French words/forms (e.g. je, tu, nous); correctAnswer is option id. NEVER use English-only options without a visible French sentence.
+- match_meaning: frenchPrompt REQUIRED — the French toolbox word displayed large; options are English meanings only; instruction: "Pick the English meaning."
+- match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings; instruction: "Match each French word to its English meaning."
+- find_error: flawedSentence REQUIRED — full French sentence with one clear error; options describe fixes in English; instruction: "Which fix makes this sentence correct?"
+- multiple_choice: sentenceWithBlank REQUIRED — French sentence with "___"; options are French words/forms; instruction: "Pick the word that completes the sentence."
 
 FIND_ERROR rules (strict):
-- flawedSentence must be French ONLY — no English, no notes in parentheses, no "Wait" or "check the toolbox" meta-text.
-- Include exactly one deliberate mistake (e.g. wrong adjective agreement: "Mon oncle est occupée").
-- hints: specific English grammar clue (e.g. "Does the adjective agree with a masculine or feminine subject?").
-- explanation: name the rule and give the correct form (e.g. "Oncle is masculine, so use occupé not occupée.").
-- Options describe fixes in English like "Change 'occupée' to 'occupé'". The correct option must fix a real error in flawedSentence.
+- flawedSentence must be French ONLY — no English, no notes in parentheses, no meta-text.
+- Include exactly one deliberate mistake that is fixable from the sentence alone (e.g. wrong adjective agreement, infinitive after "je").
+- Options describe fixes in English like "Change 'occupée' to 'occupé'". The correct option must fix a real error in flawedSentence. Include one reversed distractor only.
 
 Return exactly 10 exercises. Return ONLY valid JSON.`;
 
@@ -77,14 +70,12 @@ const SENTENCE_SYSTEM_PROMPT = `You are Mot-à-Mot's Write in French engine. Cre
 
 RULES:
 - Every targetWords entry MUST come from the toolbox list (internal — NOT shown to learner).
-- hints: 1–3 ENGLISH strings guiding what to include WITHOUT giving away full French sentences.
-  - Good: "Include a verb about movement", "Use past tense", "Mention where you went"
-  - Bad: listing the exact French phrases to write
+- Do NOT include hints — the englishPrompt and instruction must contain everything the learner needs.
 - explanation: REQUIRED — brief English note on what a strong answer should do (shown when checking).
 - Mix types: translation, question_answer, build_sentence.
-- translation: englishPrompt in English; learner writes French.
+- translation: englishPrompt in English states exactly what to write in French.
 - question_answer: scenario in English; learner answers in French.
-- build_sentence: instruction to build a sentence using toolbox themes from hints.
+- build_sentence: englishPrompt states the theme and required toolbox words plainly.
 - id: stable unique slug. NEVER repeat ids from the avoid list.
 
 Return exactly 10 exercises. Return ONLY valid JSON.`;
@@ -171,20 +162,6 @@ function primaryMeaning(entry) {
     .trim();
 }
 
-const POS_LABEL = {
-  Verbs: 'verb',
-  Nouns: 'noun',
-  Adjectives: 'adjective',
-  Pronouns: 'pronoun',
-  Prepositions: 'preposition',
-  Adverbs: 'adverb',
-  Conjunctions: 'conjunction',
-};
-
-function posLabel(entry) {
-  return POS_LABEL[entry.partOfSpeech] ?? 'word';
-}
-
 function looksLikeProperNoun(entry) {
   const lemma = String(entry.lemma ?? '').trim();
   const meaning = primaryMeaning(entry);
@@ -217,42 +194,14 @@ function filterPracticeEntries(entries) {
   return entries.filter(isPracticeEligibleEntry);
 }
 
-function buildPracticeHints(entry, exerciseType) {
-  const meaning = primaryMeaning(entry);
-  const label = posLabel(entry);
-  const lemma = entry.lemma;
-
-  const hintsByType = {
-    match_meaning: [
-      `Which English option matches this ${label} meaning "${meaning}"?`,
-      `Recall the everyday meaning of « ${lemma} » — ignore look-alike distractors.`,
-      `Think about when you would use this ${label} in a French sentence.`,
-    ],
-    fill_blank:
-      entry.partOfSpeech === 'Verbs'
-        ? [
-            `Conjugate « ${lemma} » (${meaning}) for je in the present tense.`,
-            `The blank needs the je form of the ${label} meaning "${meaning}".`,
-          ]
-        : [
-            `Fill in the ${label} that means "${meaning}".`,
-            `The missing word expresses "${meaning}" in French.`,
-          ],
-    multiple_choice: [
-      `Pick the French form that fits the sentence — it relates to "${meaning}".`,
-      `One option is the correct ${label} for this context.`,
-    ],
-    find_error: [
-      `Check agreement or verb form — one word does not fit the sentence.`,
-      `Look at how « ${lemma} » (${meaning}) is used in this sentence.`,
-    ],
-    match_following: [
-      `Match each French word to its English meaning carefully.`,
-      `Pair each ${label} with the English idea it expresses.`,
-    ],
-  };
-
-  return [shuffle(hintsByType[exerciseType] ?? hintsByType.match_meaning)[0]];
+function buildFindErrorOptions(correctFix, distractors) {
+  const optionTexts = shuffle([correctFix, ...distractors]).slice(0, 4);
+  const options = optionTexts.map((text, optionIndex) => ({
+    id: String.fromCharCode(97 + optionIndex),
+    text,
+  }));
+  const correctOption = options.find((option) => option.text === correctFix);
+  return { options, correctAnswer: correctOption?.id ?? 'a' };
 }
 
 const PREPOSITION_FILL_TEMPLATES = {
@@ -397,10 +346,9 @@ function buildFallbackMatchMeaning(entry, poolEntries, index, stage) {
     stage,
     type: 'match_meaning',
     title: 'Match the meaning',
-    instruction: 'Select the correct English meaning for this French word from your toolbox.',
+    instruction: 'Pick the English meaning of this French word.',
     targetWords: [entry.lemma],
     focusCategory: entry.partOfSpeech,
-    hints: buildPracticeHints(entry, 'match_meaning'),
     frenchPrompt: entry.lemma,
     options,
     correctAnswer,
@@ -417,40 +365,15 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       return buildFallbackMatchMeaning(entry, poolEntries, index, stage);
     }
 
-    const IRREGULAR_HINT_VERBS = new Set([
-      'être',
-      'etre',
-      'avoir',
-      'aller',
-      'faire',
-      'venir',
-      'prendre',
-      'pouvoir',
-      'vouloir',
-      'savoir',
-      'voir',
-      'dire',
-      'devoir',
-    ]);
-    const isIrregular = IRREGULAR_HINT_VERBS.has(lemmaKey);
-
     return enrichPrompt({
       id: `fallback-fill-${entry.lemma}-${index}`,
       index,
       stage,
       type: 'fill_blank',
       title: 'Fill in the blank',
-      instruction: `Complete the sentence with the correct present-tense form of « ${entry.lemma} ».`,
+      instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      hints: isIrregular
-        ? [
-            `« ${entry.lemma} » is irregular — recall the je form for "${primaryMeaning(entry)}".`,
-            'This verb does not follow the regular -er pattern.',
-          ]
-        : buildPracticeHints(entry, 'fill_blank').concat([
-            'Use the regular present-tense ending for this verb group.',
-          ]).slice(0, 2),
       sentenceWithBlank: `Chaque jour, je ___ près de la gare.`,
       correctAnswer: conjugated,
       explanation: `For je in the present tense, « ${entry.lemma} » becomes « ${conjugated} ».`,
@@ -464,10 +387,9 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       stage,
       type: 'fill_blank',
       title: 'Fill in the blank',
-      instruction: 'Complete the sentence with the correct French word from your toolbox.',
+      instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      hints: buildPracticeHints(entry, 'fill_blank'),
       sentenceWithBlank: 'Hier, j\'ai visité le ___.',
       correctAnswer: entry.lemma,
       explanation: `The missing word is « ${entry.lemma} », which means ${primaryMeaning(entry)}.`,
@@ -481,10 +403,9 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       stage,
       type: 'fill_blank',
       title: 'Fill in the blank',
-      instruction: 'Complete the sentence with the correct French adjective from your toolbox.',
+      instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      hints: buildPracticeHints(entry, 'fill_blank'),
       sentenceWithBlank: 'Ce tableau est vraiment ___.',
       correctAnswer: entry.lemma,
       explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)} and fits this sentence naturally.`,
@@ -503,10 +424,9 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       stage,
       type: 'fill_blank',
       title: 'Fill in the blank',
-      instruction: 'Complete the sentence with the correct French adverb from your toolbox.',
+      instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      hints: buildPracticeHints(entry, 'fill_blank'),
       sentenceWithBlank,
       correctAnswer: entry.lemma,
       explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)} and fits naturally here.`,
@@ -525,10 +445,9 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       stage,
       type: 'fill_blank',
       title: 'Fill in the blank',
-      instruction: 'Complete the sentence with the correct French preposition from your toolbox.',
+      instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      hints: buildPracticeHints(entry, 'fill_blank'),
       sentenceWithBlank,
       correctAnswer: entry.lemma,
       explanation: `In this sentence, « ${entry.lemma} » (${primaryMeaning(entry)}) is the correct preposition.`,
@@ -563,20 +482,11 @@ function buildFallbackFindErrorAdjective(entry, poolEntries, index, stage) {
   const subjectLabel = useFeminineSubject ? 'feminine' : 'masculine';
   const flawedSentence = `${subject} est très ${wrongForm}.`;
   const correctFix = `Change '${wrongForm}' to '${correctForm}'`;
-
-  const optionTexts = shuffle([
-    correctFix,
+  const { options, correctAnswer } = buildFindErrorOptions(correctFix, [
     `Change '${correctForm}' to '${wrongForm}'`,
     `Change 'est' to 'sont'`,
     `Change 'très' to 'beaucoup'`,
-  ]).slice(0, 4);
-
-  const options = optionTexts.map((text, optionIndex) => ({
-    id: String.fromCharCode(97 + optionIndex),
-    text,
-  }));
-
-  const correctOption = options.find((option) => option.text === correctFix);
+  ]);
 
   return enrichPrompt({
     id: `fallback-find-error-${entry.lemma}-${index}`,
@@ -584,13 +494,12 @@ function buildFallbackFindErrorAdjective(entry, poolEntries, index, stage) {
     stage,
     type: 'find_error',
     title: 'Find the error',
-    instruction: 'Read the French sentence and choose the fix that corrects the grammar mistake.',
+    instruction: 'Which fix makes this sentence grammatically correct?',
     targetWords: [entry.lemma],
     focusCategory: entry.partOfSpeech,
-    hints: buildPracticeHints(entry, 'find_error'),
     flawedSentence,
     options,
-    correctAnswer: correctOption?.id ?? 'a',
+    correctAnswer,
     explanation: `${subject} is ${subjectLabel}, so the adjective needs the ${subjectLabel} form "${correctForm}", not "${wrongForm}".`,
   });
 }
@@ -603,20 +512,11 @@ function buildFallbackFindErrorVerb(entry, poolEntries, index, stage) {
 
   const flawedSentence = `Chaque jour, je ${entry.lemma} à l'école.`;
   const correctFix = `Change '${entry.lemma}' to '${conjugated}'`;
-
-  const optionTexts = shuffle([
-    correctFix,
+  const { options, correctAnswer } = buildFindErrorOptions(correctFix, [
     `Change '${conjugated}' to '${entry.lemma}'`,
     `Change 'je' to 'nous'`,
     `Change 'à' to 'de'`,
-  ]).slice(0, 4);
-
-  const options = optionTexts.map((text, optionIndex) => ({
-    id: String.fromCharCode(97 + optionIndex),
-    text,
-  }));
-
-  const correctOption = options.find((option) => option.text === correctFix);
+  ]);
 
   return enrichPrompt({
     id: `fallback-find-error-verb-${entry.lemma}-${index}`,
@@ -624,16 +524,12 @@ function buildFallbackFindErrorVerb(entry, poolEntries, index, stage) {
     stage,
     type: 'find_error',
     title: 'Find the error',
-    instruction: 'Read the French sentence and choose the fix that corrects the grammar mistake.',
+    instruction: 'Which fix makes this sentence grammatically correct?',
     targetWords: [entry.lemma],
     focusCategory: entry.partOfSpeech,
-    hints: [
-      `After "je", you need a conjugated verb — not the infinitive « ${entry.lemma} ».`,
-      `Recall the je present-tense form for "${primaryMeaning(entry)}".`,
-    ],
     flawedSentence,
     options,
-    correctAnswer: correctOption?.id ?? 'a',
+    correctAnswer,
     explanation: `After "je", use the conjugated form « ${conjugated} », not the infinitive « ${entry.lemma} ».`,
   });
 }
@@ -691,10 +587,9 @@ function buildFallbackMultipleChoice(entry, poolEntries, index, stage) {
     stage,
     type: 'multiple_choice',
     title: 'Choose the correct form',
-    instruction: 'Read the French sentence and select the word that completes it correctly.',
+    instruction: 'Pick the word that completes the sentence.',
     targetWords: [entry.lemma],
     focusCategory: entry.partOfSpeech,
-    hints: buildPracticeHints(entry, 'multiple_choice'),
     sentenceWithBlank,
     options,
     correctAnswer: correctOption?.id ?? 'a',
@@ -737,7 +632,6 @@ function buildFallbackMatchFollowing(entries, index, stage) {
     instruction: 'Match each French word to its English meaning.',
     targetWords: rows.map((row) => row.french),
     focusCategory: entries[0]?.partOfSpeech,
-    hints: buildPracticeHints(entries[0] ?? { partOfSpeech: 'word' }, 'match_following'),
     matchRows: rows,
     options,
     correctAnswer: JSON.stringify(answerMap),
@@ -861,13 +755,10 @@ function buildFallbackSentencePrompts(entries, count) {
         stage: 'sentence',
         type: 'translation',
         title: 'Write in French',
-        instruction: 'Write a short French sentence using this word naturally.',
+        instruction: 'Write in French.',
         targetWords: [entry.lemma],
         focusCategory: entry.partOfSpeech,
-        hints: [
-          `Include "${primaryMeaning(entry)}" as your theme — the word is a ${String(entry.partOfSpeech ?? 'word').toLowerCase()}.`,
-        ],
-        englishPrompt: `Write a sentence using the French word for "${primaryMeaning(entry)}".`,
+        englishPrompt: `Write a French sentence that uses the word for "${primaryMeaning(entry)}" (« ${entry.lemma} »).`,
         correctAnswer: entry.lemma,
         explanation: `A strong answer uses "${entry.lemma}" naturally in a complete French sentence.`,
       }),
@@ -884,13 +775,10 @@ function buildFallbackSentencePrompts(entries, count) {
         stage: 'sentence',
         type: 'translation',
         title: 'Write in French',
-        instruction: 'Write a short French sentence using this word naturally.',
+        instruction: 'Write in French.',
         targetWords: [entry.lemma],
         focusCategory: entry.partOfSpeech,
-        hints: [
-          `Include "${primaryMeaning(entry)}" as your theme — the word is a ${String(entry.partOfSpeech ?? 'word').toLowerCase()}.`,
-        ],
-        englishPrompt: `Write a sentence using the French word for "${primaryMeaning(entry)}".`,
+        englishPrompt: `Write a French sentence that uses the word for "${primaryMeaning(entry)}" (« ${entry.lemma} »).`,
         correctAnswer: entry.lemma,
         explanation: `A strong answer uses "${entry.lemma}" naturally in a complete French sentence.`,
       }),
@@ -964,8 +852,8 @@ async function tryGenerateAiPrompts(config, { systemPrompt, userPrompt, stage, c
 
 IMPORTANT: Generate ${SESSION_QUESTION_COUNT} valid exercises. Each MUST include:
 - targetWords from the toolbox
-- hints (English, do not reveal the answer)
 - explanation (English)
+- No hints — questions must be self-contained
 - frenchPrompt OR sentenceWithBlank with "___" showing French text (match_meaning MUST show the French word)
 - For multiple_choice: French sentence with blank + French options
 All question ids must be new.`,
@@ -1252,8 +1140,6 @@ function isValidFillBlank(prompt) {
   if (!sentence.includes('___')) return false;
   if (hasFillBlankAnswerLeak(sentence)) return false;
   if (revealsAnswerInText(sentence, prompt.correctAnswer, prompt.acceptableAnswers)) return false;
-  if (!hasUsableHints(prompt.hints)) return false;
-  if (hintsRevealAnswer(prompt.hints, prompt.correctAnswer, prompt.acceptableAnswers)) return false;
   if (isGenericPracticeExplanation(prompt.explanation)) return false;
 
   const instruction = String(prompt.instruction ?? '').toLowerCase();
@@ -1354,8 +1240,6 @@ function isValidFindError(prompt) {
 
   const fixedFormAgreement = adjectiveAgreementMatchesSubject(corrected, fix.to);
   if (fixedFormAgreement === false) return false;
-
-  if (!hasUsableHints(prompt.hints)) return false;
   if (isGenericPracticeExplanation(prompt.explanation)) return false;
 
   return true;
@@ -1423,6 +1307,7 @@ function enrichPrompt(prompt) {
   }
 
   enriched.acceptableAnswers = inferAcceptableAnswers(enriched);
+  enriched.hints = [];
 
   return enriched;
 }
@@ -1542,7 +1427,7 @@ ${lines}
 
 Generate ${SESSION_QUESTION_COUNT} randomized exercises using ONLY words from this toolbox.
 Use at least 2 of each Spot & Match type (fill_blank, match_meaning, match_following, find_error, multiple_choice) when possible.
-Never use proper nouns or personal names. Hints must be specific — never say "already in your toolbox".`;
+Never use proper nouns or personal names. Do not include hints — every question must stand on its own.`;
 }
 
 function buildQuestionFingerprint(type, focusCategory, targetWords, title) {
@@ -1571,10 +1456,6 @@ function normalizePrompts(rawPrompts, stage) {
         String(prompt.id ?? '').trim() ||
         buildQuestionFingerprint(type, prompt.focusCategory, targetWords, title);
 
-      const hints = (Array.isArray(prompt.hints) ? prompt.hints : [])
-        .map((hint) => String(hint).trim())
-        .filter(Boolean);
-
       return enrichPrompt({
         id,
         index: typeof prompt.index === 'number' ? prompt.index : index + 1,
@@ -1583,7 +1464,7 @@ function normalizePrompts(rawPrompts, stage) {
         title,
         instruction: String(prompt.instruction ?? '').trim(),
         targetWords,
-        hints,
+        hints: [],
         focusCategory: prompt.focusCategory ? String(prompt.focusCategory).trim() : undefined,
         formFocus: prompt.formFocus ? String(prompt.formFocus).trim() : undefined,
         options: dedupeOptions(prompt.options),
@@ -1611,12 +1492,10 @@ function normalizePrompts(rawPrompts, stage) {
     .filter(
       (prompt) =>
         prompt.targetWords.length > 0 &&
-        prompt.hints.length > 0 &&
         prompt.correctAnswer &&
         prompt.instruction &&
         prompt.explanation &&
         !isGenericPracticeExplanation(prompt.explanation) &&
-        hasUsableHints(prompt.hints) &&
         allowedTypes.includes(prompt.type) &&
         isValidChoicePrompt(prompt) &&
         isValidMatchFollowing(prompt) &&

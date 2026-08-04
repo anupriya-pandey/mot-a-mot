@@ -5,14 +5,12 @@ import { StatusBanner } from '../components/StatusBanner';
 import { TextInput } from '../components/TextInput';
 import {
   PRACTICE_END_SESSION,
-  PRACTICE_HINTS_LABEL,
   PRACTICE_QUICK_CORRECT,
   PRACTICE_QUICK_INCORRECT,
   PRACTICE_WRONG_EXPLANATION_LABEL,
 } from '../constants/practiceMicrocopy';
 import { ERRORS } from '../constants/microcopy';
 import {
-  getDisplayHints,
   sanitizeFillBlankSentence,
   sanitizeFrenchDisplayText,
 } from '../lib/practiceHelpers';
@@ -120,7 +118,6 @@ export function PracticeQuestionScreen({
     onSubmit(value);
   };
 
-  const displayHints = getDisplayHints(prompt.hints);
   const displaySentence =
     prompt.type === 'fill_blank' && prompt.sentenceWithBlank
       ? sanitizeFillBlankSentence(prompt.sentenceWithBlank)
@@ -177,21 +174,6 @@ export function PracticeQuestionScreen({
         <p className="mt-m rounded-lg border border-warning/30 bg-warning/5 px-m py-s text-lg text-text-primary">
           {sanitizeFrenchDisplayText(prompt.flawedSentence)}
         </p>
-      )}
-
-      {displayHints.length > 0 && (
-        <div className="mt-m rounded-lg border border-border bg-background px-m py-s">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
-            {PRACTICE_HINTS_LABEL}
-          </p>
-          <ul className="mt-s space-y-xs">
-            {displayHints.map((hint) => (
-              <li key={hint} className="text-sm leading-relaxed text-text-primary">
-                {hint}
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
 
       {!feedback && isMatchFollowing && prompt.matchRows && (
