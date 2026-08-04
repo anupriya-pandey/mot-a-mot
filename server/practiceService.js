@@ -60,6 +60,8 @@ Exercise types:
 FILL_BLANK rules (strict):
 - sentenceWithBlank = ONE French sentence with a single "___" blank — the surrounding sentence must make the expected answer clear without hints.
 - The blank MUST accept the correctAnswer in context. Never use "Je vais ___ Paris" for "avec" — that sentence needs "à". Match sentence frame to the preposition's meaning.
+- NEVER use generic frames like "Hier, j'ai visité le ___." or "Ce tableau est vraiment ___." — many toolbox words could fit. Use a sentence where ONLY the target word works, or set acceptableAnswers when multiple answers are valid (e.g. car and parce que).
+- Match articles to gender: never "le femme" — use "Cette ___ est…" for feminine nouns.
 - explanation: goes in the explanation field only — never inside sentenceWithBlank.
 - match_meaning: frenchPrompt REQUIRED — the French toolbox word displayed large; options are English meanings only; instruction: "Pick the English meaning."
 - match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings; instruction: "Match each French word to its English meaning."
@@ -276,6 +278,113 @@ function getAdverbFillTemplate(lemma) {
   return ADVERB_FILL_TEMPLATES[key] ?? ADVERB_FILL_TEMPLATES[key.replace(/'/g, '')] ?? null;
 }
 
+const NOUN_FILL_TEMPLATES = {
+  femme: 'Cette ___ est professeure de français.',
+  homme: 'Cet ___ est professeur de maths.',
+  chat: 'Le ___ dort sur le canapé.',
+  chien: 'Le ___ aboie dans le jardin.',
+  maison: 'Nous avons acheté une ___ à la campagne.',
+  livre: 'J\'ai lu un ___ intéressant hier soir.',
+  musée: 'Hier, nous avons visité le ___ d\'art.',
+  musee: 'Hier, nous avons visité le ___ d\'art.',
+  parc: 'Les enfants jouent dans le ___.',
+  école: 'Les élèves vont à l\'___.',
+  ecole: 'Les élèves vont à l\'___.',
+  pain: 'Je mange du ___ au petit-déjeuner.',
+  eau: 'Je bois de l\'___.',
+  voiture: 'Ma ___ est garée devant la maison.',
+  table: 'Le chat est sous la ___.',
+  porte: 'Ferme la ___, s\'il te plaît.',
+  fenêtre: 'Ouvre la ___ — il fait chaud.',
+  fenetre: 'Ouvre la ___ — il fait chaud.',
+  restaurant: 'Nous dînons au ___ ce soir.',
+  marché: 'J\'achète des légumes au ___.',
+  marche: 'J\'achète des légumes au ___.',
+  ami: 'Mon ___ habite à Paris.',
+  amie: 'Mon ___ habite à Paris.',
+};
+
+const FEMININE_NOUN_LEMMAS = new Set([
+  'femme',
+  'maison',
+  'voiture',
+  'table',
+  'porte',
+  'fenêtre',
+  'fenetre',
+  'école',
+  'ecole',
+  'amie',
+  'eau',
+  'salade',
+  'ville',
+  'rue',
+  'boulangerie',
+  'banque',
+]);
+
+const MASCULINE_NOUN_LEMMAS = new Set([
+  'homme',
+  'chat',
+  'chien',
+  'livre',
+  'pain',
+  'musée',
+  'musee',
+  'parc',
+  'restaurant',
+  'marché',
+  'marche',
+  'ami',
+  'cinéma',
+  'cinema',
+  'train',
+  'bus',
+]);
+
+function isLikelyFeminineNoun(lemma) {
+  const key = normalizeLemmaKey(lemma);
+  if (FEMININE_NOUN_LEMMAS.has(key)) return true;
+  if (MASCULINE_NOUN_LEMMAS.has(key)) return false;
+  if (key.endsWith('e') && !key.endsWith('age') && !key.endsWith('isme')) return true;
+  if (key.endsWith('tion') || key.endsWith('sion')) return true;
+  return false;
+}
+
+const AMBIGUOUS_FILL_BLANK_PATTERNS = [
+  /visité le ___/i,
+  /visité la ___/i,
+  /visité l'___/i,
+  /est vraiment ___\.\s*$/i,
+  /j'ai le ___/i,
+  /j'ai la ___/i,
+];
+
+function isAmbiguousFillBlankFrame(sentence) {
+  return AMBIGUOUS_FILL_BLANK_PATTERNS.some((pattern) => pattern.test(String(sentence ?? '')));
+}
+
+function nounArticleAgreementValid(sentenceWithBlank, answer) {
+  const match = String(sentenceWithBlank ?? '').match(
+    /\b(le|la|l'|un|une|mon|ma|ton|ta|son|sa|ce|cette|cet|du|de la|de l')\s+___/i,
+  );
+  if (!match) return true;
+
+  const article = match[1].toLowerCase();
+  const feminine = isLikelyFeminineNoun(answer);
+  const feminineArticles = ['la', 'une', 'ma', 'ta', 'sa', 'cette', 'de la'];
+  const masculineArticles = ['le', 'un', 'mon', 'ton', 'son', 'ce', 'cet', 'du', "de l'"];
+
+  if (feminineArticles.includes(article) && !feminine) return false;
+  if (masculineArticles.includes(article) && feminine) return false;
+  return true;
+}
+
+function getNounFillTemplate(entry) {
+  const key = normalizeLemmaKey(entry?.lemma ?? entry);
+  return NOUN_FILL_TEMPLATES[key] ?? null;
+}
+
 function prepositionMatchesSentence(preposition, sentence) {
   const prep = normalizeLemmaKey(preposition);
   const lower = String(sentence ?? '').toLowerCase();
@@ -353,6 +462,18 @@ function blankCompletionIsValid(sentenceWithBlank, answer, prompt) {
   }
 
   if (prompt.focusCategory === 'Pronouns' && /\b___\s+[a-zàâäéèêëïîôùûüç]/i.test(sentenceWithBlank)) {
+    return normalizeLemmaKey(text) === normalizeLemmaKey(targetLemma);
+  }
+
+  if (prompt.focusCategory === 'Nouns' || prompt.type === 'fill_blank') {
+    if (!nounArticleAgreementValid(sentenceWithBlank, text)) return false;
+  }
+
+  if (prompt.focusCategory === 'Nouns' && targetLemma) {
+    return normalizeLemmaKey(text) === normalizeLemmaKey(targetLemma);
+  }
+
+  if (prompt.focusCategory === 'Adjectives' && targetLemma) {
     return normalizeLemmaKey(text) === normalizeLemmaKey(targetLemma);
   }
 
@@ -476,6 +597,11 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
   }
 
   if (entry.partOfSpeech === 'Nouns') {
+    const sentenceWithBlank = getNounFillTemplate(entry);
+    if (!sentenceWithBlank) {
+      return buildFallbackMatchMeaning(entry, poolEntries, index, stage);
+    }
+
     return enrichPrompt({
       id: `fallback-fill-${entry.lemma}-${index}`,
       index,
@@ -485,13 +611,34 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      sentenceWithBlank: 'Hier, j\'ai visité le ___.',
+      sentenceWithBlank,
       correctAnswer: entry.lemma,
       explanation: `The missing word is « ${entry.lemma} », which means ${primaryMeaning(entry)}.`,
     });
   }
 
   if (entry.partOfSpeech === 'Adjectives') {
+    const forms = entry.adjectiveForms;
+    const masculine = String(forms?.masculineSingular ?? entry.lemma).trim();
+    const feminine = String(forms?.feminineSingular ?? '').trim();
+    const useFeminineSubject = index % 2 === 0 && feminine;
+
+    if (useFeminineSubject) {
+      return enrichPrompt({
+        id: `fallback-fill-${entry.lemma}-${index}`,
+        index,
+        stage,
+        type: 'fill_blank',
+        title: 'Fill in the blank',
+        instruction: 'Complete the sentence.',
+        targetWords: [entry.lemma],
+        focusCategory: entry.partOfSpeech,
+        sentenceWithBlank: 'Ma sœur est ___.',
+        correctAnswer: feminine,
+        explanation: `With a feminine subject, « ${entry.lemma} » becomes « ${feminine} ».`,
+      });
+    }
+
     return enrichPrompt({
       id: `fallback-fill-${entry.lemma}-${index}`,
       index,
@@ -501,9 +648,9 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
       instruction: 'Complete the sentence.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
-      sentenceWithBlank: 'Ce tableau est vraiment ___.',
-      correctAnswer: entry.lemma,
-      explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)} and fits this sentence naturally.`,
+      sentenceWithBlank: 'Mon frère est ___.',
+      correctAnswer: masculine,
+      explanation: `With a masculine subject, « ${entry.lemma} » becomes « ${masculine} ».`,
     });
   }
 
@@ -1501,6 +1648,17 @@ function isValidFillBlank(prompt) {
   if (isGenericPracticeExplanation(prompt.explanation)) return false;
 
   if (!blankCompletionIsValid(sentence, prompt.correctAnswer, prompt)) return false;
+
+  const hasExplicitAlternatives =
+    Array.isArray(prompt.acceptableAnswers) && prompt.acceptableAnswers.length > 0;
+
+  if (!hasExplicitAlternatives && isAmbiguousFillBlankFrame(sentence)) {
+    return false;
+  }
+
+  if (!hasExplicitAlternatives && !nounArticleAgreementValid(sentence, prompt.correctAnswer)) {
+    return false;
+  }
 
   const instruction = String(prompt.instruction ?? '').toLowerCase();
   if (/present-tense|conjugat/.test(instruction)) {
