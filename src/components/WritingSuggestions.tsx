@@ -14,6 +14,7 @@ import { SectionHeader } from './SectionHeader';
 import { StatusBanner } from './StatusBanner';
 import { StyleChangesCarousel } from './StyleChangesCarousel';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { getWritingFixPhraseDisplay } from '../lib/writingChangeDisplay';
 
 interface WritingSuggestionsProps {
   writing: WritingByStyle;
@@ -98,7 +99,7 @@ function WritingStyleGroup({
       <StyleChangesCarousel
         changes={changes}
         styleLabel={layerLabel}
-        getFixPhrase={(change) => change.byStyle[style]}
+        getFixDisplay={(change) => getWritingFixPhraseDisplay(change, style)}
         getExplanation={(change) => change.explanationsByStyle?.[style]}
         ariaLabel={`What changed for ${layerLabel}`}
       />

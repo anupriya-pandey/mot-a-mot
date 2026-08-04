@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { NO_CHANGE_AT_LAYER } from '../constants/microcopy';
+import { CHANGE_CARRIES_FROM_LAYER, NO_CHANGE_AT_LAYER } from '../constants/microcopy';
 import type { CorrectionChange } from '../types/analysis';
+import type { FixPhraseDisplay } from '../lib/writingChangeDisplay';
 import { SwipeCarousel } from './SwipeCarousel';
 
 const LABEL_COL = '5.75rem';
@@ -28,7 +29,7 @@ function ChangeRow({
 interface StyleChangesCarouselProps {
   changes: CorrectionChange[];
   styleLabel: string;
-  getFixPhrase: (change: CorrectionChange) => string | undefined;
+  getFixDisplay: (change: CorrectionChange) => FixPhraseDisplay | null;
   getExplanation: (change: CorrectionChange) => string | undefined;
   ariaLabel: string;
 }
@@ -36,7 +37,7 @@ interface StyleChangesCarouselProps {
 export function StyleChangesCarousel({
   changes,
   styleLabel,
-  getFixPhrase,
+  getFixDisplay,
   getExplanation,
   ariaLabel,
 }: StyleChangesCarouselProps) {
@@ -49,7 +50,7 @@ export function StyleChangesCarousel({
   }
 
   const slides = changes.map((change, index) => {
-    const phrase = getFixPhrase(change)?.trim();
+    const fix = getFixDisplay(change);
     const explanation = getExplanation(change);
 
     return {
@@ -62,8 +63,15 @@ export function StyleChangesCarousel({
             <p className="break-words leading-relaxed text-error">{change.youWrote}</p>
           </ChangeRow>
           <ChangeRow label={styleLabel}>
-            {phrase ? (
-              <p className="break-words leading-relaxed text-success">{phrase}</p>
+            {fix?.phrase ? (
+              <>
+                <p className="break-words leading-relaxed text-success">{fix.phrase}</p>
+                {fix.carryOverFrom && (
+                  <p className="mt-s text-sm italic leading-relaxed text-text-secondary">
+                    {CHANGE_CARRIES_FROM_LAYER(fix.carryOverFrom)}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-sm italic leading-relaxed text-text-secondary">
                 {NO_CHANGE_AT_LAYER}

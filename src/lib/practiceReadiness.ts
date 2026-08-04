@@ -5,14 +5,12 @@ export const READINESS_TARGETS = {
   entries: 25,
   categories: 5,
   verbs: 5,
-  history: 10,
 } as const;
 
 export const READINESS_WEIGHTS = {
-  entries: 0.4,
-  categories: 0.3,
+  entries: 0.45,
+  categories: 0.35,
   verbs: 0.2,
-  history: 0.1,
 } as const;
 
 /** Categories shown on the locked progress checklist. */
@@ -40,7 +38,6 @@ export interface PracticeReadiness {
     entries: ReadinessFactor;
     categories: ReadinessFactor;
     verbs: ReadinessFactor;
-    history: ReadinessFactor;
   };
   representedCategories: PartOfSpeech[];
   missingCategories: PartOfSpeech[];
@@ -66,7 +63,6 @@ function countRepresentedCategories(counts: CategoryCounts): PartOfSpeech[] {
 export function computePracticeReadiness(
   totalEntries: number,
   counts: CategoryCounts,
-  historyCount: number,
 ): PracticeReadiness {
   const representedCategories = countRepresentedCategories(counts);
   const coreCategoryCount = representedCategories.length;
@@ -92,18 +88,10 @@ export function computePracticeReadiness(
     score: factorScore(counts.Verbs ?? 0, READINESS_TARGETS.verbs),
   };
 
-  const historyFactor: ReadinessFactor = {
-    label: 'Sentence history',
-    current: historyCount,
-    target: READINESS_TARGETS.history,
-    score: factorScore(historyCount, READINESS_TARGETS.history),
-  };
-
   const score = Math.round(
     entriesFactor.score * READINESS_WEIGHTS.entries +
       categoriesFactor.score * READINESS_WEIGHTS.categories +
-      verbsFactor.score * READINESS_WEIGHTS.verbs +
-      historyFactor.score * READINESS_WEIGHTS.history,
+      verbsFactor.score * READINESS_WEIGHTS.verbs,
   );
 
   const unlocked = score >= 100;
@@ -120,7 +108,6 @@ export function computePracticeReadiness(
       entries: entriesFactor,
       categories: categoriesFactor,
       verbs: verbsFactor,
-      history: historyFactor,
     },
     representedCategories,
     missingCategories,

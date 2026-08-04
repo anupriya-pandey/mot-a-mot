@@ -14,7 +14,6 @@ import {
   isProductionExercise,
   pickNewExpressionForAdd,
 } from './lib/practiceHelpers';
-import { getHistoryCount } from './lib/historyStorage';
 import { markQuestionCompleted, getCompletedQuestionIds } from './lib/practiceHistoryStorage';
 import { computePracticeReadiness } from './lib/practiceReadiness';
 import { PRACTICE_STAGES } from './constants/practiceStages';
@@ -94,11 +93,7 @@ export default function App() {
 
   const toolbox = useFrenchToolbox();
   const history = useSearchHistory();
-  const practiceReadiness = computePracticeReadiness(
-    toolbox.totalCount,
-    toolbox.counts,
-    getHistoryCount(),
-  );
+  const practiceReadiness = computePracticeReadiness(toolbox.totalCount, toolbox.counts);
 
   const resetPractice = useCallback(() => {
     setPracticeSession(null);
@@ -407,7 +402,6 @@ export default function App() {
           stage: selectedPracticeStage,
           focusCategory,
           completedQuestionIds: getCompletedQuestionIds(),
-          historyCount: getHistoryCount(),
         });
         setPracticeSession(session);
         setPracticeQuestionIndex(0);

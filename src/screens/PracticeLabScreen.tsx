@@ -75,10 +75,6 @@ function LockedPracticeView({
             {readiness.factors.verbs.label}: {readiness.factors.verbs.current} /{' '}
             {readiness.factors.verbs.target}
           </li>
-          <li>
-            {readiness.factors.history.label}: {readiness.factors.history.current} /{' '}
-            {readiness.factors.history.target}
-          </li>
         </ul>
       </div>
 

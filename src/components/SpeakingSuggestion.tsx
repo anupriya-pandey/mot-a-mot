@@ -17,7 +17,10 @@ export function SpeakingSuggestion({ sentence, english, changes }: SpeakingSugge
         <StyleChangesCarousel
           changes={changes}
           styleLabel={EVERYDAY_FRENCH_SUBTITLE}
-          getFixPhrase={(change) => change.speakingFrench || change.informalFrench}
+          getFixDisplay={(change) => {
+            const phrase = (change.speakingFrench || change.informalFrench)?.trim();
+            return phrase ? { phrase } : null;
+          }}
           getExplanation={(change) => change.speakingExplanation || change.informalExplanation}
           ariaLabel="What changed for everyday French conversation"
         />

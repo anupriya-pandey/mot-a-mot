@@ -48,3 +48,5 @@ export const NEW_VOCAB_HINT =
 export const PARTIAL_MEANING_AT_LAYER =
   'Part of your meaning could not fit at this layer — see the note below.';
 export const NO_CHANGE_AT_LAYER = 'No change needed at this layer.';
+export const CHANGE_CARRIES_FROM_LAYER = (label: string) =>
+  `Same wording as ${label} — the improvement from what you wrote still applies here.`;

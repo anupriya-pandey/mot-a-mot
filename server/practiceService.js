@@ -5,14 +5,12 @@ const READINESS_TARGETS = {
   entries: 25,
   categories: 5,
   verbs: 5,
-  history: 10,
 };
 
 const READINESS_WEIGHTS = {
-  entries: 0.4,
-  categories: 0.3,
+  entries: 0.45,
+  categories: 0.35,
   verbs: 0.2,
-  history: 0.1,
 };
 
 const CORE_CATEGORIES = ['Verbs', 'Nouns', 'Adjectives', 'Pronouns', 'Prepositions', 'Adverbs'];
@@ -155,7 +153,7 @@ function countVerbs(entries) {
   return entries.filter((entry) => entry.partOfSpeech === 'Verbs').length;
 }
 
-function computeReadinessScore(entries, historyCount = 0) {
+function computeReadinessScore(entries) {
   const totalEntries = entries.length;
   const coreCategoryCount = countCoreCategories(entries);
   const verbCount = countVerbs(entries);
@@ -163,13 +161,11 @@ function computeReadinessScore(entries, historyCount = 0) {
   const entriesScore = factorScore(totalEntries, READINESS_TARGETS.entries);
   const categoriesScore = factorScore(coreCategoryCount, READINESS_TARGETS.categories);
   const verbsScore = factorScore(verbCount, READINESS_TARGETS.verbs);
-  const historyScore = factorScore(historyCount, READINESS_TARGETS.history);
 
   const score = Math.round(
     entriesScore * READINESS_WEIGHTS.entries +
       categoriesScore * READINESS_WEIGHTS.categories +
-      verbsScore * READINESS_WEIGHTS.verbs +
-      historyScore * READINESS_WEIGHTS.history,
+      verbsScore * READINESS_WEIGHTS.verbs,
   );
 
   return { score, unlocked: score >= 100 };
@@ -328,13 +324,11 @@ export async function generatePracticeSession(body) {
   const completedQuestionIds = Array.isArray(body?.completedQuestionIds)
     ? body.completedQuestionIds.map(String)
     : [];
-  const historyCount = typeof body?.historyCount === 'number' ? body.historyCount : 0;
-
   if (!stage) {
     return { status: 400, body: { message: 'Please choose a practice mode.' } };
   }
 
-  const readiness = computeReadinessScore(allEntries, historyCount);
+  const readiness = computeReadinessScore(allEntries);
   if (!readiness.unlocked) {
     return {
       status: 400,
