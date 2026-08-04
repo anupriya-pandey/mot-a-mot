@@ -50,3 +50,7 @@ export const PARTIAL_MEANING_AT_LAYER =
 export const NO_CHANGE_AT_LAYER = 'No change needed at this layer.';
 export const CHANGE_CARRIES_FROM_LAYER = (label: string) =>
   `Same wording as ${label} — the improvement from what you wrote still applies here.`;
+
+export const SHOW_ORIGINAL_SENTENCE = 'Show my original sentence';
+
+export const HIDE_ORIGINAL_SENTENCE = 'Hide my original sentence';

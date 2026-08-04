@@ -4,8 +4,11 @@ import {
   PRACTICE_SUMMARY_COMPLETED,
   PRACTICE_SUMMARY_CORRECT,
   PRACTICE_SUMMARY_REINFORCED,
+  PRACTICE_SUMMARY_SCORE,
+  PRACTICE_SUMMARY_SCORE_NOTE,
   PRACTICE_SUMMARY_TITLE,
 } from '../constants/practiceMicrocopy';
+import { formatPracticeScore } from '../lib/practiceHelpers';
 import type { PracticeSessionSummary } from '../types/practice';
 
 interface PracticeSummaryScreenProps {
@@ -13,16 +16,23 @@ interface PracticeSummaryScreenProps {
   onDone: () => void;
 }
 
-function StarRating({ count, total }: { count: number; total: number }) {
+function StarRating({ score, total }: { score: number; total: number }) {
+  const filled = Math.round(score);
   return (
-    <p className="text-2xl tracking-wider text-warning" aria-label={`${count} of ${total} completed`}>
-      {'★'.repeat(count)}
-      {'☆'.repeat(Math.max(0, total - count))}
+    <p className="text-2xl tracking-wider text-warning" aria-label={`${score} of ${total} points`}>
+      {'★'.repeat(filled)}
+      {'☆'.repeat(Math.max(0, total - filled))}
     </p>
   );
 }
 
 export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreenProps) {
+  const isSentenceStage = summary.stage === 'sentence';
+  const scoreLabel = isSentenceStage ? PRACTICE_SUMMARY_SCORE : PRACTICE_SUMMARY_CORRECT;
+  const scoreDisplay = isSentenceStage
+    ? `${formatPracticeScore(summary.totalScore)}/${summary.totalCount}`
+    : `${summary.correctCount}/${summary.totalCount}`;
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-content flex-col justify-center px-m py-xl">
       <section className="rounded-card bg-surface p-xl shadow-card">
@@ -30,7 +40,7 @@ export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreen
         <p className="mt-xs text-sm font-medium text-success">{PRACTICE_SUMMARY_COMPLETED}</p>
 
         <div className="mt-l">
-          <StarRating count={summary.completedCount} total={summary.totalCount} />
+          <StarRating score={isSentenceStage ? summary.totalScore : summary.correctCount} total={summary.totalCount} />
           <p className="mt-s text-base text-text-primary">
             {summary.completedCount}/{summary.totalCount} prompts
           </p>
@@ -38,7 +48,7 @@ export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreen
 
         <ul className="mt-l space-y-s text-base text-text-primary">
           <li>
-            {PRACTICE_SUMMARY_CORRECT}: {summary.correctCount}/{summary.totalCount}
+            {scoreLabel}: {scoreDisplay}
           </li>
           <li>
             {PRACTICE_SUMMARY_REINFORCED}: {summary.toolboxWordsReinforced}
@@ -47,6 +57,10 @@ export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreen
             {PRACTICE_SUMMARY_CATEGORIES}: {summary.categoriesPracticed}
           </li>
         </ul>
+
+        {isSentenceStage && (
+          <p className="mt-m text-sm leading-relaxed text-text-secondary">{PRACTICE_SUMMARY_SCORE_NOTE}</p>
+        )}
 
         <p className="mt-m text-sm leading-relaxed text-text-secondary">
           {summary.stage === 'sentence'

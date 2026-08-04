@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { CHANGE_CARRIES_FROM_LAYER, NO_CHANGE_AT_LAYER } from '../constants/microcopy';
 import type { CorrectionChange } from '../types/analysis';
 import type { FixPhraseDisplay } from '../lib/writingChangeDisplay';
+import { PronunciationButton } from './PronunciationButton';
 import { SwipeCarousel } from './SwipeCarousel';
 
 const LABEL_COL = '5.75rem';
@@ -65,7 +66,14 @@ export function StyleChangesCarousel({
           <ChangeRow label={styleLabel}>
             {fix?.phrase ? (
               <>
-                <p className="break-words leading-relaxed text-success">{fix.phrase}</p>
+                <div className="flex items-start gap-s">
+                  <p className="flex-1 break-words leading-relaxed text-success">{fix.phrase}</p>
+                  <PronunciationButton
+                    text={fix.phrase}
+                    size="compact"
+                    ariaLabel={`Hear corrected French: ${fix.phrase}`}
+                  />
+                </div>
                 {fix.carryOverFrom && (
                   <p className="mt-s text-sm italic leading-relaxed text-text-secondary">
                     {CHANGE_CARRIES_FROM_LAYER(fix.carryOverFrom)}

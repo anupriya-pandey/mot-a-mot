@@ -16,8 +16,9 @@ Rules:
 - Do NOT return a changes array — changes come in a separate step
 - Ratings are 0–100 integers for grammar and naturalness of the learner's French sentence ONLY
 - Rating rubric (apply consistently — the same French text must always receive the same scores):
-  - Grammar: count objective errors only (agreement, conjugation, spelling, word order, missing/extra words). Perfect = 95–100, one minor error = 75–90, several errors = 50–74, major errors = below 50
-  - Naturalness: how native the phrasing sounds if grammar is ignored. Awkward but understandable = 40–60, mostly natural = 70–85, fully natural = 90–100
+  - Grammar: count objective errors only (agreement, conjugation, spelling, word order, missing/extra words). Perfect = 95–100, one minor error = 80–92, two minor errors = 70–85, several fixable errors with clear meaning = 60–75, major errors that block understanding = below 55
+  - Naturalness: how native the phrasing sounds if grammar is ignored. Awkward but understandable = 55–70, mostly natural = 75–88, fully natural = 90–100
+  - If meaning comes through clearly, do not score below 60 on either dimension unless errors seriously confuse a reader
   - Round to whole numbers. Do not vary scores for identical input
 - If the learner clarified in ENGLISH, set both grammar and naturalness ratings to 0
 - If the learner clarified in French, rate that French clarification text
@@ -331,7 +332,14 @@ IMPORTANT for suggestions.speaking:
 - Do NOT merely patch the learner's sentence — show what a strong, natural answer looks like even if their attempt was wrong or incomplete.
 - understood should describe what a good answer to this practice task expresses in English.
 
-Still rate grammar and naturalness on what the learner ACTUALLY wrote.`;
+Still rate grammar and naturalness on what the learner ACTUALLY wrote.
+
+PRACTICE RATING GUIDANCE:
+- Reward communicative success — if they fulfilled the task and meaning is clear, grammar should rarely fall below 65
+- One accent, spelling, or agreement slip with clear meaning: grammar 80–92
+- Multiple fixable errors but understandable: grammar 65–80
+- Do not double-penalize the same issue in both grammar and naturalness
+- Naturalness: if a native speaker would easily understand in context, score at least 70`;
 }
 
 function buildCorrectionPrompt(sentence, clarification, practicePrompt) {

@@ -33,9 +33,31 @@ export function buildPracticeReflection(
   };
 }
 
-/** Unique toolbox target words from questions answered correctly. */
+/** Partial credit from grammar + naturalness ratings (0–1). */
+export function computeRatingScore(grammar: number, naturalness: number): number {
+  const g = Math.max(0, Math.min(100, grammar));
+  const n = Math.max(0, Math.min(100, naturalness));
+  return (g + n) / 200;
+}
+
+export function computeQuestionScore(result: PracticeQuestionResult): number {
+  if (result.score !== undefined && !Number.isNaN(result.score)) {
+    return Math.max(0, Math.min(1, result.score));
+  }
+  if (isProductionExercise(result.prompt.type) && result.analysis) {
+    return computeRatingScore(result.analysis.ratings.grammar, result.analysis.ratings.naturalness);
+  }
+  return result.correct ? 1 : 0;
+}
+
+export function formatPracticeScore(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+/** Unique toolbox target words from questions with meaningful credit (score ≥ 50%). */
 export function getReinforcedWords(result: PracticeQuestionResult): string[] {
-  if (!result.correct) return [];
+  if (computeQuestionScore(result) < 0.5) return [];
   if (isProductionExercise(result.prompt.type)) {
     return result.wordsUsed.length > 0 ? result.wordsUsed : result.prompt.targetWords;
   }
@@ -49,13 +71,17 @@ export function computeSessionSummary(
   toolboxWordsReinforced: number;
   categoriesPracticed: number;
   correctCount: number;
+  totalScore: number;
 } {
   const reinforced = new Set<string>();
   const categories = new Set<string>();
   let correctCount = 0;
+  let totalScore = 0;
 
   for (const result of questionResults) {
-    if (result.correct) correctCount += 1;
+    const score = computeQuestionScore(result);
+    totalScore += score;
+    if (score >= 1) correctCount += 1;
 
     let categoryFromWords = false;
     for (const word of result.prompt.targetWords ?? []) {
@@ -79,6 +105,7 @@ export function computeSessionSummary(
     toolboxWordsReinforced: reinforced.size,
     categoriesPracticed: categories.size,
     correctCount,
+    totalScore,
   };
 }
 

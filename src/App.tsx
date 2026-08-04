@@ -7,6 +7,7 @@ import { applyConsistentRatings } from './lib/ratingsCache';
 import { categorizeImportEntries } from './lib/categorizeImport';
 import {
   buildPracticeReflection,
+  computeRatingScore,
   computeSessionSummary,
   getCorrectAnswerDisplay,
   gradePracticeAnswer,
@@ -478,6 +479,7 @@ export default function App() {
         stage: practiceSession.stage,
         completedCount: updatedResults.length,
         totalCount: practiceSession.prompts.length,
+        totalScore: stats.totalScore,
         correctCount: stats.correctCount,
         toolboxWordsReinforced: stats.toolboxWordsReinforced,
         categoriesPracticed: stats.categoriesPracticed,
@@ -524,6 +526,7 @@ export default function App() {
       prompt,
       userAnswer: practiceQuickFeedback.userAnswer,
       correct: practiceQuickFeedback.correct,
+      score: practiceQuickFeedback.correct ? 1 : 0,
       wordsUsed: practiceQuickFeedback.correct ? prompt.targetWords : [],
     };
 
@@ -551,10 +554,12 @@ export default function App() {
     if (!practiceSession || !result) return;
 
     const prompt = practiceSession.prompts[practiceQuestionIndex];
+    const score = computeRatingScore(result.ratings.grammar, result.ratings.naturalness);
     const questionResult: PracticeQuestionResult = {
       prompt,
       userAnswer: displaySentence,
-      correct: true,
+      correct: score >= 1,
+      score,
       analysis: result,
       wordsUsed: practiceReflection?.wordsUsed ?? [],
     };

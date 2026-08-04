@@ -41,6 +41,11 @@ export const PRACTICE_SUMMARY_COMPLETED = 'Completed';
 
 export const PRACTICE_SUMMARY_CORRECT = 'Correct answers';
 
+export const PRACTICE_SUMMARY_SCORE = 'Session score';
+
+export const PRACTICE_SUMMARY_SCORE_NOTE =
+  'Write-in-French prompts score by averaging your grammar and naturalness ratings on each answer.';
+
 export const PRACTICE_SUMMARY_REINFORCED = 'Toolbox words reinforced';
 
 export const PRACTICE_SUMMARY_CATEGORIES = 'Categories practiced';

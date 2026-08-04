@@ -61,7 +61,10 @@ export interface PracticeSessionPlan {
 export interface PracticeQuestionResult {
   prompt: PracticePrompt;
   userAnswer: string;
+  /** @deprecated Prefer score — true when score is 1 (quick) or ratings average 100 */
   correct: boolean;
+  /** 0–1 partial credit; production uses avg(grammar, naturalness)/100 */
+  score: number;
   analysis?: AnalysisResult;
   wordsUsed: string[];
 }
@@ -70,6 +73,8 @@ export interface PracticeSessionSummary {
   stage: PracticeStageId;
   completedCount: number;
   totalCount: number;
+  /** Sum of per-question scores (0–totalCount) */
+  totalScore: number;
   correctCount: number;
   toolboxWordsReinforced: number;
   categoriesPracticed: number;
