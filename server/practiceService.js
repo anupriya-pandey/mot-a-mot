@@ -47,6 +47,13 @@ RULES:
 - id: stable unique slug. NEVER repeat ids from the avoid list.
 - For choice-based types: exactly 4 UNIQUE options — no duplicate text.
 
+QUALITY GATE (apply to EVERY exercise before including it):
+- Exactly ONE option/answer is fully correct in natural spoken French.
+- The sentence must sound like real French a teacher would accept — not a grammar template with a random word dropped in.
+- All distractors must be plausible but clearly wrong in context.
+- If zero or multiple answers work, discard and regenerate that exercise.
+- multiple_choice: test the blank by mentally inserting each option — only the keyed correctAnswer may produce a natural sentence.
+
 Exercise types:
 - fill_blank: sentenceWithBlank REQUIRED — French sentence with "___" for the blank; correctAnswer is the French word/phrase. If multiple toolbox conjunctions/phrases fit (e.g. car and parce que for "because"), set acceptableAnswers with all valid options. sentenceWithBlank must be French only — no English translation in parentheses.
 
@@ -214,7 +221,7 @@ const PREPOSITION_FILL_TEMPLATES = {
   sous: "Le chien dort ___ le lit.",
   avec: "Je dîne ___ mes amis ce soir.",
   sans: "Je prends mon café ___ sucre.",
-  pour: "Ce cadeau est ___ toi.",
+  pour: "J'ai choisi une salade ___ le déjeuner.",
   de: "Je viens ___ Lyon.",
   chez: "Je mange ___ mes grands-parents dimanche.",
   par: "Nous passons ___ le parc en rentrant.",
@@ -272,6 +279,9 @@ function prepositionMatchesSentence(preposition, sentence) {
   if (/cadeau\s+est\s+___|est\s+___\s+(toi|moi|lui|elle)/.test(lower)) {
     return prep === 'pour';
   }
+  if (/salade\s+___\s+le|___\s+le déjeuner/.test(lower)) {
+    return prep === 'pour';
+  }
   if (/mange\s+___/.test(lower)) {
     return prep === 'chez';
   }
@@ -283,6 +293,72 @@ function prepositionMatchesSentence(preposition, sentence) {
   }
 
   return true;
+}
+
+function fillBlankSlot(sentenceWithBlank, answer) {
+  return String(sentenceWithBlank ?? '').replace('___', String(answer ?? '').trim());
+}
+
+function isDanglingPrepositionCompletion(filled) {
+  return /\b(à|a|au|aux|en|dans|sur|sous|avec|sans|pour|de|du|des|chez|par|vers|entre)\s*[.!?]?$/i.test(
+    String(filled ?? '').trim(),
+  );
+}
+
+function blankCompletionIsValid(sentenceWithBlank, answer, prompt) {
+  const text = String(answer ?? '').trim();
+  if (!text || !String(sentenceWithBlank).includes('___')) return false;
+
+  const filled = fillBlankSlot(sentenceWithBlank, text);
+  if (isDanglingPrepositionCompletion(filled)) return false;
+
+  const targetLemma = String(prompt.targetWords?.[0] ?? '').trim();
+  const isPreposition =
+    prompt.focusCategory === 'Prepositions' ||
+    Boolean(getPrepositionFillTemplate(text)) ||
+    Boolean(getPrepositionFillTemplate(targetLemma));
+
+  if (isPreposition) {
+    return prepositionMatchesSentence(text, sentenceWithBlank);
+  }
+
+  if (prompt.focusCategory === 'Adverbs' || getAdverbFillTemplate(targetLemma)) {
+    return normalizeLemmaKey(text) === normalizeLemmaKey(targetLemma);
+  }
+
+  if (prompt.focusCategory === 'Verbs' && targetLemma) {
+    const expected = conjugateJePresent(targetLemma);
+    if (expected && /\bje\s+___/i.test(sentenceWithBlank)) {
+      return normalizeLemmaKey(text) === normalizeLemmaKey(expected);
+    }
+  }
+
+  if (prompt.focusCategory === 'Pronouns' && /\b___\s+[a-zàâäéèêëïîôùûüç]/i.test(sentenceWithBlank)) {
+    return normalizeLemmaKey(text) === normalizeLemmaKey(targetLemma);
+  }
+
+  return true;
+}
+
+function countValidMcqCompletions(prompt) {
+  if (!prompt.options?.length) return 0;
+  return prompt.options.filter((option) =>
+    blankCompletionIsValid(prompt.sentenceWithBlank, option.text, prompt),
+  ).length;
+}
+
+function isValidMultipleChoice(prompt) {
+  if (prompt.type !== 'multiple_choice') return true;
+
+  const sentence = prompt.sentenceWithBlank ?? '';
+  if (!sentence.includes('___')) return false;
+  if (!prompt.options || prompt.options.length < 4) return false;
+
+  const correctOption = prompt.options.find((option) => option.id === prompt.correctAnswer);
+  if (!correctOption?.text) return false;
+  if (!blankCompletionIsValid(sentence, correctOption.text, prompt)) return false;
+
+  return countValidMcqCompletions(prompt) === 1;
 }
 
 function normalizeCorrectAnswer(value) {
@@ -534,54 +610,110 @@ function buildFallbackFindErrorVerb(entry, poolEntries, index, stage) {
   });
 }
 
-function buildFallbackMultipleChoice(entry, poolEntries, index, stage) {
-  const meaning = primaryMeaning(entry);
-  let sentenceWithBlank;
-  let correctText;
+function buildVerbFormMcqOptions(lemma, conjugated) {
+  const key = normalizeLemmaKey(lemma);
+  const candidates = new Set([conjugated, key]);
 
-  if (entry.partOfSpeech === 'Verbs') {
-    const conjugated = conjugateJePresent(entry.lemma);
-    if (!conjugated || conjugated === entry.lemma.trim().toLowerCase()) return null;
-    sentenceWithBlank = 'Ce matin, je ___ avec mes collègues.';
-    correctText = conjugated;
-  } else if (entry.partOfSpeech === 'Pronouns') {
-    sentenceWithBlank = '___ habite dans un petit village.';
-    correctText = entry.lemma;
-  } else {
-    sentenceWithBlank = 'Pour le déjeuner, j\'ai choisi ___.';
-    correctText = entry.lemma;
+  if (key.endsWith('er')) {
+    candidates.add(`${key.slice(0, -2)}es`);
+    candidates.add(`${key.slice(0, -2)}ent`);
+    candidates.add(`${key.slice(0, -2)}ons`);
+  } else if (key.endsWith('ir')) {
+    candidates.add(`${key.slice(0, -2)}it`);
+    candidates.add(`${key.slice(0, -2)}issons`);
+  } else if (key.endsWith('re')) {
+    candidates.add(`${key.slice(0, -2)}ez`);
+    candidates.add(`${key.slice(0, -2)}ons`);
   }
 
-  const sameCategory = poolEntries.filter(
-    (item) => item.lemma !== entry.lemma && item.partOfSpeech === entry.partOfSpeech,
-  );
-  const distractorPool = shuffle(sameCategory.length >= 3 ? sameCategory : poolEntries.filter((item) => item.lemma !== entry.lemma));
+  candidates.add('sont');
+  candidates.add('est');
 
-  const distractorTexts = [];
-  for (const item of distractorPool) {
-    if (distractorTexts.length >= 3) break;
-    const text =
-      item.partOfSpeech === 'Verbs'
-        ? conjugateJePresent(item.lemma) ?? item.lemma
-        : item.lemma;
-    if (!text || text.toLowerCase() === correctText.toLowerCase()) continue;
-    if (distractorTexts.some((value) => value.toLowerCase() === text.toLowerCase())) continue;
-    distractorTexts.push(text);
+  const distractors = [...candidates]
+    .filter((value) => value && normalizeLemmaKey(value) !== normalizeLemmaKey(conjugated))
+    .slice(0, 3);
+
+  while (distractors.length < 3) {
+    distractors.push(key);
   }
 
-  if (distractorTexts.length < 3) return null;
+  return { correctText: conjugated, distractorTexts: distractors.slice(0, 3) };
+}
 
+function buildMcqOptions(correctText, distractorTexts) {
   const options = shuffle([
     { id: 'a', text: correctText },
-    ...distractorTexts.map((text, optionIndex) => ({
+    ...distractorTexts.slice(0, 3).map((text, optionIndex) => ({
       id: String.fromCharCode(98 + optionIndex),
       text,
     })),
   ]).slice(0, 4);
 
-  const correctOption = options.find((option) => option.text.toLowerCase() === correctText.toLowerCase());
+  const correctOption = options.find(
+    (option) => option.text.toLowerCase() === correctText.toLowerCase(),
+  );
 
-  return enrichPrompt({
+  return { options, correctAnswer: correctOption?.id ?? 'a' };
+}
+
+function buildFallbackMultipleChoice(entry, poolEntries, index, stage) {
+  const meaning = primaryMeaning(entry);
+  let sentenceWithBlank;
+  let correctText;
+  let distractorTexts = [];
+
+  if (entry.partOfSpeech === 'Verbs') {
+    const conjugated = conjugateJePresent(entry.lemma);
+    if (!conjugated || conjugated === entry.lemma.trim().toLowerCase()) return null;
+
+    sentenceWithBlank = 'Chaque jour, je ___ à l\'école.';
+    const verbForms = buildVerbFormMcqOptions(entry.lemma, conjugated);
+    correctText = verbForms.correctText;
+    distractorTexts = verbForms.distractorTexts;
+  } else if (entry.partOfSpeech === 'Pronouns') {
+    sentenceWithBlank = '___ habite dans un petit village.';
+    correctText = entry.lemma;
+    distractorTexts = shuffle(
+      poolEntries.filter(
+        (item) => item.partOfSpeech === 'Pronouns' && item.lemma !== entry.lemma,
+      ),
+    )
+      .slice(0, 3)
+      .map((item) => item.lemma);
+  } else if (entry.partOfSpeech === 'Prepositions') {
+    sentenceWithBlank = getPrepositionFillTemplate(entry.lemma);
+    if (!sentenceWithBlank) return null;
+    correctText = entry.lemma;
+    distractorTexts = shuffle(
+      poolEntries.filter(
+        (item) =>
+          item.partOfSpeech === 'Prepositions' &&
+          item.lemma !== entry.lemma &&
+          getPrepositionFillTemplate(item.lemma),
+      ),
+    )
+      .slice(0, 3)
+      .map((item) => item.lemma);
+  } else if (entry.partOfSpeech === 'Adverbs') {
+    sentenceWithBlank = getAdverbFillTemplate(entry.lemma);
+    if (!sentenceWithBlank) return null;
+    correctText = entry.lemma;
+    distractorTexts = shuffle(
+      poolEntries.filter(
+        (item) => item.partOfSpeech === 'Adverbs' && item.lemma !== entry.lemma,
+      ),
+    )
+      .slice(0, 3)
+      .map((item) => item.lemma);
+  } else {
+    return null;
+  }
+
+  if (distractorTexts.length < 3) return null;
+
+  const { options, correctAnswer } = buildMcqOptions(correctText, distractorTexts);
+
+  const candidate = enrichPrompt({
     id: `fallback-mcq-${entry.lemma}-${index}`,
     index,
     stage,
@@ -592,9 +724,11 @@ function buildFallbackMultipleChoice(entry, poolEntries, index, stage) {
     focusCategory: entry.partOfSpeech,
     sentenceWithBlank,
     options,
-    correctAnswer: correctOption?.id ?? 'a',
-    explanation: `« ${correctText} » fits here — it relates to "${meaning}".`,
+    correctAnswer,
+    explanation: `« ${correctText} » completes this sentence naturally (${meaning}).`,
   });
+
+  return isValidMultipleChoice(candidate) ? candidate : null;
 }
 
 function buildFallbackMatchFollowing(entries, index, stage) {
@@ -854,8 +988,9 @@ IMPORTANT: Generate ${SESSION_QUESTION_COUNT} valid exercises. Each MUST include
 - targetWords from the toolbox
 - explanation (English)
 - No hints — questions must be self-contained
+- Every exercise must have exactly ONE natural correct answer; discard broken templates
 - frenchPrompt OR sentenceWithBlank with "___" showing French text (match_meaning MUST show the French word)
-- For multiple_choice: French sentence with blank + French options
+- For multiple_choice: French sentence with blank + French options — test each option in the blank; only one may be natural French
 All question ids must be new.`,
       schema: EXERCISE_SCHEMA,
       schemaName: 'practice_session_retry',
@@ -1142,6 +1277,8 @@ function isValidFillBlank(prompt) {
   if (revealsAnswerInText(sentence, prompt.correctAnswer, prompt.acceptableAnswers)) return false;
   if (isGenericPracticeExplanation(prompt.explanation)) return false;
 
+  if (!blankCompletionIsValid(sentence, prompt.correctAnswer, prompt)) return false;
+
   const instruction = String(prompt.instruction ?? '').toLowerCase();
   if (/present-tense|conjugat/.test(instruction)) {
     for (const word of prompt.targetWords ?? []) {
@@ -1427,7 +1564,7 @@ ${lines}
 
 Generate ${SESSION_QUESTION_COUNT} randomized exercises using ONLY words from this toolbox.
 Use at least 2 of each Spot & Match type (fill_blank, match_meaning, match_following, find_error, multiple_choice) when possible.
-Never use proper nouns or personal names. Do not include hints — every question must stand on its own.`;
+Never use proper nouns or personal names. Do not include hints. Every exercise must have exactly one natural correct answer — discard and replace any that fail this test.`;
 }
 
 function buildQuestionFingerprint(type, focusCategory, targetWords, title) {
@@ -1498,6 +1635,7 @@ function normalizePrompts(rawPrompts, stage) {
         !isGenericPracticeExplanation(prompt.explanation) &&
         allowedTypes.includes(prompt.type) &&
         isValidChoicePrompt(prompt) &&
+        isValidMultipleChoice(prompt) &&
         isValidMatchFollowing(prompt) &&
         isValidFindError(prompt) &&
         isValidFillBlank(prompt) &&
