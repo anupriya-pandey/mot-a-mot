@@ -1,6 +1,7 @@
 import { StyleChangesCarousel } from './StyleChangesCarousel';
 import { EVERYDAY_FRENCH_SUBTITLE } from '../constants/writingStyles';
 import type { CorrectionChange } from '../types/analysis';
+import { getChangesForSpeaking } from '../lib/writingChangeDisplay';
 import { SuggestedMessageCard } from './SuggestedMessageCard';
 
 interface SpeakingSuggestionProps {
@@ -15,7 +16,7 @@ export function SpeakingSuggestion({ sentence, english, changes }: SpeakingSugge
       <SuggestedMessageCard sentence={sentence} english={english} />
       <div className="rounded-card bg-surface p-m shadow-card">
         <StyleChangesCarousel
-          changes={changes}
+          changes={getChangesForSpeaking(changes)}
           styleLabel={EVERYDAY_FRENCH_SUBTITLE}
           getFixDisplay={(change) => {
             const phrase = (change.speakingFrench || change.informalFrench)?.trim();

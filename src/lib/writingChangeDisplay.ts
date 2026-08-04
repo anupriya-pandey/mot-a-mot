@@ -10,6 +10,25 @@ export interface FixPhraseDisplay {
   carryOverFrom?: string;
 }
 
+/** Normalize for comparing whether two change phrases are the same fix. */
+export function normalizeChangePhrase(text: string): string {
+  return text.trim().replace(/\s+/g, ' ');
+}
+
+export function isSameChangePhrase(a: string, b: string): boolean {
+  return normalizeChangePhrase(a) === normalizeChangePhrase(b);
+}
+
+/** Fix phrase at a writing layer — only when that layer actually changed the span. */
+export function getWritingFixPhraseAtLayer(
+  change: CorrectionChange,
+  style: WritingStyle,
+): FixPhraseDisplay | null {
+  const direct = change.byStyle[style]?.trim();
+  if (!direct) return null;
+  return { phrase: direct };
+}
+
 /** When a layer repeats the previous wording, still show the fix from what the learner wrote. */
 export function getWritingFixPhraseDisplay(
   change: CorrectionChange,
@@ -36,4 +55,23 @@ export function getWritingFixPhraseDisplay(
   }
 
   return null;
+}
+
+export function getChangesForWritingLayer(
+  changes: CorrectionChange[],
+  style: WritingStyle,
+): CorrectionChange[] {
+  return changes.filter((change) => {
+    const fix = getWritingFixPhraseAtLayer(change, style);
+    if (!fix) return false;
+    return !isSameChangePhrase(change.youWrote, fix.phrase);
+  });
+}
+
+export function getChangesForSpeaking(changes: CorrectionChange[]): CorrectionChange[] {
+  return changes.filter((change) => {
+    const speaking = (change.speakingFrench || change.informalFrench)?.trim();
+    if (!speaking) return false;
+    return !isSameChangePhrase(change.youWrote, speaking);
+  });
 }

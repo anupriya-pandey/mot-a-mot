@@ -77,6 +77,7 @@ METHOD:
 4. speakingFrench MUST be the replacement phrase — a contiguous substring of the speaking sentence.
 5. byStyle: for each writing style, the replacement at that meaning slot — copied from THAT style's sentence. Use "" when that style's sentence is identical to the previous style for this slot or no change applies.
 6. Verify every non-empty value appears inside its target sentence.
+7. Do NOT create a change row when the learner's span already matches the correction — omit that issue entirely. Do NOT use "" in byStyle and then explain a non-change.
 
 Each row:
 - youWrote, speakingFrench, speakingExplanation (English)
@@ -528,6 +529,17 @@ function allWritingSentencesIdentical(writing) {
   return WRITING_STYLES.every((style) => normalizeForMatch(writing[style]?.sentence ?? '') === baseline);
 }
 
+function changeHasRealEdit(change) {
+  if (normalizeForMatch(change.youWrote) !== normalizeForMatch(change.speakingFrench)) {
+    return true;
+  }
+
+  return WRITING_STYLES.some((style) => {
+    const phrase = change.byStyle[style]?.trim();
+    return phrase && normalizeForMatch(phrase) !== normalizeForMatch(change.youWrote);
+  });
+}
+
 function mapStyleChanges(changes) {
   if (!Array.isArray(changes)) return [];
 
@@ -549,7 +561,8 @@ function mapStyleChanges(changes) {
           hasAllStyleKeys(explanationsByStyle, { allowEmpty: true }) ? explanationsByStyle : undefined,
       };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter(changeHasRealEdit);
 }
 
 function normalizeForMatch(text) {
