@@ -8,9 +8,15 @@ interface SpeakingSuggestionProps {
   sentence: string;
   english?: string;
   changes: CorrectionChange[];
+  originalSentence?: string;
 }
 
-export function SpeakingSuggestion({ sentence, english, changes }: SpeakingSuggestionProps) {
+export function SpeakingSuggestion({
+  sentence,
+  english,
+  changes,
+  originalSentence,
+}: SpeakingSuggestionProps) {
   return (
     <div className="space-y-m">
       <SuggestedMessageCard sentence={sentence} english={english} />
@@ -18,6 +24,8 @@ export function SpeakingSuggestion({ sentence, english, changes }: SpeakingSugge
         <StyleChangesCarousel
           changes={getChangesForSpeaking(changes)}
           styleLabel={EVERYDAY_FRENCH_SUBTITLE}
+          originalSentence={originalSentence}
+          styleSentence={sentence}
           getFixDisplay={(change) => {
             const phrase = (change.speakingFrench || change.informalFrench)?.trim();
             return phrase ? { phrase } : null;

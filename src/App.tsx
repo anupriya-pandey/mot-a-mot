@@ -367,6 +367,12 @@ export default function App() {
     setScreen('practice');
   }, []);
 
+  const handleBackFromPracticeIntro = useCallback(() => {
+    resetPractice();
+    setActiveTab('practice');
+    setScreen('practice');
+  }, [resetPractice]);
+
   const handleStartPracticeSession = useCallback(
     async (focusCategory: PracticeFocusFilter) => {
       if (!selectedPracticeStage) return;
@@ -425,6 +431,7 @@ export default function App() {
               instruction: prompt.instruction,
               targetWords: prompt.targetWords,
               englishPrompt: prompt.englishPrompt,
+              frenchPrompt: prompt.frenchPrompt,
               type: prompt.type,
             },
           });
@@ -602,7 +609,11 @@ export default function App() {
 
   if (screen === 'practice-intro' && practiceSession) {
     return (
-      <PracticeSessionIntroScreen session={practiceSession} onStart={handleBeginPracticeSession} />
+      <PracticeSessionIntroScreen
+        session={practiceSession}
+        onStart={handleBeginPracticeSession}
+        onBack={handleBackFromPracticeIntro}
+      />
     );
   }
 

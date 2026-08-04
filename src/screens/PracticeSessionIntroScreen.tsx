@@ -1,5 +1,6 @@
 import { PrimaryButton } from '../components/PrimaryButton';
 import {
+  PRACTICE_INTRO_BACK,
   PRACTICE_QUICK_INTRO,
   PRACTICE_SENTENCE_INTRO,
   PRACTICE_SESSION_TITLE,
@@ -9,15 +10,28 @@ import type { PracticeSessionPlan } from '../types/practice';
 interface PracticeSessionIntroScreenProps {
   session: PracticeSessionPlan;
   onStart: () => void;
+  onBack: () => void;
 }
 
-export function PracticeSessionIntroScreen({ session, onStart }: PracticeSessionIntroScreenProps) {
+export function PracticeSessionIntroScreen({
+  session,
+  onStart,
+  onBack,
+}: PracticeSessionIntroScreenProps) {
   const introCopy = session.stage === 'quick' ? PRACTICE_QUICK_INTRO : PRACTICE_SENTENCE_INTRO;
   const focusLabel =
     session.focusCategory === 'all' ? 'All categories' : session.focusCategory;
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-content flex-col justify-center px-m py-xl">
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-l self-start text-sm font-medium text-primary hover:underline"
+      >
+        ← {PRACTICE_INTRO_BACK}
+      </button>
+
       <section className="rounded-card bg-surface p-xl shadow-card">
         <h1 className="text-2xl font-semibold text-text-primary">{PRACTICE_SESSION_TITLE}</h1>
 

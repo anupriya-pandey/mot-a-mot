@@ -19,6 +19,7 @@ import { getChangesForWritingLayer, getWritingFixPhraseAtLayer } from '../lib/wr
 interface WritingSuggestionsProps {
   writing: WritingByStyle;
   changes: CorrectionChange[];
+  originalSentence?: string;
 }
 
 function WritingStyleGroup({
@@ -31,6 +32,7 @@ function WritingStyleGroup({
   note,
   previousLabel,
   changes,
+  originalSentence,
 }: {
   style: WritingStyle;
   sentence: string;
@@ -41,6 +43,7 @@ function WritingStyleGroup({
   note?: string;
   previousLabel?: string;
   changes: CorrectionChange[];
+  originalSentence?: string;
 }) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
   const layerLabel = WRITING_STYLE_LABELS[style];
@@ -99,6 +102,8 @@ function WritingStyleGroup({
       <StyleChangesCarousel
         changes={getChangesForWritingLayer(changes, style)}
         styleLabel={layerLabel}
+        originalSentence={originalSentence}
+        styleSentence={sentence}
         getFixDisplay={(change) => getWritingFixPhraseAtLayer(change, style)}
         getExplanation={(change) => change.explanationsByStyle?.[style]}
         ariaLabel={`What changed for ${layerLabel}`}
@@ -107,7 +112,7 @@ function WritingStyleGroup({
   );
 }
 
-export function WritingSuggestions({ writing, changes }: WritingSuggestionsProps) {
+export function WritingSuggestions({ writing, changes, originalSentence }: WritingSuggestionsProps) {
   return (
     <section aria-labelledby="writing-suggestions">
       <SectionHeader icon="✍️" title="Writing" />
@@ -129,6 +134,7 @@ export function WritingSuggestions({ writing, changes }: WritingSuggestionsProps
               note={item.note}
               previousLabel={previousLabel}
               changes={changes}
+              originalSentence={originalSentence}
             />
           );
         })}

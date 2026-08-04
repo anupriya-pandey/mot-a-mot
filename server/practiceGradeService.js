@@ -11,35 +11,47 @@ const COMPONENT_WEIGHTS = {
 const MEANING_GATE_THRESHOLD = 0.6;
 const MEANING_GATE_MAX_SCORE = 0.5;
 
-const PRACTICE_GRADE_SYSTEM_PROMPT = `You are Mot-à-Mot's Practice grader for Write in French exercises.
+const TRANSLATION_GRADE_SYSTEM_PROMPT = `You are Mot-à-Mot's grader for English→French translation exercises.
 
-The learner completed a structured practice task — NOT free-form Check mode.
+BINARY scoring — the learner gets 1 point or 0:
+- Award a PASS (all component scores = 1.0) ONLY if the French translation conveys the English meaning EXACTLY and is fully grammatically correct.
+- Any wrong meaning, missing nuance, added information, or grammar/spelling/agreement error → FAIL (all component scores = 0.0).
+- Accept valid alternative phrasings ONLY if meaning stays exact and grammar is correct.
+- Required toolbox words must appear in the translation where natural.
 
-Score each component from 0.00 to 1.00 (two decimal places):
-- meaning (40%): Did they communicate the intended idea from the prompt?
-- grammar (30%): Correctness — conjugation, agreement, spelling, word order.
-- vocabulary (20%): Appropriate words, especially toolbox target words when relevant.
-- naturalness (10%): Sounds like real French — smallest weight; do not punish understandable awkward phrasing heavily.
+Return meaning, grammar, vocabulary, and naturalness each as exactly 1.0 (pass) or 0.0 (fail).
+Also return suggestedAnswer (model translation), feedback (why pass/fail), headline, acceptedAlternatives, confidence.
+Do NOT return overall — the server computes it.
+Return ONLY valid JSON.`;
 
-Hierarchical mindset:
-1. Can a French speaker understand what they intended?
-2. Then grammar, vocabulary, naturalness.
+const QUESTION_ANSWER_GRADE_SYSTEM_PROMPT = `You are Mot-à-Mot's grader for French Question & Answer exercises.
 
-If meaning is seriously wrong (e.g. "tomorrow" rendered as "hier"), meaning should be low (0.10–0.40) even if grammar is perfect.
+The learner read a French prompt and answered in French.
 
-Examples:
-- "Je suis fatigué aujourd'hui" for "I'm tired today" → meaning 1.0, grammar 1.0, vocabulary 1.0, naturalness 1.0
-- "Je suis fatigue aujourd'hui" (missing accent) → meaning 1.0, grammar ~0.83, vocabulary 1.0, naturalness 1.0
-- "Je vais hier" for "I am going tomorrow" → meaning ~0.10–0.25, grammar 1.0, vocabulary 1.0, naturalness 1.0
+Score each component from 0.00 to 1.00:
+- meaning (40%): Does the answer appropriately address the French prompt?
+- grammar (30%): Correct French — conjugation, agreement, spelling, word order.
+- vocabulary (20%): Required toolbox word(s) must appear in the answer.
+- naturalness (10%): Coherent, conversational response.
 
-Also return:
-- suggestedAnswer: one strong model answer in everyday written French for this task
-- feedback: 1–3 sentences explaining the score in plain English (the "Why?" note)
-- headline: short encouragement like "Great job!", "Nice work!", "Good effort!", or "Keep practicing!"
-- acceptedAlternatives: other valid French answers (empty array if none)
-- confidence: 0–1 how confident you are in these scores
+If required toolbox words are missing, vocabulary must be ≤ 0.25.
 
-Do NOT return an overall score — the server computes it from components.
+Return suggestedAnswer, feedback, headline, acceptedAlternatives, confidence.
+Do NOT return overall — the server computes it.
+Return ONLY valid JSON.`;
+
+const BUILD_SENTENCE_GRADE_SYSTEM_PROMPT = `You are Mot-à-Mot's grader for Build a Sentence exercises.
+
+The learner wrote ONE cohesive French sentence using multiple required toolbox words.
+
+Score each component from 0.00 to 1.00:
+- vocabulary (20%): Every required toolbox word must appear — if any is missing, vocabulary ≤ 0.25.
+- meaning (40%): The sentence is coherent and reads as one unified idea, not a word list.
+- grammar (30%): Correct French.
+- naturalness (10%): Sounds like a real sentence a French speaker might say.
+
+Return suggestedAnswer, feedback, headline, acceptedAlternatives, confidence.
+Do NOT return overall — the server computes it.
 Return ONLY valid JSON.`;
 
 const PRACTICE_GRADE_SCHEMA = {
@@ -92,21 +104,127 @@ export function computePracticeOverall(components) {
   };
 }
 
+function getGradeSystemPrompt(exerciseType) {
+  if (exerciseType === 'translation') return TRANSLATION_GRADE_SYSTEM_PROMPT;
+  if (exerciseType === 'question_answer') return QUESTION_ANSWER_GRADE_SYSTEM_PROMPT;
+  if (exerciseType === 'build_sentence') return BUILD_SENTENCE_GRADE_SYSTEM_PROMPT;
+  return QUESTION_ANSWER_GRADE_SYSTEM_PROMPT;
+}
+
 function buildGradeUserPrompt({ sentence, practicePrompt }) {
   const words = (practicePrompt.targetWords ?? []).join(', ');
-  const englishPrompt = practicePrompt.englishPrompt
-    ? `\nEnglish prompt: "${practicePrompt.englishPrompt}"`
-    : '';
+  const type = practicePrompt.type ?? 'translation';
 
-  return `Practice task: ${practicePrompt.title}
-Instruction: ${practicePrompt.instruction}${englishPrompt}
-Toolbox words to consider: ${words || 'none specified'}
+  if (type === 'translation') {
+    return `Exercise type: Translation (English → French)
+English sentence to translate:
+"${practicePrompt.englishPrompt ?? ''}"
+
+Toolbox words to use in the translation: ${words || 'none specified'}
+
+Learner's French translation:
+"${sentence}"`;
+  }
+
+  if (type === 'question_answer') {
+    return `Exercise type: Question & answer
+French prompt the learner read:
+"${practicePrompt.frenchPrompt ?? ''}"
+
+Toolbox words the answer should include: ${words || 'none specified'}
 
 Learner's French answer:
 "${sentence}"`;
+  }
+
+  return `Exercise type: Build a sentence
+Required toolbox words (ALL must appear in one cohesive sentence): ${words || 'none specified'}
+
+Learner's French sentence:
+"${sentence}"`;
 }
 
-function normalizeGradeResult(raw, sentence) {
+function answerIncludesTargetWord(sentence, targetWords) {
+  const lower = String(sentence ?? '').toLowerCase();
+  return (targetWords ?? []).some((word) => {
+    const normalized = String(word).trim().toLowerCase();
+    if (!normalized) return false;
+    if (lower.includes(normalized)) return true;
+    if (normalized.startsWith("j'") && lower.includes(normalized.slice(2))) return true;
+    return false;
+  });
+}
+
+function answerIncludesAllTargetWords(sentence, targetWords) {
+  if (!targetWords?.length) return true;
+  return targetWords.every((word) => answerIncludesTargetWord(sentence, [word]));
+}
+
+function applyTargetWordRequirement(grading, sentence, targetWords, exerciseType) {
+  const wordsPresent =
+    exerciseType === 'build_sentence'
+      ? answerIncludesAllTargetWords(sentence, targetWords)
+      : answerIncludesTargetWord(sentence, targetWords);
+
+  if (!targetWords?.length || wordsPresent) {
+    return grading;
+  }
+
+  const missing = targetWords.map((word) => `« ${word} »`).join(', ');
+  const adjusted = {
+    ...grading,
+    vocabulary: Math.min(grading.vocabulary, 0.25),
+    feedback: `Your answer must include ${missing}. ${grading.feedback}`,
+  };
+
+  if (exerciseType === 'translation') {
+    return normalizeTranslationGrade(adjusted, sentence);
+  }
+
+  const scores = computePracticeOverall(adjusted);
+  return {
+    ...adjusted,
+    meaning: scores.meaning,
+    grammar: scores.grammar,
+    vocabulary: scores.vocabulary,
+    naturalness: scores.naturalness,
+    overall: scores.overall,
+  };
+}
+
+function normalizeTranslationGrade(raw, sentence) {
+  const meaning = clampUnit(raw?.meaning);
+  const grammar = clampUnit(raw?.grammar);
+  const vocabulary = clampUnit(raw?.vocabulary);
+  const naturalness = clampUnit(raw?.naturalness);
+  const pass = meaning >= 0.99 && grammar >= 0.99 && vocabulary >= 0.99 && naturalness >= 0.99;
+  const score = pass ? 1 : 0;
+
+  const feedback = String(raw?.feedback ?? '').trim();
+  const suggestedAnswer = String(raw?.suggestedAnswer ?? '').trim();
+  const headline = String(raw?.headline ?? '').trim();
+
+  return {
+    meaning: score,
+    grammar: score,
+    vocabulary: score,
+    naturalness: score,
+    overall: score,
+    confidence: clampUnit(raw?.confidence ?? 0.85),
+    feedback:
+      feedback ||
+      (pass
+        ? 'Exact meaning and correct grammar — full credit.'
+        : 'The translation must convey the English meaning exactly and be grammatically correct.'),
+    suggestedAnswer: suggestedAnswer || sentence,
+    headline: headline || (pass ? 'Perfect translation!' : 'Not quite — compare with the model answer.'),
+    acceptedAlternatives: Array.isArray(raw?.acceptedAlternatives)
+      ? raw.acceptedAlternatives.map((value) => String(value).trim()).filter(Boolean)
+      : [],
+  };
+}
+
+function normalizeRubricGradeResult(raw, sentence) {
   const scores = computePracticeOverall({
     meaning: raw?.meaning,
     grammar: raw?.grammar,
@@ -142,9 +260,17 @@ function normalizeGradeResult(raw, sentence) {
   };
 }
 
+function normalizeGradeResult(raw, sentence, exerciseType) {
+  if (exerciseType === 'translation') {
+    return normalizeTranslationGrade(raw, sentence);
+  }
+  return normalizeRubricGradeResult(raw, sentence);
+}
+
 export async function gradePracticeExercise(body) {
   const sentence = String(body?.sentence ?? '').trim();
   const practicePrompt = body?.practicePrompt;
+  const exerciseType = practicePrompt?.type ?? 'translation';
 
   if (!sentence) {
     return { status: 400, body: { message: 'Please enter a French sentence.' } };
@@ -162,7 +288,7 @@ export async function gradePracticeExercise(body) {
 
   try {
     const result = await generateStructured(config, {
-      systemPrompt: PRACTICE_GRADE_SYSTEM_PROMPT,
+      systemPrompt: getGradeSystemPrompt(exerciseType),
       userPrompt: buildGradeUserPrompt({ sentence, practicePrompt }),
       schema: PRACTICE_GRADE_SCHEMA,
       schemaName: 'practice_exercise_grade',
@@ -173,7 +299,12 @@ export async function gradePracticeExercise(body) {
 
     return {
       status: 200,
-      body: normalizeGradeResult(result, sentence),
+      body: applyTargetWordRequirement(
+        normalizeGradeResult(result, sentence, exerciseType),
+        sentence,
+        practicePrompt.targetWords,
+        exerciseType,
+      ),
     };
   } catch (error) {
     console.error('Practice grading error:', error);

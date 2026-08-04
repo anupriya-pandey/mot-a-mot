@@ -90,6 +90,7 @@ export interface GradePracticeExerciseRequest {
     instruction: string;
     targetWords: string[];
     englishPrompt?: string;
+    frenchPrompt?: string;
     type?: PracticeExerciseType;
   };
 }

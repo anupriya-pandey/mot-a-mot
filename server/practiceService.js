@@ -38,7 +38,7 @@ RULES:
 - Do NOT include hints — every exercise must be fully answerable from its title, instruction, and on-screen French/English prompt alone.
 - explanation: REQUIRED for every exercise — a short English note shown when the learner gets it wrong (and on success when helpful).
 - Mix exercise types: fill_blank, match_meaning, match_following, find_error, multiple_choice.
-- Across 10 exercises include at least 2 of each type when the toolbox allows — never make every question fill_blank or match_meaning.
+- Return EXACTLY this mix for 10 exercises: 2 fill_blank, 2 match_following, 2 find_error, 2 multiple_choice, 2 match_meaning — no type may appear more than twice.
 - NEVER use proper nouns or personal names (e.g. Anupriya, John) as French prompts or answers — only real French vocabulary from the toolbox.
 - CRITICAL: Every question MUST show French text the learner responds to. Never ask about a French word without displaying it. Never ask to complete a sentence without showing the French sentence.
 - Instructions must be short and self-contained — the learner should never need extra clues beyond what is on screen.
@@ -77,13 +77,32 @@ const SENTENCE_SYSTEM_PROMPT = `You are Mot-à-Mot's Write in French engine. Cre
 
 RULES:
 - Every targetWords entry MUST come from the toolbox list (internal — NOT shown to learner).
-- Do NOT include hints — the englishPrompt and instruction must contain everything the learner needs.
+- Do NOT include hints — prompts must be self-contained.
 - explanation: REQUIRED — brief English note on what a strong answer should do (shown when checking).
-- Mix types: translation, question_answer, build_sentence.
-- translation: englishPrompt in English states exactly what to write in French.
-- question_answer: scenario in English; learner answers in French.
-- build_sentence: englishPrompt states the theme and required toolbox words plainly.
+- Mix types: translation, question_answer, build_sentence (roughly equal split across 10 exercises).
 - id: stable unique slug. NEVER repeat ids from the avoid list.
+
+TYPE: translation
+- englishPrompt REQUIRED: one clear English sentence the learner translates into French.
+- The French answer must convey that English meaning EXACTLY and use toolbox vocabulary (especially targetWords).
+- instruction: "Translate into French."
+- title: "Translation"
+- Do NOT set frenchPrompt for translation — the English sentence is the prompt.
+
+TYPE: question_answer
+- frenchPrompt REQUIRED: a short question or prompt written entirely in French (ends with ? when it is a question).
+- The learner reads the French prompt and writes their answer in French.
+- targetWords: toolbox word(s) the answer should include naturally.
+- instruction: "Read the French prompt and answer in French."
+- title: "Question & answer"
+- Do NOT use englishPrompt for the scenario — the French prompt is what the learner sees.
+
+TYPE: build_sentence
+- targetWords REQUIRED: exactly 2 (or 3) toolbox lemmas the learner must weave into ONE cohesive French sentence.
+- frenchPrompt: display the words with guillemets, e.g. « manger » · « ce soir »
+- instruction: "Write one cohesive sentence in French using the toolbox words below."
+- title: "Build a sentence"
+- No englishPrompt needed.
 
 Return exactly 10 exercises. Return ONLY valid JSON.`;
 
@@ -876,92 +895,296 @@ function buildFallbackQuickPrompts(entries, count, completedQuestionIds = []) {
 }
 
 function buildFallbackSentencePrompts(entries, count) {
-  const pool = shuffle(entries);
+  const pool = shuffle(filterPracticeEntries(entries));
   const prompts = [];
   let index = 1;
+  let poolIndex = 0;
+  const sentenceTypes = ['translation', 'question_answer', 'build_sentence'];
 
-  for (const entry of pool) {
-    if (prompts.length >= count) break;
-    prompts.push(
-      enrichPrompt({
-        id: `fallback-translate-${entry.lemma}-${index}`,
-        index: index++,
-        stage: 'sentence',
-        type: 'translation',
-        title: 'Write in French',
-        instruction: 'Write in French.',
-        targetWords: [entry.lemma],
-        focusCategory: entry.partOfSpeech,
-        englishPrompt: `Write a French sentence that uses the word for "${primaryMeaning(entry)}" (« ${entry.lemma} »).`,
-        correctAnswer: entry.lemma,
-        explanation: `A strong answer uses "${entry.lemma}" naturally in a complete French sentence.`,
-      }),
-    );
-  }
+  const nextEntry = () => {
+    if (pool.length === 0) return null;
+    const entry = pool[poolIndex % pool.length];
+    poolIndex += 1;
+    return entry;
+  };
 
-  let repeatRound = 0;
   while (prompts.length < count && pool.length > 0) {
-    const entry = pool[prompts.length % pool.length];
+    const exerciseType = sentenceTypes[prompts.length % sentenceTypes.length];
+
+    if (exerciseType === 'build_sentence') {
+      if (pool.length < 2) break;
+      const entryA = pool[poolIndex % pool.length];
+      const entryB = pool[(poolIndex + 1) % pool.length];
+      poolIndex += 2;
+      const writing = buildBuildSentencePrompt(entryA, entryB);
+
+      prompts.push(
+        enrichPrompt({
+          id: `fallback-build-${entryA.lemma}-${entryB.lemma}-${index}`,
+          index: index++,
+          stage: 'sentence',
+          type: 'build_sentence',
+          title: 'Build a sentence',
+          instruction: writing.instruction,
+          targetWords: writing.targetWords,
+          focusCategory: entryA.partOfSpeech,
+          frenchPrompt: writing.frenchPrompt,
+          correctAnswer: writing.correctAnswer,
+          explanation: writing.explanation,
+        }),
+      );
+      continue;
+    }
+
+    const entry = nextEntry();
+    if (!entry) break;
+
+    const writing =
+      exerciseType === 'translation'
+        ? buildTranslationPrompt(entry)
+        : buildQuestionAnswerPrompt(entry);
+
     prompts.push(
       enrichPrompt({
-        id: `fallback-translate-${entry.lemma}-extra-${repeatRound}-${prompts.length}`,
+        id: `fallback-${exerciseType}-${entry.lemma}-${index}`,
         index: index++,
         stage: 'sentence',
-        type: 'translation',
-        title: 'Write in French',
-        instruction: 'Write in French.',
-        targetWords: [entry.lemma],
+        type: exerciseType,
+        title: exerciseType === 'translation' ? 'Translation' : 'Question & answer',
+        instruction: writing.instruction,
+        targetWords: writing.targetWords,
         focusCategory: entry.partOfSpeech,
-        englishPrompt: `Write a French sentence that uses the word for "${primaryMeaning(entry)}" (« ${entry.lemma} »).`,
-        correctAnswer: entry.lemma,
-        explanation: `A strong answer uses "${entry.lemma}" naturally in a complete French sentence.`,
+        englishPrompt: writing.englishPrompt,
+        frenchPrompt: writing.frenchPrompt,
+        correctAnswer: writing.correctAnswer,
+        explanation: writing.explanation,
       }),
     );
-    repeatRound += 1;
   }
 
   return prompts.slice(0, count);
 }
 
-function ensureQuickTypeMix(prompts, fallback, targetCount) {
-  const types = STAGE_CONFIG.quick.types;
-  const pool = dedupePrompts([...prompts, ...fallback], []);
+const TRANSLATION_ENGLISH_BY_LEMMA = {
+  en: 'I am going to France this summer.',
+  dans: 'My keys are in my bag.',
+  avec: 'I am having lunch with a friend.',
+  à: 'I am going to school tomorrow.',
+  de: 'This gift is from my sister.',
+  pour: 'This letter is for you.',
+  sur: 'The book is on the table.',
+  sous: 'The cat is under the chair.',
+  sans: 'I drink coffee without sugar.',
+  chez: 'We eat dinner at my grandmother\'s house.',
+};
+
+function buildTranslationEnglishSentence(entry) {
+  const lemma = String(entry.lemma ?? '').trim().toLowerCase();
+  if (TRANSLATION_ENGLISH_BY_LEMMA[lemma]) {
+    return TRANSLATION_ENGLISH_BY_LEMMA[lemma];
+  }
+
+  const meaning = primaryMeaning(entry);
+  const pos = String(entry.partOfSpeech ?? '');
+
+  if (/verb/i.test(pos)) {
+    return `I like to ${meaning} on the weekend.`;
+  }
+  if (/noun/i.test(pos)) {
+    return `I bought a ${meaning} at the market.`;
+  }
+  if (/adjective/i.test(pos)) {
+    return `I feel ${meaning} after a long day.`;
+  }
+  if (/adverb/i.test(pos)) {
+    return `She speaks ${meaning}.`;
+  }
+  if (/expression/i.test(pos)) {
+    return `Today I want to say "${meaning}".`;
+  }
+
+  return `Write in French: ${meaning}.`;
+}
+
+function buildTranslationPrompt(entry) {
+  const lemma = entry.lemma;
+  const english = buildTranslationEnglishSentence(entry);
+
+  return {
+    englishPrompt: english,
+    targetWords: [lemma],
+    instruction: 'Translate the sentence into French using your toolbox vocabulary.',
+    explanation: `Translate exactly: "${english}" Include « ${lemma} » where it fits naturally.`,
+    correctAnswer: lemma,
+  };
+}
+
+function buildQuestionAnswerPrompt(entry) {
+  const lemma = entry.lemma;
+  const pos = String(entry.partOfSpeech ?? '');
+
+  let frenchQuestion;
+  if (/verb/i.test(pos)) {
+    frenchQuestion = `Est-ce que tu aimes ${lemma} ?`;
+  } else if (/noun/i.test(pos)) {
+    frenchQuestion = /^[aeiouhâêîôûéèëïü]/i.test(lemma)
+      ? `Parle-moi de l'${lemma}.`
+      : `Qu'est-ce que tu penses de ${lemma} ?`;
+  } else if (/adjective/i.test(pos)) {
+    frenchQuestion = `Quand te sens-tu ${lemma} ?`;
+  } else if (/adverb/i.test(pos)) {
+    frenchQuestion = `Comment parles-tu ${lemma} en français ?`;
+  } else {
+    frenchQuestion = `Peux-tu décrire ta journée en utilisant « ${lemma} » ?`;
+  }
+
+  return {
+    frenchPrompt: frenchQuestion,
+    targetWords: [lemma],
+    instruction: 'Read the French prompt and write your answer in French.',
+    explanation: `Answer in a complete French sentence that includes « ${lemma} ».`,
+    correctAnswer: lemma,
+  };
+}
+
+function buildBuildSentencePrompt(entryA, entryB) {
+  const words = [entryA.lemma, entryB.lemma];
+  const display = words.map((word) => `« ${word} »`).join(' · ');
+
+  return {
+    targetWords: words,
+    frenchPrompt: display,
+    instruction: `Write one cohesive sentence in French using ${display}.`,
+    explanation: `Use ${display} together in one natural, complete sentence.`,
+    correctAnswer: words.join(' + '),
+  };
+}
+
+function buildBalancedSentenceSession(aiPrompts, fallbackPrompts, targetCount) {
+  const SENTENCE_TYPE_QUOTA = {
+    translation: 4,
+    question_answer: 3,
+    build_sentence: 3,
+  };
+
+  const types = Object.keys(SENTENCE_TYPE_QUOTA);
   const result = [];
   const usedIds = new Set();
 
-  const takeNext = (type) => {
-    const candidate = pool.find((prompt) => prompt.type === type && !usedIds.has(prompt.id));
-    if (!candidate) return false;
-    result.push(candidate);
-    usedIds.add(candidate.id);
-    return true;
-  };
+  const sourcesFor = (type) => [
+    ...aiPrompts.filter((prompt) => prompt.type === type),
+    ...fallbackPrompts.filter((prompt) => prompt.type === type),
+  ];
 
   for (const type of types) {
-    takeNext(type);
+    let added = 0;
+    for (const prompt of sourcesFor(type)) {
+      if (added >= SENTENCE_TYPE_QUOTA[type]) break;
+      if (usedIds.has(prompt.id)) continue;
+      result.push(prompt);
+      usedIds.add(prompt.id);
+      added += 1;
+    }
   }
 
-  while (result.length < targetCount) {
-    const counts = Object.fromEntries(types.map((type) => [type, 0]));
-    result.forEach((prompt) => {
-      counts[prompt.type] = (counts[prompt.type] ?? 0) + 1;
-    });
-    const minCount = Math.min(...types.map((type) => counts[type] ?? 0));
-    const preferredTypes = types.filter((type) => (counts[type] ?? 0) === minCount);
-    const next = pool.find((prompt) => preferredTypes.includes(prompt.type) && !usedIds.has(prompt.id));
+  const remaining = shuffle([
+    ...aiPrompts.filter((prompt) => !usedIds.has(prompt.id)),
+    ...fallbackPrompts.filter((prompt) => !usedIds.has(prompt.id)),
+  ]);
+
+  let typeCursor = 0;
+  while (result.length < targetCount && remaining.length > 0) {
+    const underQuota = types.filter(
+      (type) => result.filter((prompt) => prompt.type === type).length < SENTENCE_TYPE_QUOTA[type],
+    );
+    const preferredTypes = underQuota.length > 0 ? underQuota : types;
+    const type = preferredTypes[typeCursor % preferredTypes.length];
+    typeCursor += 1;
+
+    const nextIndex = remaining.findIndex((prompt) => prompt.type === type);
+    const next = nextIndex >= 0 ? remaining.splice(nextIndex, 1)[0] : remaining.shift();
     if (!next) break;
     result.push(next);
     usedIds.add(next.id);
   }
 
-  return result.slice(0, targetCount).map((prompt, index) => ({ ...prompt, index: index + 1 }));
+  return shuffle(result)
+    .slice(0, targetCount)
+    .map((prompt, index) => ({ ...prompt, index: index + 1 }));
+}
+
+function buildBalancedQuickSession(aiPrompts, fallbackPrompts, targetCount) {
+  const QUICK_TYPE_QUOTA = {
+    fill_blank: 2,
+    match_following: 2,
+    find_error: 2,
+    multiple_choice: 2,
+    match_meaning: 2,
+  };
+
+  const types = Object.keys(QUICK_TYPE_QUOTA);
+  const result = [];
+  const usedIds = new Set();
+
+  const sourcesFor = (type) => [
+    ...aiPrompts.filter((prompt) => prompt.type === type),
+    ...fallbackPrompts.filter((prompt) => prompt.type === type),
+  ];
+
+  for (const type of types) {
+    let added = 0;
+    for (const prompt of sourcesFor(type)) {
+      if (added >= QUICK_TYPE_QUOTA[type]) break;
+      if (usedIds.has(prompt.id)) continue;
+      result.push(prompt);
+      usedIds.add(prompt.id);
+      added += 1;
+    }
+  }
+
+  const remaining = shuffle([
+    ...aiPrompts.filter((prompt) => !usedIds.has(prompt.id)),
+    ...fallbackPrompts.filter((prompt) => !usedIds.has(prompt.id)),
+  ]);
+
+  let typeCursor = 0;
+  while (result.length < targetCount && remaining.length > 0) {
+    const underQuota = types.filter(
+      (type) => result.filter((prompt) => prompt.type === type).length < QUICK_TYPE_QUOTA[type],
+    );
+    const preferredTypes = underQuota.length > 0 ? underQuota : types;
+    const type = preferredTypes[typeCursor % preferredTypes.length];
+    typeCursor += 1;
+
+    const nextIndex = remaining.findIndex((prompt) => prompt.type === type);
+    const next = nextIndex >= 0 ? remaining.splice(nextIndex, 1)[0] : remaining.shift();
+    if (!next) break;
+    result.push(next);
+    usedIds.add(next.id);
+  }
+
+  return shuffle(result)
+    .slice(0, targetCount)
+    .map((prompt, index) => ({ ...prompt, index: index + 1 }));
+}
+
+function ensureQuickTypeMix(aiPrompts, fallback, targetCount) {
+  return buildBalancedQuickSession(aiPrompts, fallback, targetCount);
 }
 
 function mergePromptLists(primary, fallback, completedQuestionIds, targetCount = SESSION_QUESTION_COUNT, stage = 'quick') {
-  const merged = dedupePrompts([...primary, ...fallback], completedQuestionIds);
+  const aiPrompts = dedupePrompts(primary, completedQuestionIds);
+  const fallbackPrompts = dedupePrompts(fallback, completedQuestionIds);
+
   if (stage === 'quick') {
-    return ensureQuickTypeMix(merged, fallback, targetCount);
+    return buildBalancedQuickSession(aiPrompts, fallbackPrompts, targetCount);
   }
+
+  if (stage === 'sentence') {
+    return buildBalancedSentenceSession(aiPrompts, fallbackPrompts, targetCount);
+  }
+
+  const merged = dedupePrompts([...aiPrompts, ...fallbackPrompts], completedQuestionIds);
   return merged.slice(0, targetCount).map((prompt, index) => ({ ...prompt, index: index + 1 }));
 }
 
@@ -1437,6 +1660,50 @@ function enrichPrompt(prompt) {
     enriched.frenchPrompt = enriched.targetWords[0];
   }
 
+  const writingTypes = ['translation', 'question_answer', 'build_sentence'];
+  if (writingTypes.includes(enriched.type)) {
+    if (enriched.type === 'translation') {
+      enriched.frenchPrompt = undefined;
+      if (!enriched.englishPrompt?.trim() && enriched.targetWords[0]) {
+        enriched.englishPrompt = buildTranslationEnglishSentence({
+          lemma: enriched.targetWords[0],
+          meaning: enriched.targetWords[0],
+          partOfSpeech: enriched.focusCategory,
+        });
+      }
+      if (!enriched.instruction?.trim()) {
+        enriched.instruction = 'Translate the sentence into French using your toolbox vocabulary.';
+      }
+    }
+
+    if (enriched.type === 'question_answer') {
+      enriched.englishPrompt = undefined;
+      if (!enriched.frenchPrompt?.trim() && enriched.targetWords[0]) {
+        enriched.frenchPrompt = buildQuestionAnswerPrompt({
+          lemma: enriched.targetWords[0],
+          partOfSpeech: enriched.focusCategory,
+        }).frenchPrompt;
+      }
+      if (!enriched.instruction?.trim()) {
+        enriched.instruction = 'Read the French prompt and write your answer in French.';
+      }
+    }
+
+    if (enriched.type === 'build_sentence') {
+      if (enriched.targetWords.length >= 2) {
+        enriched.frenchPrompt = enriched.targetWords.map((word) => `« ${word} »`).join(' · ');
+      } else if (enriched.frenchPrompt?.trim()) {
+        enriched.targetWords = enriched.frenchPrompt
+          .split(/[·,]/)
+          .map((part) => part.replace(/[«»"']/g, '').trim())
+          .filter(Boolean);
+      }
+      if (!enriched.instruction?.trim()) {
+        enriched.instruction = 'Write one cohesive sentence in French using the toolbox words below.';
+      }
+    }
+  }
+
   if (enriched.type === 'multiple_choice' && !enriched.sentenceWithBlank?.trim() && enriched.frenchPrompt?.trim()) {
     enriched.sentenceWithBlank = enriched.frenchPrompt.includes('___')
       ? enriched.frenchPrompt
@@ -1447,6 +1714,28 @@ function enrichPrompt(prompt) {
   enriched.hints = [];
 
   return enriched;
+}
+
+function isValidWritingPrompt(prompt) {
+  switch (prompt.type) {
+    case 'translation':
+      return (
+        Boolean(prompt.englishPrompt?.trim()) &&
+        prompt.targetWords.length >= 1 &&
+        !/word for ["']/i.test(prompt.englishPrompt) &&
+        !/French word for/i.test(prompt.englishPrompt)
+      );
+    case 'question_answer':
+      return (
+        Boolean(prompt.frenchPrompt?.trim()) &&
+        looksLikeFrench(prompt.frenchPrompt, prompt.targetWords) &&
+        prompt.targetWords.length >= 1
+      );
+    case 'build_sentence':
+      return prompt.targetWords.length >= 2;
+    default:
+      return true;
+  }
 }
 
 function isValidFrenchContext(prompt) {
@@ -1554,6 +1843,11 @@ function buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds }
       ? `\nAVOID these question ids (already completed):\n${completedQuestionIds.slice(0, 100).join(', ')}`
       : '';
 
+  const typeMixLine =
+    stage === 'sentence'
+      ? `Mix Write in French types: ~4 translation (English→French), ~3 question_answer (French prompt, French answer), ~3 build_sentence (2+ toolbox words in one sentence).`
+      : `Use at least 2 of each Spot & Match type (fill_blank, match_following, find_error, multiple_choice, match_meaning) — exactly 2 per type for 10 questions.`;
+
   return `Mode: ${stageConfig.intro}
 Toolbox size: ${entries.length} entries
 Allowed exercise types: ${stageConfig.types.join(', ')}
@@ -1563,8 +1857,8 @@ ${avoidLine}
 ${lines}
 
 Generate ${SESSION_QUESTION_COUNT} randomized exercises using ONLY words from this toolbox.
-Use at least 2 of each Spot & Match type (fill_blank, match_meaning, match_following, find_error, multiple_choice) when possible.
-Never use proper nouns or personal names. Do not include hints. Every exercise must have exactly one natural correct answer — discard and replace any that fail this test.`;
+${typeMixLine}
+Never use proper nouns or personal names. Do not include hints. Every exercise must have exactly one natural correct answer.`;
 }
 
 function buildQuestionFingerprint(type, focusCategory, targetWords, title) {
@@ -1639,6 +1933,7 @@ function normalizePrompts(rawPrompts, stage) {
         isValidMatchFollowing(prompt) &&
         isValidFindError(prompt) &&
         isValidFillBlank(prompt) &&
+        isValidWritingPrompt(prompt) &&
         isValidFrenchContext(prompt),
     )
     .slice(0, SESSION_QUESTION_COUNT);

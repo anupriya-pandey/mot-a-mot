@@ -12,11 +12,9 @@ import { WritingSuggestions } from '../components/WritingSuggestions';
 import { SuggestedToolkitAdditions } from '../components/SuggestedToolkitAdditions';
 import { PRACTICE_MODEL_ANSWERS_HINT } from '../constants/practiceMicrocopy';
 import {
-  HIDE_ORIGINAL_SENTENCE,
   SCORES_ENGLISH_CLARIFICATION,
   SCORES_FRENCH_NOTE,
   NEW_VOCAB_HINT,
-  SHOW_ORIGINAL_SENTENCE,
 } from '../constants/microcopy';
 import type { AnalysisResult, ClarificationInput, SentenceLanguage, VocabularyItem } from '../types/analysis';
 import type { PracticeReflection } from '../types/practice';
@@ -57,7 +55,6 @@ export function ResultsScreen({
   onFooter,
 }: ResultsScreenProps) {
   const [showClarification, setShowClarification] = useState(false);
-  const [showOriginalForComparison, setShowOriginalForComparison] = useState(false);
 
   const isEnglishDisplay = sentenceLanguage === 'english';
   const grammarScore = isEnglishDisplay ? 0 : result.ratings.grammar;
@@ -116,23 +113,18 @@ export function ResultsScreen({
 
         <section aria-labelledby="suggested-messages">
           <SectionHeader icon="💬" title="Suggested Messages" />
-          <div className="mb-m">
-            <SecondaryButton onClick={() => setShowOriginalForComparison((current) => !current)}>
-              {showOriginalForComparison ? HIDE_ORIGINAL_SENTENCE : SHOW_ORIGINAL_SENTENCE}
-            </SecondaryButton>
-          </div>
-          {showOriginalForComparison && (
-            <InformationCard icon="✏️" title="Your original sentence">
-              {displaySentence}
-            </InformationCard>
-          )}
           <div className="space-y-l mt-l">
             <SpeakingSuggestion
               sentence={result.suggestions.speaking.sentence}
               english={result.suggestions.speaking.english ?? result.understood}
               changes={result.changes}
+              originalSentence={displaySentence}
             />
-            <WritingSuggestions writing={result.suggestions.writing} changes={result.changes} />
+            <WritingSuggestions
+              writing={result.suggestions.writing}
+              changes={result.changes}
+              originalSentence={displaySentence}
+            />
           </div>
         </section>
 

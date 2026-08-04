@@ -35,6 +35,8 @@ export const PRACTICE_FOCUS_ALL = 'All categories';
 
 export const PRACTICE_SESSION_TITLE = 'Today\'s Session';
 
+export const PRACTICE_INTRO_BACK = 'Back to Practice Lab';
+
 export const PRACTICE_SUMMARY_TITLE = 'Today\'s Practice';
 
 export const PRACTICE_SUMMARY_COMPLETED = 'Completed';
@@ -100,7 +102,7 @@ export const PRACTICE_QUICK_INTRO =
   'Five Spot & Match exercises — fill-in-the-blank, matching, match-the-following, error spotting, and multiple choice. Instant feedback after each question.';
 
 export const PRACTICE_SENTENCE_INTRO =
-  'Five Write in French prompts — translation, Q&A, and sentence building with full feedback and model answers, just like Check.';
+  'Ten Write in French exercises — translation (English→French, scored 0 or 1), French Q&A, and building cohesive sentences with toolbox words.';
 
 export const PRACTICE_DEDUP_NOTE =
   'Questions you\'ve already completed won\'t repeat.';

@@ -146,7 +146,26 @@ export function PracticeQuestionScreen({
       <h1 className="mt-xs text-2xl font-semibold text-text-primary">{prompt.title}</h1>
       <p className="mt-s text-base text-text-secondary">{prompt.instruction}</p>
 
-      {prompt.englishPrompt && (
+      {prompt.type === 'translation' && prompt.englishPrompt && (
+        <p className="mt-m rounded-lg border border-primary/20 bg-primary/5 px-m py-m text-center text-xl font-medium leading-relaxed text-text-primary">
+          &ldquo;{prompt.englishPrompt}&rdquo;
+        </p>
+      )}
+
+      {prompt.type === 'question_answer' && prompt.frenchPrompt && (
+        <p className="mt-m rounded-lg border border-primary/20 bg-primary/5 px-m py-m text-center text-2xl font-semibold leading-relaxed text-text-primary">
+          {sanitizeFrenchDisplayText(prompt.frenchPrompt)}
+        </p>
+      )}
+
+      {prompt.type === 'build_sentence' && (prompt.frenchPrompt || prompt.targetWords.length > 0) && (
+        <p className="mt-m rounded-lg border border-primary/20 bg-primary/5 px-m py-m text-center text-2xl font-semibold leading-relaxed text-text-primary">
+          {prompt.frenchPrompt ??
+            prompt.targetWords.map((word) => `« ${word} »`).join(' · ')}
+        </p>
+      )}
+
+      {prompt.englishPrompt && prompt.type !== 'translation' && (
         <p className="mt-m rounded-lg bg-background px-m py-s text-base text-text-primary">
           {prompt.englishPrompt}
         </p>

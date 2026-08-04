@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { CHANGE_CARRIES_FROM_LAYER, NO_CHANGE_AT_LAYER } from '../constants/microcopy';
+import { useState } from 'react';
+import {
+  CHANGE_CARRIES_FROM_LAYER,
+  COMPARE_WITH_ORIGINAL,
+  HIDE_ORIGINAL_COMPARISON,
+  NO_CHANGE_AT_LAYER,
+  STYLE_VERSION_LABEL,
+  YOUR_ORIGINAL_LABEL,
+} from '../constants/microcopy';
 import type { CorrectionChange } from '../types/analysis';
 import type { FixPhraseDisplay } from '../lib/writingChangeDisplay';
 import { PronunciationButton } from './PronunciationButton';
@@ -33,6 +41,8 @@ interface StyleChangesCarouselProps {
   getFixDisplay: (change: CorrectionChange) => FixPhraseDisplay | null;
   getExplanation: (change: CorrectionChange) => string | undefined;
   ariaLabel: string;
+  originalSentence?: string;
+  styleSentence?: string;
 }
 
 export function StyleChangesCarousel({
@@ -41,12 +51,36 @@ export function StyleChangesCarousel({
   getFixDisplay,
   getExplanation,
   ariaLabel,
+  originalSentence,
+  styleSentence,
 }: StyleChangesCarouselProps) {
+  const [showFullComparison, setShowFullComparison] = useState(false);
+  const canCompare =
+    Boolean(originalSentence?.trim()) &&
+    Boolean(styleSentence?.trim()) &&
+    originalSentence?.trim() !== styleSentence?.trim();
+
   if (changes.length === 0) {
     return (
-      <p className="text-sm text-text-secondary">
-        No changes needed — your sentence already works for {styleLabel.toLowerCase()}.
-      </p>
+      <div className="space-y-s">
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">What changed</p>
+        {canCompare && (
+          <ComparisonToggle
+            show={showFullComparison}
+            onToggle={() => setShowFullComparison((current) => !current)}
+          />
+        )}
+        {showFullComparison && canCompare && (
+          <FullSentenceComparison
+            originalSentence={originalSentence!}
+            styleSentence={styleSentence!}
+            styleLabel={styleLabel}
+          />
+        )}
+        <p className="text-sm text-text-secondary">
+          No changes needed — your sentence already works for {styleLabel.toLowerCase()}.
+        </p>
+      </div>
     );
   }
 
@@ -99,7 +133,68 @@ export function StyleChangesCarousel({
   return (
     <div className="space-y-s">
       <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">What changed</p>
+      {canCompare && (
+        <ComparisonToggle
+          show={showFullComparison}
+          onToggle={() => setShowFullComparison((current) => !current)}
+        />
+      )}
+      {showFullComparison && canCompare && (
+        <FullSentenceComparison
+          originalSentence={originalSentence!}
+          styleSentence={styleSentence!}
+          styleLabel={styleLabel}
+        />
+      )}
       <SwipeCarousel slides={slides} ariaLabel={ariaLabel} />
+    </div>
+  );
+}
+
+function ComparisonToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+    >
+      {show ? HIDE_ORIGINAL_COMPARISON : COMPARE_WITH_ORIGINAL}
+    </button>
+  );
+}
+
+function FullSentenceComparison({
+  originalSentence,
+  styleSentence,
+  styleLabel,
+}: {
+  originalSentence: string;
+  styleSentence: string;
+  styleLabel: string;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-m rounded-lg border border-border bg-background/60 p-m sm:grid-cols-2">
+      <div className="min-w-0 space-y-xs">
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+          {YOUR_ORIGINAL_LABEL}
+        </p>
+        <p className="whitespace-pre-line break-words leading-relaxed text-error">{originalSentence}</p>
+      </div>
+      <div className="min-w-0 space-y-xs sm:border-l sm:border-border sm:pl-m">
+        <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+          {STYLE_VERSION_LABEL(styleLabel)}
+        </p>
+        <div className="flex items-start gap-s">
+          <p className="flex-1 whitespace-pre-line break-words leading-relaxed text-success">
+            {styleSentence}
+          </p>
+          <PronunciationButton
+            text={styleSentence}
+            size="compact"
+            ariaLabel={`Hear ${styleLabel} version`}
+          />
+        </div>
+      </div>
     </div>
   );
 }

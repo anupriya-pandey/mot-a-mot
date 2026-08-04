@@ -54,3 +54,11 @@ export const CHANGE_CARRIES_FROM_LAYER = (label: string) =>
 export const SHOW_ORIGINAL_SENTENCE = 'Show my original sentence';
 
 export const HIDE_ORIGINAL_SENTENCE = 'Hide my original sentence';
+
+export const COMPARE_WITH_ORIGINAL = 'Compare with my original sentence';
+
+export const HIDE_ORIGINAL_COMPARISON = 'Hide sentence comparison';
+
+export const YOUR_ORIGINAL_LABEL = 'Your original';
+
+export const STYLE_VERSION_LABEL = (styleLabel: string) => `${styleLabel} version`;
