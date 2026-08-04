@@ -96,6 +96,7 @@ export type AppScreen =
   | 'vocabulary'
   | 'history'
   | 'practice'
+  | 'practice-setup'
   | 'practice-intro'
   | 'practice-question'
   | 'practice-summary'

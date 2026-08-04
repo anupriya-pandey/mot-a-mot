@@ -1,44 +1,106 @@
 import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
 import { isConfigured } from './analyzeService.js';
 
-const PRACTICE_SYSTEM_PROMPT = `You are Mot-à-Mot's Practice Lab — a calm French practice buddy that creates production exercises from a learner's personal toolbox.
+const READINESS_MIN_ENTRIES = 25;
+const READINESS_MIN_CATEGORIES = 5;
+const CORE_CATEGORIES = ['Verbs', 'Nouns', 'Adjectives', 'Pronouns', 'Prepositions', 'Adverbs'];
 
-PHILOSOPHY:
-- Encourage PRODUCTION, not memory testing. Never ask "What does X mean?" — always ask the learner to WRITE or BUILD using their words.
-- Every word in every prompt MUST come from the learner's toolbox list provided.
-- Mix words from different categories (verbs, nouns, adjectives, expressions, connectors, etc.) into natural prompts.
-- Adaptive difficulty based on toolbox size:
-  - Under 20 entries: 2–3 words per prompt, simple "Build a sentence using…"
-  - 20–99 entries: 3–4 words, slightly varied structures
-  - 100+ entries: richer prompts like "Describe your morning using…" or "Tell a short story with…" — still using only toolbox words
-- Increase difficulty slightly from prompt 1 → 5 within the same session (more words or slightly richer task, never overwhelming).
-- Prompt 1: simplest. Prompt 5: most ambitious (but still fair for their toolbox size).
-- Use English for instructions — the learner responds in French.
-- targetWords: array of French lemmas/forms from the toolbox to include in the prompt (exact strings from input).
-- title: short label like "Build a sentence" or "Describe your morning"
-- instruction: clear English instruction for the learner
+const STAGE_CONFIG = {
+  quick: {
+    minEntries: 15,
+    types: ['fill_blank', 'match_meaning', 'find_error', 'multiple_choice'],
+    intro: 'Quick Practice',
+  },
+  sentence: {
+    minEntries: 40,
+    types: ['translation', 'question_answer', 'build_sentence'],
+    intro: 'Sentence Builder',
+  },
+};
 
-Return exactly 5 prompts, indexed 1–5.
-Return ONLY valid JSON matching the schema.`;
+const QUICK_SYSTEM_PROMPT = `You are Mot-à-Mot's Quick Practice engine. Create structured French exercises ONLY from the learner's toolbox.
 
-const PRACTICE_SCHEMA = {
+RULES:
+- Every target word MUST come from the toolbox list.
+- Mix exercise types: fill_blank, match_meaning, find_error, multiple_choice.
+- Spread questions across grammatical categories (verbs, nouns, adjectives, pronouns, prepositions, etc.).
+- When focusing on Verbs: vary subject forms (je, tu, il/elle, nous, vous, ils/elles) across questions.
+- When focusing on Adjectives: vary agreement (masculine/feminine, singular/plural) across questions.
+- formFocus: note the form tested, e.g. "je — present" or "feminine plural".
+- Use English for instructions. correctAnswer must match one option id or exact expected text.
+- id: stable slug like "fill-verb-aller-je" — unique per question.
+- NEVER repeat a question whose id appears in the avoid list.
+- Randomize order and word selection each session.
+
+Exercise types:
+- fill_blank: sentenceWithBlank uses "___" for the blank; correctAnswer is the French word/phrase.
+- match_meaning: instruction asks to pick the English meaning; options are English; correctAnswer is option id.
+- find_error: flawedSentence has one error using toolbox words; options describe the fix; correctAnswer is option id.
+- multiple_choice: French question with 4 options; correctAnswer is option id.
+
+Return exactly 5 exercises. Return ONLY valid JSON.`;
+
+const SENTENCE_SYSTEM_PROMPT = `You are Mot-à-Mot's Sentence Builder engine. Create production exercises ONLY from the learner's toolbox.
+
+RULES:
+- Every target word MUST come from the toolbox list.
+- Mix types: translation, question_answer, build_sentence.
+- Spread across grammatical categories; vary verb persons and adjective agreements.
+- translation: englishPrompt in English; learner writes French using target words.
+- question_answer: instruction sets a scenario; learner answers in French.
+- build_sentence: instruction asks to build a sentence using target words.
+- formFocus: note verb/adjective form when relevant.
+- id: stable unique slug. NEVER repeat ids from the avoid list.
+- Use English for instructions.
+
+Return exactly 5 exercises. Return ONLY valid JSON.`;
+
+const EXERCISE_SCHEMA = {
   type: 'object',
   properties: {
-    estimatedMinutes: { type: 'string', description: 'e.g. "4–5"' },
+    estimatedMinutes: { type: 'string' },
     prompts: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
+          id: { type: 'string' },
           index: { type: 'integer' },
+          type: {
+            type: 'string',
+            enum: [
+              'fill_blank',
+              'match_meaning',
+              'find_error',
+              'multiple_choice',
+              'translation',
+              'question_answer',
+              'build_sentence',
+            ],
+          },
           title: { type: 'string' },
           instruction: { type: 'string' },
-          targetWords: {
+          targetWords: { type: 'array', items: { type: 'string' } },
+          focusCategory: { type: 'string' },
+          formFocus: { type: 'string' },
+          options: {
             type: 'array',
-            items: { type: 'string' },
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                text: { type: 'string' },
+              },
+              required: ['id', 'text'],
+            },
           },
+          correctAnswer: { type: 'string' },
+          explanation: { type: 'string' },
+          sentenceWithBlank: { type: 'string' },
+          flawedSentence: { type: 'string' },
+          englishPrompt: { type: 'string' },
         },
-        required: ['index', 'title', 'instruction', 'targetWords'],
+        required: ['id', 'index', 'type', 'title', 'instruction', 'targetWords', 'correctAnswer'],
       },
     },
   },
@@ -60,6 +122,22 @@ function configurationMessage() {
   return 'AI provider is not configured.';
 }
 
+function countCoreCategories(entries) {
+  const present = new Set();
+  for (const entry of entries) {
+    const category = entry.partOfSpeech ?? '';
+    if (CORE_CATEGORIES.includes(category) && category) {
+      present.add(category);
+    }
+  }
+  return present.size;
+}
+
+function filterEntries(entries, focusCategory) {
+  if (!focusCategory || focusCategory === 'all') return entries;
+  return entries.filter((entry) => entry.partOfSpeech === focusCategory);
+}
+
 function groupToolboxByCategory(entries) {
   const grouped = {};
 
@@ -75,9 +153,9 @@ function groupToolboxByCategory(entries) {
   return grouped;
 }
 
-function buildPracticePrompt(toolboxEntries) {
-  const grouped = groupToolboxByCategory(toolboxEntries);
-  const totalEntries = toolboxEntries.length;
+function buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds }) {
+  const grouped = groupToolboxByCategory(entries);
+  const stageConfig = STAGE_CONFIG[stage];
 
   const lines = Object.entries(grouped)
     .map(([category, items]) => {
@@ -86,38 +164,142 @@ function buildPracticePrompt(toolboxEntries) {
     })
     .join('\n');
 
-  return `Toolbox size: ${totalEntries} entries
+  const focusLine =
+    focusCategory && focusCategory !== 'all'
+      ? `\nFOCUS: Emphasize ${focusCategory} in every question. Still use supporting words from other categories when natural.`
+      : '\nFOCUS: Spread questions evenly across all grammatical categories in the toolbox.';
+
+  const avoidLine =
+    completedQuestionIds.length > 0
+      ? `\nAVOID these question ids (already completed):\n${completedQuestionIds.slice(0, 100).join(', ')}`
+      : '';
+
+  return `Stage: ${stageConfig.intro}
+Toolbox size: ${entries.length} entries
+Allowed exercise types: ${stageConfig.types.join(', ')}
+${focusLine}
+${avoidLine}
 
 ${lines}
 
-Generate today's 5-question practice session using ONLY words from this toolbox.`;
+Generate 5 randomized exercises using ONLY words from this toolbox.`;
 }
 
-function normalizePrompts(rawPrompts) {
+function buildQuestionFingerprint(type, focusCategory, targetWords, title) {
+  const words = [...(targetWords ?? [])]
+    .map((word) => String(word).trim().toLowerCase())
+    .sort()
+    .join('|');
+  const category = (focusCategory ?? 'mixed').trim().toLowerCase();
+  const label = String(title ?? '').trim().toLowerCase();
+  return `${type}::${category}::${words}::${label}`;
+}
+
+function normalizePrompts(rawPrompts, stage) {
   if (!Array.isArray(rawPrompts)) return [];
 
+  const allowedTypes = STAGE_CONFIG[stage]?.types ?? [];
+
   return rawPrompts
-    .map((prompt, index) => ({
-      index: typeof prompt.index === 'number' ? prompt.index : index + 1,
-      title: String(prompt.title ?? 'Build a sentence').trim(),
-      instruction: String(prompt.instruction ?? 'Use these words:').trim(),
-      targetWords: (Array.isArray(prompt.targetWords) ? prompt.targetWords : [])
+    .map((prompt, index) => {
+      const type = String(prompt.type ?? '').trim();
+      const targetWords = (Array.isArray(prompt.targetWords) ? prompt.targetWords : [])
         .map((word) => String(word).trim())
-        .filter(Boolean),
-    }))
-    .filter((prompt) => prompt.targetWords.length > 0)
+        .filter(Boolean);
+      const title = String(prompt.title ?? 'Practice').trim();
+      const id =
+        String(prompt.id ?? '').trim() ||
+        buildQuestionFingerprint(type, prompt.focusCategory, targetWords, title);
+
+      return {
+        id,
+        index: typeof prompt.index === 'number' ? prompt.index : index + 1,
+        stage,
+        type,
+        title,
+        instruction: String(prompt.instruction ?? '').trim(),
+        targetWords,
+        focusCategory: prompt.focusCategory ? String(prompt.focusCategory).trim() : undefined,
+        formFocus: prompt.formFocus ? String(prompt.formFocus).trim() : undefined,
+        options: Array.isArray(prompt.options)
+          ? prompt.options
+              .map((option) => ({
+                id: String(option.id ?? '').trim(),
+                text: String(option.text ?? '').trim(),
+              }))
+              .filter((option) => option.id && option.text)
+          : undefined,
+        correctAnswer: String(prompt.correctAnswer ?? '').trim(),
+        explanation: prompt.explanation ? String(prompt.explanation).trim() : undefined,
+        sentenceWithBlank: prompt.sentenceWithBlank
+          ? String(prompt.sentenceWithBlank).trim()
+          : undefined,
+        flawedSentence: prompt.flawedSentence ? String(prompt.flawedSentence).trim() : undefined,
+        englishPrompt: prompt.englishPrompt ? String(prompt.englishPrompt).trim() : undefined,
+      };
+    })
+    .filter(
+      (prompt) =>
+        prompt.targetWords.length > 0 &&
+        prompt.correctAnswer &&
+        prompt.instruction &&
+        allowedTypes.includes(prompt.type),
+    )
     .slice(0, 5);
 }
 
-export async function generatePracticeSession(toolboxEntries) {
-  const entries = Array.isArray(toolboxEntries) ? toolboxEntries : [];
+function dedupePrompts(prompts, completedQuestionIds) {
+  const completed = new Set(completedQuestionIds ?? []);
+  const seen = new Set();
+  return prompts.filter((prompt) => {
+    if (completed.has(prompt.id) || seen.has(prompt.id)) return false;
+    seen.add(prompt.id);
+    return true;
+  });
+}
 
+export async function generatePracticeSession(body) {
+  const allEntries = Array.isArray(body?.toolboxEntries) ? body.toolboxEntries : [];
+  const stage = body?.stage === 'sentence' ? 'sentence' : body?.stage === 'quick' ? 'quick' : null;
+  const focusCategory = body?.focusCategory ?? 'all';
+  const completedQuestionIds = Array.isArray(body?.completedQuestionIds)
+    ? body.completedQuestionIds.map(String)
+    : [];
+
+  if (!stage) {
+    return { status: 400, body: { message: 'Please choose a practice stage.' } };
+  }
+
+  const coreCategories = countCoreCategories(allEntries);
+  if (allEntries.length < READINESS_MIN_ENTRIES || coreCategories < READINESS_MIN_CATEGORIES) {
+    return {
+      status: 400,
+      body: {
+        message:
+          'Keep building your toolbox — Practice unlocks with enough entries and grammatical variety.',
+      },
+    };
+  }
+
+  const stageMin = STAGE_CONFIG[stage].minEntries;
+  if (allEntries.length < stageMin) {
+    return {
+      status: 400,
+      body: {
+        message: `This stage unlocks at ${stageMin} toolbox entries. Keep collecting French first.`,
+      },
+    };
+  }
+
+  const entries = filterEntries(allEntries, focusCategory);
   if (entries.length < 3) {
     return {
       status: 400,
       body: {
         message:
-          'Add at least 3 entries to your French Toolbox before starting practice.',
+          focusCategory && focusCategory !== 'all'
+            ? `Not enough ${focusCategory} in your toolbox for a focused session. Try "All categories" or add more words.`
+            : 'Add more entries to your toolbox before starting practice.',
       },
     };
   }
@@ -127,30 +309,56 @@ export async function generatePracticeSession(toolboxEntries) {
   }
 
   const config = getRuntimeConfig();
+  const systemPrompt = stage === 'quick' ? QUICK_SYSTEM_PROMPT : SENTENCE_SYSTEM_PROMPT;
 
   try {
     const result = await generateStructured(config, {
-      systemPrompt: PRACTICE_SYSTEM_PROMPT,
-      userPrompt: buildPracticePrompt(entries),
-      schema: PRACTICE_SCHEMA,
+      systemPrompt,
+      userPrompt: buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds }),
+      schema: EXERCISE_SCHEMA,
       schemaName: 'practice_session',
       ollamaSchemaHint:
-        'Keys: estimatedMinutes (string), prompts (array of 5: {index, title, instruction, targetWords}).',
-      temperature: 0.4,
+        'Keys: estimatedMinutes, prompts (array of 5 exercises with id, type, instruction, targetWords, correctAnswer, options?).',
+      temperature: 0.5,
     });
 
-    const prompts = normalizePrompts(result?.prompts);
+    let prompts = dedupePrompts(
+      normalizePrompts(result?.prompts, stage),
+      completedQuestionIds,
+    );
 
     if (prompts.length < 5) {
+      console.warn('Practice session returned fewer than 5 unique prompts — retrying once.');
+      const retry = await generateStructured(config, {
+        systemPrompt,
+        userPrompt: `${buildUserPrompt({ entries, stage, focusCategory, completedQuestionIds })}\n\nIMPORTANT: Previous batch had duplicates. Generate 5 entirely NEW question ids.`,
+        schema: EXERCISE_SCHEMA,
+        schemaName: 'practice_session_retry',
+        ollamaSchemaHint: 'Same as practice_session.',
+        temperature: 0.6,
+      });
+
+      prompts = dedupePrompts(
+        [...prompts, ...normalizePrompts(retry?.prompts, stage)],
+        completedQuestionIds,
+      ).slice(0, 5);
+    }
+
+    if (prompts.length < 3) {
       return {
         status: 500,
-        body: { message: "We couldn't build a full practice session. Please try again." },
+        body: {
+          message:
+            "We couldn't build enough new questions. Try a different focus or add more toolbox words.",
+        },
       };
     }
 
     return {
       status: 200,
       body: {
+        stage,
+        focusCategory,
         estimatedMinutes: String(result?.estimatedMinutes ?? '4–5').trim(),
         prompts,
       },

@@ -51,7 +51,7 @@ app.post('/api/import-toolbox', async (req, res) => {
 
 app.post('/api/practice-session', async (req, res) => {
   try {
-    const result = await generatePracticeSession(req.body?.toolboxEntries);
+    const result = await generatePracticeSession(req.body);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error('POST /api/practice-session failed:', error);

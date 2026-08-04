@@ -33,6 +33,11 @@ export function PracticeSummaryScreen({ summary, onDone }: PracticeSummaryScreen
         <ul className="mt-l space-y-s text-base text-text-primary">
           <li>New entries discovered: {summary.newWordsDiscovered}</li>
           <li>Words strengthened: {summary.wordsStrengthened}</li>
+          {summary.stage === 'quick' && (
+            <li>
+              Correct answers: {summary.correctCount}/{summary.totalCount}
+            </li>
+          )}
         </ul>
 
         <p className="mt-m text-sm leading-relaxed text-text-secondary">

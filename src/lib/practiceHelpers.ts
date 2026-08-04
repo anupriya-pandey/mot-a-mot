@@ -39,16 +39,20 @@ export function computeSessionSummary(
 ): {
   newWordsDiscovered: number;
   wordsStrengthened: number;
+  correctCount: number;
 } {
   const strengthened = new Set<string>();
   const discovered = new Set<string>();
+  let correctCount = 0;
 
   for (const result of questionResults) {
+    if (result.correct) correctCount += 1;
+
     for (const word of result.wordsUsed) {
       strengthened.add(normalizeWord(word));
     }
 
-    for (const item of result.analysis.suggestedAdditions ?? []) {
+    for (const item of result.analysis?.suggestedAdditions ?? []) {
       const key = `${normalizeWord(item.lemma)}|${item.partOfSpeech.toLowerCase()}`;
       if (!isInToolbox(item.lemma, item.partOfSpeech)) {
         discovered.add(key);
@@ -59,7 +63,28 @@ export function computeSessionSummary(
   return {
     newWordsDiscovered: discovered.size,
     wordsStrengthened: strengthened.size,
+    correctCount,
   };
+}
+
+export function isProductionExercise(type: string): boolean {
+  return type === 'translation' || type === 'question_answer' || type === 'build_sentence';
+}
+
+export function normalizePracticeAnswer(answer: string): string {
+  return answer.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+export function answersMatch(userAnswer: string, correctAnswer: string): boolean {
+  const normalizedUser = normalizePracticeAnswer(userAnswer);
+  const normalizedCorrect = normalizePracticeAnswer(correctAnswer);
+
+  if (normalizedUser === normalizedCorrect) return true;
+
+  // Allow matching by option id for multiple choice
+  if (normalizedUser === correctAnswer.trim().toLowerCase()) return true;
+
+  return false;
 }
 
 export function pickNewExpressionForAdd(
@@ -71,4 +96,9 @@ export function pickNewExpressionForAdd(
       (item) => !isInToolbox(item.lemma, item.partOfSpeech),
     ) ?? null
   );
+}
+
+export function getCorrectAnswerDisplay(prompt: PracticePrompt): string {
+  const match = prompt.options?.find((option) => option.id === prompt.correctAnswer);
+  return match?.text ?? prompt.correctAnswer;
 }

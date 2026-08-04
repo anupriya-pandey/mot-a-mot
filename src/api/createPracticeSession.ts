@@ -1,8 +1,12 @@
-import type { PracticeSessionPlan } from '../types/practice';
+import type {
+  CreatePracticeSessionRequest,
+  PracticeSessionPlan,
+} from '../types/practice';
 import type { VocabularyEntry } from '../types/toolbox';
 
 export async function createPracticeSession(
   toolboxEntries: VocabularyEntry[],
+  options: CreatePracticeSessionRequest,
 ): Promise<PracticeSessionPlan> {
   let response: Response;
 
@@ -15,7 +19,12 @@ export async function createPracticeSession(
           lemma: entry.lemma,
           meaning: entry.meaning,
           partOfSpeech: entry.partOfSpeech,
+          surfaces: entry.surfaces,
+          adjectiveForms: entry.adjectiveForms,
         })),
+        stage: options.stage,
+        focusCategory: options.focusCategory,
+        completedQuestionIds: options.completedQuestionIds,
       }),
     });
   } catch {

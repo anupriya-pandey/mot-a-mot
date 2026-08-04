@@ -72,3 +72,7 @@ export function updateHistoryEntry(
 export function getHistoryEntry(id: string): SearchHistoryEntry | null {
   return loadHistory().find((entry) => entry.id === id) ?? null;
 }
+
+export function getHistoryCount(): number {
+  return loadHistory().length;
+}
