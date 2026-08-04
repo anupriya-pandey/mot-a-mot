@@ -6,6 +6,7 @@ export type PracticeStageId = 'quick' | 'sentence' | 'reading' | 'conversation';
 export type PracticeExerciseType =
   | 'fill_blank'
   | 'match_meaning'
+  | 'match_following'
   | 'find_error'
   | 'multiple_choice'
   | 'translation'
@@ -19,6 +20,11 @@ export interface PracticeOption {
   text: string;
 }
 
+export interface PracticeMatchRow {
+  id: string;
+  french: string;
+}
+
 export interface PracticePrompt {
   id: string;
   index: number;
@@ -26,10 +32,14 @@ export interface PracticePrompt {
   type: PracticeExerciseType;
   title: string;
   instruction: string;
+  /** Internal — used for scoring; not shown as hints to the learner */
   targetWords: string[];
+  /** English hints that guide without revealing the answer */
+  hints: string[];
   focusCategory?: PartOfSpeech;
   formFocus?: string;
   options?: PracticeOption[];
+  matchRows?: PracticeMatchRow[];
   correctAnswer: string;
   explanation?: string;
   sentenceWithBlank?: string;

@@ -6,11 +6,11 @@ import { normalizeAnalysisResult } from './lib/normalizeAnalysisResult';
 import { applyConsistentRatings } from './lib/ratingsCache';
 import { categorizeImportEntries } from './lib/categorizeImport';
 import {
-  answersMatch,
   buildPracticeReflection,
   computeSessionSummary,
   detectWordsUsed,
   getCorrectAnswerDisplay,
+  gradePracticeAnswer,
   isProductionExercise,
   pickNewExpressionForAdd,
 } from './lib/practiceHelpers';
@@ -499,7 +499,7 @@ export default function App() {
         return;
       }
 
-      const correct = answersMatch(userAnswer, prompt.correctAnswer);
+      const correct = gradePracticeAnswer(userAnswer, prompt);
       setPracticeQuickFeedback({
         correct,
         userAnswer,

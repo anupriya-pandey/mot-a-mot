@@ -16,11 +16,11 @@ export const PRACTICE_STAGES: PracticeStageDefinition[] = [
     id: 'quick',
     emoji: '🌱',
     title: 'Spot & Match',
-    exerciseLabel: 'Fill-in-the-blank · Match meanings · Find the error · Multiple choice',
+    exerciseLabel: 'Fill-in-the-blank · Match meanings · Match the following · Find the error · Multiple choice',
     description:
       'Quick recognition drills from your toolbox — spot mistakes, match words to meanings, and choose the right answer.',
     minEntries: 15,
-    exerciseTypes: ['fill_blank', 'match_meaning', 'find_error', 'multiple_choice'],
+    exerciseTypes: ['fill_blank', 'match_meaning', 'match_following', 'find_error', 'multiple_choice'],
     comingSoon: false,
   },
   {

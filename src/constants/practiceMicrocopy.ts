@@ -48,6 +48,10 @@ export const PRACTICE_WORDS_USED = 'Words you used';
 
 export const PRACTICE_NEW_EXPRESSION = 'New expression';
 
+export const PRACTICE_HINTS_LABEL = 'Hints';
+
+export const PRACTICE_WRONG_EXPLANATION_LABEL = 'Why';
+
 export const PRACTICE_QUICK_CORRECT = 'Correct!';
 
 export const PRACTICE_QUICK_INCORRECT = 'Not quite — here\'s the answer';
@@ -56,7 +60,7 @@ export const PRACTICE_STAGE_LOCKED =
   'Keep growing your toolbox to unlock this mode.';
 
 export const PRACTICE_QUICK_INTRO =
-  'Five Spot & Match exercises — fill-in-the-blank, matching, error spotting, and multiple choice. Instant feedback after each question.';
+  'Five Spot & Match exercises — fill-in-the-blank, matching, match-the-following, error spotting, and multiple choice. Instant feedback after each question.';
 
 export const PRACTICE_SENTENCE_INTRO =
   'Five Write in French prompts — translation, Q&A, and sentence building with full feedback and model answers, just like Check.';

@@ -18,7 +18,7 @@ const CORE_CATEGORIES = ['Verbs', 'Nouns', 'Adjectives', 'Pronouns', 'Prepositio
 const STAGE_CONFIG = {
   quick: {
     minEntries: 15,
-    types: ['fill_blank', 'match_meaning', 'find_error', 'multiple_choice'],
+    types: ['fill_blank', 'match_meaning', 'match_following', 'find_error', 'multiple_choice'],
     intro: 'Spot & Match',
   },
   sentence: {
@@ -31,38 +31,39 @@ const STAGE_CONFIG = {
 const QUICK_SYSTEM_PROMPT = `You are Mot-à-Mot's Spot & Match engine. Create structured French exercises ONLY from the learner's toolbox.
 
 RULES:
-- Every target word MUST come from the toolbox list.
-- Mix exercise types: fill_blank, match_meaning, find_error, multiple_choice.
-- Spread questions across grammatical categories (verbs, nouns, adjectives, pronouns, prepositions, etc.).
-- When focusing on Verbs: vary subject forms (je, tu, il/elle, nous, vous, ils/elles) across questions.
-- When focusing on Adjectives: vary agreement (masculine/feminine, singular/plural) across questions.
-- formFocus: note the form tested, e.g. "je — present" or "feminine plural".
+- Every targetWords entry MUST come from the toolbox list (internal use — NOT shown to learner).
+- hints: 1–3 ENGLISH strings that guide the learner WITHOUT revealing the French answer.
+  - Good: "Use the verb meaning 'to go', je form, present tense", "Think of a word for 'market'", "Watch adjective agreement — feminine singular"
+  - Bad: showing the French lemma, conjugated form, or exact word that fills the blank
+- explanation: REQUIRED for every exercise — a short English note shown when the learner gets it wrong (and on success when helpful).
+- Mix exercise types: fill_blank, match_meaning, match_following, find_error, multiple_choice.
+- Spread questions across grammatical categories; vary verb persons and adjective agreements.
 - Use English for instructions. correctAnswer must match one option id or exact expected text.
-- id: stable slug like "fill-verb-aller-je" — unique per question.
-- NEVER repeat a question whose id appears in the avoid list.
-- Randomize order and word selection each session.
-- For match_meaning, find_error, and multiple_choice: provide exactly 4 options with UNIQUE text — no duplicates, no near-duplicates.
+- id: stable unique slug. NEVER repeat ids from the avoid list.
+- For choice-based types: exactly 4 UNIQUE options — no duplicate text.
 
 Exercise types:
-- fill_blank: sentenceWithBlank uses "___" for the blank; correctAnswer is the French word/phrase.
-- match_meaning: instruction asks to pick the English meaning; options are English; correctAnswer is option id.
-- find_error: flawedSentence has one error using toolbox words; options describe the fix; correctAnswer is option id.
-- multiple_choice: French question with 4 distinct options; correctAnswer is option id.
+- fill_blank: sentenceWithBlank uses "___"; correctAnswer is the French word/phrase; hints in English only.
+- match_meaning: pick English meaning for one French toolbox word; options are English; correctAnswer is option id.
+- match_following: matchRows = 3–4 {id, french} pairs from toolbox; options = shuffled English meanings (one per row, plus 0–1 distractor); correctAnswer = JSON object mapping row id → option id, e.g. {"r1":"o2","r2":"o1"}.
+- find_error: flawedSentence with one error; options describe fixes in English; correctAnswer is option id.
+- multiple_choice: French question with 4 distinct French options; correctAnswer is option id.
 
 Return exactly 5 exercises. Return ONLY valid JSON.`;
 
 const SENTENCE_SYSTEM_PROMPT = `You are Mot-à-Mot's Write in French engine. Create production exercises ONLY from the learner's toolbox.
 
 RULES:
-- Every target word MUST come from the toolbox list.
+- Every targetWords entry MUST come from the toolbox list (internal — NOT shown to learner).
+- hints: 1–3 ENGLISH strings guiding what to include WITHOUT giving away full French sentences.
+  - Good: "Include a verb about movement", "Use past tense", "Mention where you went"
+  - Bad: listing the exact French phrases to write
+- explanation: REQUIRED — brief English note on what a strong answer should do (shown when checking).
 - Mix types: translation, question_answer, build_sentence.
-- Spread across grammatical categories; vary verb persons and adjective agreements.
-- translation: englishPrompt in English; learner writes French using target words.
-- question_answer: instruction sets a scenario; learner answers in French.
-- build_sentence: instruction asks to build a sentence using target words.
-- formFocus: note verb/adjective form when relevant.
+- translation: englishPrompt in English; learner writes French.
+- question_answer: scenario in English; learner answers in French.
+- build_sentence: instruction to build a sentence using toolbox themes from hints.
 - id: stable unique slug. NEVER repeat ids from the avoid list.
-- Use English for instructions.
 
 Return exactly 5 exercises. Return ONLY valid JSON.`;
 
@@ -82,6 +83,7 @@ const EXERCISE_SCHEMA = {
             enum: [
               'fill_blank',
               'match_meaning',
+              'match_following',
               'find_error',
               'multiple_choice',
               'translation',
@@ -92,8 +94,20 @@ const EXERCISE_SCHEMA = {
           title: { type: 'string' },
           instruction: { type: 'string' },
           targetWords: { type: 'array', items: { type: 'string' } },
+          hints: { type: 'array', items: { type: 'string' } },
           focusCategory: { type: 'string' },
           formFocus: { type: 'string' },
+          matchRows: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                french: { type: 'string' },
+              },
+              required: ['id', 'french'],
+            },
+          },
           options: {
             type: 'array',
             items: {
@@ -111,7 +125,7 @@ const EXERCISE_SCHEMA = {
           flawedSentence: { type: 'string' },
           englishPrompt: { type: 'string' },
         },
-        required: ['id', 'index', 'type', 'title', 'instruction', 'targetWords', 'correctAnswer'],
+        required: ['id', 'index', 'type', 'title', 'instruction', 'targetWords', 'hints', 'correctAnswer', 'explanation'],
       },
     },
   },
@@ -187,6 +201,21 @@ function dedupeOptions(options) {
   }
 
   return deduped.length > 0 ? deduped : undefined;
+}
+
+function isValidMatchFollowing(prompt) {
+  if (prompt.type !== 'match_following') return true;
+  if (!Array.isArray(prompt.matchRows) || prompt.matchRows.length < 2) return false;
+  if (!prompt.options || prompt.options.length < prompt.matchRows.length) return false;
+
+  try {
+    const map = JSON.parse(prompt.correctAnswer);
+    return prompt.matchRows.every(
+      (row) => row.id && row.french && map[row.id] && prompt.options.some((o) => o.id === map[row.id]),
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isValidChoicePrompt(prompt) {
@@ -276,6 +305,10 @@ function normalizePrompts(rawPrompts, stage) {
         String(prompt.id ?? '').trim() ||
         buildQuestionFingerprint(type, prompt.focusCategory, targetWords, title);
 
+      const hints = (Array.isArray(prompt.hints) ? prompt.hints : [])
+        .map((hint) => String(hint).trim())
+        .filter(Boolean);
+
       return {
         id,
         index: typeof prompt.index === 'number' ? prompt.index : index + 1,
@@ -284,11 +317,20 @@ function normalizePrompts(rawPrompts, stage) {
         title,
         instruction: String(prompt.instruction ?? '').trim(),
         targetWords,
+        hints,
         focusCategory: prompt.focusCategory ? String(prompt.focusCategory).trim() : undefined,
         formFocus: prompt.formFocus ? String(prompt.formFocus).trim() : undefined,
         options: dedupeOptions(prompt.options),
+        matchRows: Array.isArray(prompt.matchRows)
+          ? prompt.matchRows
+              .map((row) => ({
+                id: String(row.id ?? '').trim(),
+                french: String(row.french ?? '').trim(),
+              }))
+              .filter((row) => row.id && row.french)
+          : undefined,
         correctAnswer: String(prompt.correctAnswer ?? '').trim(),
-        explanation: prompt.explanation ? String(prompt.explanation).trim() : undefined,
+        explanation: String(prompt.explanation ?? '').trim(),
         sentenceWithBlank: prompt.sentenceWithBlank
           ? String(prompt.sentenceWithBlank).trim()
           : undefined,
@@ -299,10 +341,13 @@ function normalizePrompts(rawPrompts, stage) {
     .filter(
       (prompt) =>
         prompt.targetWords.length > 0 &&
+        prompt.hints.length > 0 &&
         prompt.correctAnswer &&
         prompt.instruction &&
+        prompt.explanation &&
         allowedTypes.includes(prompt.type) &&
-        isValidChoicePrompt(prompt),
+        isValidChoicePrompt(prompt) &&
+        isValidMatchFollowing(prompt),
     )
     .slice(0, 5);
 }

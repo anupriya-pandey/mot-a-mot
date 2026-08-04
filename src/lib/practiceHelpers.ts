@@ -71,6 +71,28 @@ export function isProductionExercise(type: string): boolean {
   return type === 'translation' || type === 'question_answer' || type === 'build_sentence';
 }
 
+export function isQuickExercise(type: string): boolean {
+  return !isProductionExercise(type);
+}
+
+export function gradePracticeAnswer(userAnswer: string, prompt: PracticePrompt): boolean {
+  if (prompt.type === 'match_following') {
+    return gradeMatchFollowing(userAnswer, prompt);
+  }
+  return answersMatch(userAnswer, prompt.correctAnswer);
+}
+
+function gradeMatchFollowing(userAnswer: string, prompt: PracticePrompt): boolean {
+  try {
+    const user = JSON.parse(userAnswer) as Record<string, string>;
+    const correct = JSON.parse(prompt.correctAnswer) as Record<string, string>;
+    if (!prompt.matchRows?.length) return false;
+    return prompt.matchRows.every((row) => user[row.id] === correct[row.id]);
+  } catch {
+    return false;
+  }
+}
+
 export function normalizePracticeAnswer(answer: string): string {
   return answer.trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -99,6 +121,23 @@ export function pickNewExpressionForAdd(
 }
 
 export function getCorrectAnswerDisplay(prompt: PracticePrompt): string {
+  if (prompt.type === 'match_following') {
+    try {
+      const map = JSON.parse(prompt.correctAnswer) as Record<string, string>;
+      return (
+        prompt.matchRows
+          ?.map((row) => {
+            const optionId = map[row.id];
+            const meaning = prompt.options?.find((option) => option.id === optionId)?.text;
+            return `${row.french} → ${meaning ?? optionId}`;
+          })
+          .join(' · ') ?? prompt.correctAnswer
+      );
+    } catch {
+      return prompt.correctAnswer;
+    }
+  }
+
   const match = prompt.options?.find((option) => option.id === prompt.correctAnswer);
   return match?.text ?? prompt.correctAnswer;
 }

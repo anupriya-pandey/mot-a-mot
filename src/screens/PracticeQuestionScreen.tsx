@@ -3,8 +3,10 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { StatusBanner } from '../components/StatusBanner';
 import { TextInput } from '../components/TextInput';
 import {
+  PRACTICE_HINTS_LABEL,
   PRACTICE_QUICK_CORRECT,
   PRACTICE_QUICK_INCORRECT,
+  PRACTICE_WRONG_EXPLANATION_LABEL,
 } from '../constants/practiceMicrocopy';
 import { ERRORS } from '../constants/microcopy';
 import type { PracticePrompt } from '../types/practice';
@@ -32,6 +34,8 @@ function exerciseTypeLabel(type: PracticePrompt['type']): string {
       return 'Fill in the blank';
     case 'match_meaning':
       return 'Match the meaning';
+    case 'match_following':
+      return 'Match the following';
     case 'find_error':
       return 'Find the error';
     case 'multiple_choice':
@@ -58,6 +62,7 @@ export function PracticeQuestionScreen({
 }: PracticeQuestionScreenProps) {
   const [answer, setAnswer] = useState('');
   const [selectedOption, setSelectedOption] = useState('');
+  const [matchSelections, setMatchSelections] = useState<Record<string, string>>({});
   const [showEmptyError, setShowEmptyError] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -65,6 +70,7 @@ export function PracticeQuestionScreen({
     prompt.type === 'multiple_choice' ||
     prompt.type === 'match_meaning' ||
     prompt.type === 'find_error';
+  const isMatchFollowing = prompt.type === 'match_following';
   const isTextProduction =
     prompt.type === 'translation' ||
     prompt.type === 'question_answer' ||
@@ -84,11 +90,24 @@ export function PracticeQuestionScreen({
   useEffect(() => {
     setAnswer('');
     setSelectedOption('');
+    setMatchSelections({});
     setShowEmptyError(false);
     inputRef.current?.focus();
   }, [prompt.id]);
 
   const handleSubmit = () => {
+    if (isMatchFollowing) {
+      const rows = prompt.matchRows ?? [];
+      const complete = rows.every((row) => matchSelections[row.id]?.trim());
+      if (!complete) {
+        setShowEmptyError(true);
+        return;
+      }
+      setShowEmptyError(false);
+      onSubmit(JSON.stringify(matchSelections));
+      return;
+    }
+
     const value = isChoiceType ? selectedOption : answer.trim();
     if (!value) {
       setShowEmptyError(true);
@@ -111,10 +130,6 @@ export function PracticeQuestionScreen({
       <h1 className="mt-xs text-2xl font-semibold text-text-primary">{prompt.title}</h1>
       <p className="mt-s text-base text-text-secondary">{prompt.instruction}</p>
 
-      {prompt.formFocus && (
-        <p className="mt-s text-sm text-text-secondary">Form focus: {prompt.formFocus}</p>
-      )}
-
       {prompt.englishPrompt && (
         <p className="mt-m rounded-lg bg-background px-m py-s text-base text-text-primary">
           {prompt.englishPrompt}
@@ -133,16 +148,48 @@ export function PracticeQuestionScreen({
         </p>
       )}
 
-      <ul className="mt-m flex flex-wrap gap-s">
-        {prompt.targetWords.map((word) => (
-          <li
-            key={word}
-            className="rounded-button border border-primary/20 bg-primary/5 px-m py-s text-sm font-medium text-text-primary"
-          >
-            {word}
-          </li>
-        ))}
-      </ul>
+      { (prompt.hints ?? []).length > 0 && (
+        <div className="mt-m rounded-lg border border-border bg-background px-m py-s">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+            {PRACTICE_HINTS_LABEL}
+          </p>
+          <ul className="mt-s space-y-xs">
+            {(prompt.hints ?? []).map((hint) => (
+              <li key={hint} className="text-sm leading-relaxed text-text-primary">
+                {hint}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!feedback && isMatchFollowing && prompt.matchRows && (
+        <div className="mt-l space-y-m">
+          {prompt.matchRows.map((row) => (
+            <label key={row.id} className="block space-y-xs">
+              <span className="text-base font-medium text-text-primary">{row.french}</span>
+              <select
+                value={matchSelections[row.id] ?? ''}
+                onChange={(event) => {
+                  setMatchSelections((current) => ({
+                    ...current,
+                    [row.id]: event.target.value,
+                  }));
+                  setShowEmptyError(false);
+                }}
+                className="w-full rounded-button border border-border bg-surface px-m py-s text-base text-text-primary"
+              >
+                <option value="">Choose the meaning…</option>
+                {choiceOptions.map((option) => (
+                  <option key={`${row.id}-${option.id}`} value={option.id}>
+                    {option.text}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
 
       {!feedback && isChoiceType && choiceOptions.length > 0 && (
         <fieldset className="mt-l space-y-s">
@@ -174,7 +221,7 @@ export function PracticeQuestionScreen({
         </fieldset>
       )}
 
-      {!feedback && !isChoiceType && (
+      {!feedback && !isChoiceType && !isMatchFollowing && (
         <div className="mt-l">
           <TextInput
             ref={inputRef}
@@ -211,8 +258,20 @@ export function PracticeQuestionScreen({
               {feedback.correctAnswer}
             </p>
           )}
-          {feedback.explanation && (
-            <p className="mt-s text-sm leading-relaxed text-text-secondary">{feedback.explanation}</p>
+          {!feedback.correct && feedback.explanation && (
+            <div className="mt-m rounded-lg bg-surface/80 px-m py-s">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                {PRACTICE_WRONG_EXPLANATION_LABEL}
+              </p>
+              <p className="mt-xs text-sm leading-relaxed text-text-primary">
+                {feedback.explanation}
+              </p>
+            </div>
+          )}
+          {feedback.correct && feedback.explanation && (
+            <p className="mt-s text-sm leading-relaxed text-text-secondary">
+              {feedback.explanation}
+            </p>
           )}
         </div>
       )}
