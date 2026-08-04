@@ -54,6 +54,7 @@ Exercise types:
 
 FILL_BLANK rules (strict):
 - sentenceWithBlank = ONE French sentence with a single "___" blank — nothing else. No English, no grammar notes in parentheses, no "Hint:", no "Explanation:", no second ___, no text after the sentence explaining the answer.
+- The blank MUST accept the correctAnswer in context. Never use "Je vais ___ Paris" for "avec" — that sentence needs "à". Match sentence frame to the preposition's meaning.
 - hints: 1–3 specific English clues about tense/person/meaning — NEVER the conjugated French form, NEVER "ends in -e", NEVER duplicate generic filler.
 - explanation: goes in the explanation field only — never inside sentenceWithBlank.
 - Bad sentenceWithBlank: "Je ___ à Paris. (habiter: je form.) ___ is the correct form..."
@@ -254,6 +255,87 @@ function buildPracticeHints(entry, exerciseType) {
   return [shuffle(hintsByType[exerciseType] ?? hintsByType.match_meaning)[0]];
 }
 
+const PREPOSITION_FILL_TEMPLATES = {
+  à: "Je vais ___ Paris demain matin.",
+  a: "Je vais ___ Paris demain matin.",
+  au: "Je vais ___ cinéma ce soir.",
+  en: "Nous voyageons ___ France cette année.",
+  dans: "Le chat est ___ la cuisine.",
+  sur: "Mon téléphone est ___ la table.",
+  sous: "Le chien dort ___ le lit.",
+  avec: "Je dîne ___ mes amis ce soir.",
+  sans: "Je prends mon café ___ sucre.",
+  pour: "Ce cadeau est ___ toi.",
+  de: "Je viens ___ Lyon.",
+  chez: "Je mange ___ mes grands-parents dimanche.",
+  par: "Nous passons ___ le parc en rentrant.",
+  vers: "Le train part ___ midi.",
+  entre: "Le café est ___ la banque et la boulangerie.",
+};
+
+const ADVERB_FILL_TEMPLATES = {
+  souvent: "Il prend le train ___.",
+  bien: "Elle parle français ___.",
+  demain: "Nous partons ___.",
+  "aujourd'hui": "Je suis très occupé ___.",
+  aujourdhui: "Je suis très occupé ___.",
+  hier: "Je suis arrivé ___.",
+  toujours: "Il est ___ ponctuel.",
+  jamais: "Il n'est ___ en retard.",
+  beaucoup: "Il travaille ___.",
+  très: "C'est ___ intéressant.",
+  trop: "Il fait ___ chaud.",
+  maintenant: "Je dois partir ___.",
+};
+
+function normalizeLemmaKey(lemma) {
+  return String(lemma ?? '').trim().toLowerCase().normalize('NFC');
+}
+
+function getPrepositionFillTemplate(lemma) {
+  return PREPOSITION_FILL_TEMPLATES[normalizeLemmaKey(lemma)] ?? null;
+}
+
+function getAdverbFillTemplate(lemma) {
+  const key = normalizeLemmaKey(lemma);
+  return ADVERB_FILL_TEMPLATES[key] ?? ADVERB_FILL_TEMPLATES[key.replace(/'/g, '')] ?? null;
+}
+
+function prepositionMatchesSentence(preposition, sentence) {
+  const prep = normalizeLemmaKey(preposition);
+  const lower = String(sentence ?? '').toLowerCase();
+
+  if (/vais\s+___\s+|voyage(?:ons|z)?\s+___\s+/.test(lower)) {
+    return ['à', 'a', 'au', 'aux', 'en'].includes(prep);
+  }
+  if (/dîne\s+___\s+(mes|mon|ma)|___\s+(mes|mon|ma|ton|ta|sa|leurs|ses)\s+(amis|frère|soeur|sœur|famille|collègues|grands-parents)/.test(lower)) {
+    return prep === 'avec' || prep === 'chez';
+  }
+  if (/café\s+___\s+(sucre|lait)/.test(lower)) {
+    return prep === 'sans' || prep === 'avec';
+  }
+  if (/est\s+___\s+(la|le|l'|un|une)/.test(lower)) {
+    return ['dans', 'sur', 'sous', 'à', 'a', 'en', 'entre'].includes(prep);
+  }
+  if (/viens\s+___/.test(lower)) {
+    return prep === 'de';
+  }
+  if (/cadeau\s+est\s+___|est\s+___\s+(toi|moi|lui|elle)/.test(lower)) {
+    return prep === 'pour';
+  }
+  if (/mange\s+___/.test(lower)) {
+    return prep === 'chez';
+  }
+  if (/pass(?:e|ons|ez)\s+___/.test(lower)) {
+    return prep === 'par';
+  }
+  if (/part\s+___\s+(midi|huit|neuf|dix)/.test(lower)) {
+    return prep === 'vers';
+  }
+
+  return true;
+}
+
 function normalizeCorrectAnswer(value) {
   if (value === null || value === undefined) return '';
   if (typeof value === 'object') return JSON.stringify(value);
@@ -409,23 +491,47 @@ function buildFallbackFillBlank(entry, poolEntries, index, stage) {
     });
   }
 
-  if (entry.partOfSpeech === 'Adverbs' || entry.partOfSpeech === 'Prepositions') {
+  if (entry.partOfSpeech === 'Adverbs') {
+    const sentenceWithBlank = getAdverbFillTemplate(entry.lemma);
+    if (!sentenceWithBlank) {
+      return buildFallbackMatchMeaning(entry, poolEntries, index, stage);
+    }
+
     return enrichPrompt({
       id: `fallback-fill-${entry.lemma}-${index}`,
       index,
       stage,
       type: 'fill_blank',
       title: 'Fill in the blank',
-      instruction: 'Complete the sentence with the correct French word from your toolbox.',
+      instruction: 'Complete the sentence with the correct French adverb from your toolbox.',
       targetWords: [entry.lemma],
       focusCategory: entry.partOfSpeech,
       hints: buildPracticeHints(entry, 'fill_blank'),
-      sentenceWithBlank:
-        entry.partOfSpeech === 'Prepositions'
-          ? 'Je vais ___ Paris demain matin.'
-          : 'Il parle ___ bien français.',
+      sentenceWithBlank,
       correctAnswer: entry.lemma,
-      explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)}.`,
+      explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)} and fits naturally here.`,
+    });
+  }
+
+  if (entry.partOfSpeech === 'Prepositions') {
+    const sentenceWithBlank = getPrepositionFillTemplate(entry.lemma);
+    if (!sentenceWithBlank) {
+      return buildFallbackMatchMeaning(entry, poolEntries, index, stage);
+    }
+
+    return enrichPrompt({
+      id: `fallback-fill-${entry.lemma}-${index}`,
+      index,
+      stage,
+      type: 'fill_blank',
+      title: 'Fill in the blank',
+      instruction: 'Complete the sentence with the correct French preposition from your toolbox.',
+      targetWords: [entry.lemma],
+      focusCategory: entry.partOfSpeech,
+      hints: buildPracticeHints(entry, 'fill_blank'),
+      sentenceWithBlank,
+      correctAnswer: entry.lemma,
+      explanation: `In this sentence, « ${entry.lemma} » (${primaryMeaning(entry)}) is the correct preposition.`,
     });
   }
 
@@ -1166,6 +1272,15 @@ function isValidFillBlank(prompt) {
         return false;
       }
     }
+  }
+
+  const answer = String(prompt.correctAnswer ?? '').trim();
+  if (
+    prompt.focusCategory === 'Prepositions' ||
+    getPrepositionFillTemplate(answer) ||
+    (prompt.targetWords ?? []).some((word) => getPrepositionFillTemplate(word))
+  ) {
+    if (!prepositionMatchesSentence(answer, sentence)) return false;
   }
 
   return true;
