@@ -16,7 +16,7 @@ const TABS: { id: AppTab; label: string; icon: typeof PenLine }[] = [
 export function AppTabs({ active, onChange }: AppTabsProps) {
   return (
     <nav
-      className="mx-auto mb-l flex w-full max-w-content gap-xs px-m pt-m sm:gap-s"
+      className="mb-l flex w-full gap-xs sm:gap-s"
       aria-label="Main navigation"
     >
       {TABS.map(({ id, label, icon: Icon }) => (

@@ -2,6 +2,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import { analyzeSentence, getHealthStatus, isConfigured } from './analyzeService.js';
+import { submitFeedback } from './feedbackService.js';
 import { importToolboxText } from './importService.js';
 import { generatePracticeSession } from './practiceService.js';
 import { gradePracticeExercise } from './practiceGradeService.js';
@@ -12,7 +13,7 @@ const app = express();
 const port = process.env.PORT ?? 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled promise rejection:', reason);
@@ -74,6 +75,18 @@ app.post('/api/practice-session', async (req, res) => {
   }
 });
 
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const result = await submitFeedback(req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('POST /api/feedback failed:', error);
+    return res.status(500).json({
+      message: "We couldn't send your feedback right now. Please try again.",
+    });
+  }
+});
+
 app.get('/', (_req, res) => {
   const health = getHealthStatus();
   res.json({
@@ -86,6 +99,7 @@ app.get('/', (_req, res) => {
       importToolbox: 'POST /api/import-toolbox',
       practiceSession: 'POST /api/practice-session',
       practiceGrade: 'POST /api/practice-grade',
+      feedback: 'POST /api/feedback',
     },
   });
 });

@@ -16,7 +16,7 @@ import { buildQuestionResultFromFeedback } from './lib/practiceGradingDisplay';
 import { markQuestionCompleted, getCompletedQuestionIds } from './lib/practiceHistoryStorage';
 import { computePracticeReadiness } from './lib/practiceReadiness';
 import { PRACTICE_STAGES } from './constants/practiceStages';
-import { AppTabs } from './components/AppTabs';
+import { AppHeader } from './components/AppHeader';
 import { StatusBanner } from './components/StatusBanner';
 import { IMPORT_LOADING_MESSAGES } from './constants/importMicrocopy';
 import { PRACTICE_LOADING_MESSAGES } from './constants/practiceMicrocopy';
@@ -593,7 +593,7 @@ export default function App() {
     const stageMeta = PRACTICE_STAGES.find((stage) => stage.id === selectedPracticeStage);
     return (
       <div className="min-h-screen">
-        <AppTabs active={activeTab} onChange={handleTabChange} />
+        <AppHeader active={activeTab} onChange={handleTabChange} />
         <PracticeSetupScreen
           stageId={selectedPracticeStage}
           stageTitle={stageMeta?.title ?? 'Practice'}
@@ -652,7 +652,7 @@ export default function App() {
   if (screen === 'vocabulary' && vocabularyCategory) {
     return (
       <div className="min-h-screen">
-        <AppTabs active="toolbox" onChange={handleTabChange} />
+        <AppHeader active="toolbox" onChange={handleTabChange} />
         <VocabularyScreen
           category={vocabularyCategory}
           entries={toolbox.getByCategory(vocabularyCategory)}
@@ -665,7 +665,7 @@ export default function App() {
   if (screen === 'results' && result) {
     return (
       <div className="min-h-screen">
-        {showTabs && <AppTabs active={activeTab} onChange={handleTabChange} />}
+        {showTabs && <AppHeader active={activeTab} onChange={handleTabChange} />}
         <ResultsScreen
           result={result}
           displaySentence={displaySentence}
@@ -685,7 +685,7 @@ export default function App() {
   if (screen === 'history') {
     return (
       <div className="min-h-screen">
-        <AppTabs active={activeTab} onChange={handleTabChange} />
+        <AppHeader active={activeTab} onChange={handleTabChange} />
         <HistoryScreen entries={history.entries} onSelectEntry={handleOpenHistoryEntry} />
       </div>
     );
@@ -694,7 +694,7 @@ export default function App() {
   if (screen === 'toolbox') {
     return (
       <div className="min-h-screen">
-        <AppTabs active={activeTab} onChange={handleTabChange} />
+        <AppHeader active={activeTab} onChange={handleTabChange} />
         <ToolboxScreen
           entries={toolbox.entries}
           counts={toolbox.counts}
@@ -709,7 +709,7 @@ export default function App() {
   if (screen === 'practice') {
     return (
       <div className="min-h-screen">
-        <AppTabs active={activeTab} onChange={handleTabChange} />
+        <AppHeader active={activeTab} onChange={handleTabChange} />
         <PracticeLabScreen
           readiness={practiceReadiness}
           totalEntries={toolbox.totalCount}
@@ -732,7 +732,7 @@ export default function App() {
           <StatusBanner type="error" message={error} />
         </div>
       )}
-      {showTabs && <AppTabs active={activeTab} onChange={handleTabChange} />}
+      {showTabs && <AppHeader active={activeTab} onChange={handleTabChange} />}
       <LandingScreen
         sentence={sentence}
         onSentenceChange={setSentence}
