@@ -14,7 +14,7 @@ import { SectionHeader } from './SectionHeader';
 import { StatusBanner } from './StatusBanner';
 import { StyleChangesCarousel } from './StyleChangesCarousel';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
-import { getChangesForWritingLayer, getWritingFixPhraseAtLayer } from '../lib/writingChangeDisplay';
+import { getChangesForWritingLayer, getWritingFixPhraseDisplay } from '../lib/writingChangeDisplay';
 
 interface WritingSuggestionsProps {
   writing: WritingByStyle;
@@ -95,7 +95,7 @@ function WritingStyleGroup({
 
       {note?.trim() && <p className="text-sm text-text-secondary">{note.trim()}</p>}
 
-      {explanation?.trim() && !sameAsPrevious && (
+      {explanation?.trim() && (
         <p className="text-sm leading-relaxed text-text-secondary">{explanation.trim()}</p>
       )}
 
@@ -104,7 +104,7 @@ function WritingStyleGroup({
         styleLabel={layerLabel}
         originalSentence={originalSentence}
         styleSentence={sentence}
-        getFixDisplay={(change) => getWritingFixPhraseAtLayer(change, style)}
+        getFixDisplay={(change) => getWritingFixPhraseDisplay(change, style)}
         getExplanation={(change) => change.explanationsByStyle?.[style]}
         ariaLabel={`What changed for ${layerLabel}`}
       />

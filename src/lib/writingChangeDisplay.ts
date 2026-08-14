@@ -61,17 +61,25 @@ export function getChangesForWritingLayer(
   changes: CorrectionChange[],
   style: WritingStyle,
 ): CorrectionChange[] {
-  return changes.filter((change) => {
-    const fix = getWritingFixPhraseAtLayer(change, style);
+  const filtered = changes.filter((change) => {
+    const fix = getWritingFixPhraseDisplay(change, style);
     if (!fix) return false;
     return !isSameChangePhrase(change.youWrote, fix.phrase);
   });
+
+  if (filtered.length > 0) return filtered;
+
+  return changes.filter((change) => Boolean(getWritingFixPhraseDisplay(change, style)));
 }
 
 export function getChangesForSpeaking(changes: CorrectionChange[]): CorrectionChange[] {
-  return changes.filter((change) => {
+  const filtered = changes.filter((change) => {
     const speaking = (change.speakingFrench || change.informalFrench)?.trim();
     if (!speaking) return false;
     return !isSameChangePhrase(change.youWrote, speaking);
   });
+
+  if (filtered.length > 0) return filtered;
+
+  return changes.filter((change) => Boolean((change.speakingFrench || change.informalFrench)?.trim()));
 }

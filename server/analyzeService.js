@@ -704,24 +704,33 @@ async function runStyleChanges(config, originalSentence, speakingSentence, writi
 async function runStyleChangesWithRetry(config, originalSentence, speakingSentence, writing) {
   let changesResult = await runStyleChanges(config, originalSentence, speakingSentence, writing);
   let changes = mapStyleChanges(changesResult?.changes);
+  let bestChanges = changes;
 
   if (!changesArePersonalized(changes, writing, speakingSentence, originalSentence)) {
     console.warn('Style changes were not personalized — retrying once.');
     changesResult = await runStyleChanges(config, originalSentence, speakingSentence, writing, true);
     changes = mapStyleChanges(changesResult?.changes);
+    if (changes.length > 0) {
+      bestChanges = changes;
+    }
+  } else {
+    bestChanges = changes;
   }
 
   if (!changesArePersonalized(changes, writing, speakingSentence, originalSentence)) {
-    console.warn('Style changes still misaligned — using sentence-level fallback.');
-    changes = buildFallbackStyleChanges(originalSentence, speakingSentence, writing);
+    if (changes.length === 0) {
+      console.warn('Style changes empty — using sentence-level fallback.');
+      const fallbackChanges = buildFallbackStyleChanges(originalSentence, speakingSentence, writing);
+      if (fallbackChanges.length > 0) {
+        bestChanges = fallbackChanges;
+      }
+    } else {
+      console.warn('Style changes misaligned — keeping best available mapped changes.');
+      bestChanges = changes;
+    }
   }
 
-  if (!changesArePersonalized(changes, writing, speakingSentence, originalSentence)) {
-    console.warn('Style changes unavailable — continuing with suggestions only.');
-    return [];
-  }
-
-  return changes;
+  return bestChanges;
 }
 
 function buildFallbackStyleChanges(originalSentence, speakingSentence, writing) {
