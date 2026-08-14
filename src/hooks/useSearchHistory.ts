@@ -4,6 +4,7 @@ import {
   loadHistory,
   updateHistoryEntry,
 } from '../lib/historyStorage';
+import { DATA_SYNCED_EVENT } from '../lib/storageKeys';
 import type { AnalysisResult, SentenceLanguage } from '../types/analysis';
 import type { SearchHistoryEntry } from '../types/history';
 
@@ -16,6 +17,12 @@ export function useSearchHistory() {
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const handleSync = () => refresh();
+    window.addEventListener(DATA_SYNCED_EVENT, handleSync);
+    return () => window.removeEventListener(DATA_SYNCED_EVENT, handleSync);
   }, [refresh]);
 
   const saveSearch = useCallback(

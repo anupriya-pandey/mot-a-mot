@@ -9,6 +9,7 @@ import {
   loadToolbox,
   normalizePartOfSpeech,
 } from '../lib/toolboxStorage';
+import { DATA_SYNCED_EVENT } from '../lib/storageKeys';
 import type { VocabularyItem } from '../types/analysis';
 import type { CategoryCounts, PartOfSpeech, VocabularyEntry } from '../types/toolbox';
 
@@ -23,6 +24,12 @@ export function useFrenchToolbox() {
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const handleSync = () => refresh();
+    window.addEventListener(DATA_SYNCED_EVENT, handleSync);
+    return () => window.removeEventListener(DATA_SYNCED_EVENT, handleSync);
   }, [refresh]);
 
   const addUserVocabulary = useCallback(

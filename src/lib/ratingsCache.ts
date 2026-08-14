@@ -1,7 +1,9 @@
 import type { SentenceLanguage } from '../types/analysis';
 import { loadHistory } from './historyStorage';
+import { STORAGE_KEYS } from './storageKeys';
+import { notifyUserDataChanged } from './syncNotifier';
 
-const STORAGE_KEY = 'mot-a-mot-ratings-cache-v1';
+const STORAGE_KEY = STORAGE_KEYS.ratingsCache;
 
 export interface CachedRatings {
   grammar: number;
@@ -25,6 +27,7 @@ function loadCache(): Record<string, CachedRatings> {
 
 function saveCache(cache: Record<string, CachedRatings>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+  notifyUserDataChanged();
 }
 
 function findRatingsInHistory(

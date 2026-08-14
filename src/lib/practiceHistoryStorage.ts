@@ -1,6 +1,8 @@
 import type { PracticePrompt, PracticeStageId } from '../types/practice';
+import { STORAGE_KEYS } from './storageKeys';
+import { notifyUserDataChanged } from './syncNotifier';
 
-const STORAGE_KEY = 'mot-a-mot-practice-history-v1';
+const STORAGE_KEY = STORAGE_KEYS.practiceHistory;
 const MAX_COMPLETED = 500;
 
 export interface CompletedPracticeQuestion {
@@ -23,6 +25,7 @@ function loadCompleted(): CompletedPracticeQuestion[] {
 
 function saveCompleted(entries: CompletedPracticeQuestion[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_COMPLETED)));
+  notifyUserDataChanged();
 }
 
 export function getCompletedQuestionIds(): string[] {

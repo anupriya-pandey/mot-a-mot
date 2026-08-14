@@ -5,8 +5,10 @@ import {
   type PartOfSpeech,
   type VocabularyEntry,
 } from '../types/toolbox';
+import { STORAGE_KEYS } from './storageKeys';
+import { notifyUserDataChanged } from './syncNotifier';
 
-const STORAGE_KEY = 'mot-a-mot-toolbox-v3';
+const STORAGE_KEY = STORAGE_KEYS.toolbox;
 
 const POS_ALIASES: Record<string, PartOfSpeech> = {
   noun: 'Nouns',
@@ -177,6 +179,14 @@ export function loadToolbox(): VocabularyEntry[] {
 
 function saveToolbox(entries: VocabularyEntry[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(consolidateEntries(entries)));
+  notifyUserDataChanged();
+}
+
+export function mergeToolboxSnapshots(
+  local: VocabularyEntry[],
+  remote: VocabularyEntry[],
+): VocabularyEntry[] {
+  return consolidateEntries([...local, ...remote]);
 }
 
 export function isVocabularyInToolbox(lemma: string, partOfSpeech: PartOfSpeech): boolean {

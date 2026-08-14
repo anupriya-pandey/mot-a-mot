@@ -16,11 +16,13 @@ import { buildQuestionResultFromFeedback } from './lib/practiceGradingDisplay';
 import { markQuestionCompleted, getCompletedQuestionIds } from './lib/practiceHistoryStorage';
 import { computePracticeReadiness } from './lib/practiceReadiness';
 import { PRACTICE_STAGES } from './constants/practiceStages';
+import { AUTH_LOADING_MESSAGES, AUTH_SYNC_MESSAGES } from './constants/authMicrocopy';
 import { AppHeader } from './components/AppHeader';
 import { StatusBanner } from './components/StatusBanner';
 import { IMPORT_LOADING_MESSAGES } from './constants/importMicrocopy';
 import { PRACTICE_LOADING_MESSAGES } from './constants/practiceMicrocopy';
 import { ERRORS } from './constants/microcopy';
+import { useAuth } from './contexts/AuthContext';
 import { useFrenchToolbox } from './hooks/useFrenchToolbox';
 import { useSearchHistory } from './hooks/useSearchHistory';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -29,6 +31,7 @@ import { ImportSuccessScreen } from './screens/ImportSuccessScreen';
 import { ImportToolboxScreen } from './screens/ImportToolboxScreen';
 import { LandingScreen } from './screens/LandingScreen';
 import { LoadingScreen } from './screens/LoadingScreen';
+import { LoginScreen } from './screens/LoginScreen';
 import { PracticeLabScreen } from './screens/PracticeLabScreen';
 import { PracticeSetupScreen } from './screens/PracticeSetupScreen';
 import { PracticeQuestionScreen } from './screens/PracticeQuestionScreen';
@@ -59,6 +62,24 @@ import type { PartOfSpeech } from './types/toolbox';
 type LoadingMode = 'analyze' | 'import' | 'practice-generate' | 'practice-check';
 
 export default function App() {
+  const { authEnabled, user, loading, syncing } = useAuth();
+
+  if (authEnabled && loading) {
+    return <LoadingScreen messages={AUTH_LOADING_MESSAGES} />;
+  }
+
+  if (authEnabled && syncing) {
+    return <LoadingScreen messages={AUTH_SYNC_MESSAGES} />;
+  }
+
+  if (authEnabled && !user) {
+    return <LoginScreen />;
+  }
+
+  return <MotAMotApp />;
+}
+
+function MotAMotApp() {
   const [screen, setScreen] = useState<AppScreen>('landing');
   const [activeTab, setActiveTab] = useState<AppTab>('check');
   const [sentence, setSentence] = useState('');

@@ -1,7 +1,9 @@
 import type { AnalysisResult, SentenceLanguage } from '../types/analysis';
 import type { SearchHistoryEntry } from '../types/history';
+import { STORAGE_KEYS } from './storageKeys';
+import { notifyUserDataChanged } from './syncNotifier';
 
-const STORAGE_KEY = 'mot-a-mot-history-v1';
+const STORAGE_KEY = STORAGE_KEYS.history;
 const MAX_ENTRIES = 50;
 
 function generateId(): string {
@@ -21,6 +23,7 @@ export function loadHistory(): SearchHistoryEntry[] {
 
 function saveHistory(entries: SearchHistoryEntry[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)));
+  notifyUserDataChanged();
 }
 
 export function addHistoryEntry(
