@@ -585,12 +585,31 @@ function phraseAppearsInSentence(phrase, sentence) {
   const normalizedPhrase = normalizeForMatch(phrase);
   const normalizedSentence = normalizeForMatch(sentence);
   if (!normalizedPhrase || !normalizedSentence) return false;
-  return normalizedSentence.includes(normalizedPhrase);
+  if (normalizedSentence.includes(normalizedPhrase)) return true;
+
+  const phraseTokens = normalizedPhrase.split(/\s+/).filter(Boolean);
+  const sentenceTokens = normalizedSentence.split(/\s+/).filter(Boolean);
+  if (phraseTokens.length === 0) return false;
+  if (phraseTokens.length === 1) {
+    return sentenceTokens.includes(phraseTokens[0]);
+  }
+
+  let tokenIndex = 0;
+  for (const token of sentenceTokens) {
+    if (token === phraseTokens[tokenIndex]) {
+      tokenIndex += 1;
+      if (tokenIndex === phraseTokens.length) return true;
+    }
+  }
+
+  return false;
 }
 
 function changesArePersonalized(changes, writing, speakingSentence, originalSentence) {
+  if (!hasCompleteWriting(writing)) return false;
+
   if (!changes.length) {
-    return allWritingSentencesIdentical(writing);
+    return true;
   }
 
   for (const change of changes) {
@@ -693,10 +712,36 @@ async function runStyleChangesWithRetry(config, originalSentence, speakingSenten
   }
 
   if (!changesArePersonalized(changes, writing, speakingSentence, originalSentence)) {
-    throw new Error('Could not generate style-specific changes.');
+    console.warn('Style changes still misaligned — using sentence-level fallback.');
+    changes = buildFallbackStyleChanges(originalSentence, speakingSentence, writing);
+  }
+
+  if (!changesArePersonalized(changes, writing, speakingSentence, originalSentence)) {
+    console.warn('Style changes unavailable — continuing with suggestions only.');
+    return [];
   }
 
   return changes;
+}
+
+function buildFallbackStyleChanges(originalSentence, speakingSentence, writing) {
+  const original = String(originalSentence ?? '').trim();
+  const speaking = String(speakingSentence ?? '').trim();
+  if (!original || !speaking) return [];
+  if (normalizeForMatch(original) === normalizeForMatch(speaking)) return [];
+
+  const byStyle = {};
+  for (const style of WRITING_STYLES) {
+    byStyle[style] = writing[style]?.sentence?.trim() ?? '';
+  }
+
+  const change = {
+    youWrote: original,
+    speakingFrench: speaking,
+    byStyle,
+  };
+
+  return changeHasRealEdit(change) ? [change] : [];
 }
 
 async function runWritingStylesWithRetry(

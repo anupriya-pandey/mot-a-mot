@@ -78,7 +78,9 @@ export function StyleChangesCarousel({
           />
         )}
         <p className="text-sm text-text-secondary">
-          No changes needed — your sentence already works for {styleLabel.toLowerCase()}.
+          {canCompare
+            ? `Use Compare with my original sentence below to see how ${styleLabel.toLowerCase()} differs from what you wrote.`
+            : `No changes needed — your sentence already works for ${styleLabel.toLowerCase()}.`}
         </p>
       </div>
     );
