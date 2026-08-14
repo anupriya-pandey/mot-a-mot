@@ -9,6 +9,7 @@ type MicAccessResult =
   | { ok: false; reason: 'denied' | 'no-device' | 'in-use' | 'unsupported' | 'insecure' };
 
 const LISTEN_TIMEOUT_MS = 12000;
+const SILENCE_AUTO_STOP_MS = 2000;
 
 function getSpeechRecognition(): SpeechRecognitionCtor | null {
   const win = window as Window & {
@@ -117,6 +118,8 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
   const gotResultRef = useRef(false);
   const userStoppedRef = useRef(false);
   const isRetryingRef = useRef(false);
+  const sessionFinalRef = useRef('');
+  const silenceTimeoutRef = useRef<number | null>(null);
 
   onTranscriptRef.current = onTranscript;
 
@@ -126,6 +129,7 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
 
     return () => {
       if (listenTimeoutRef.current) window.clearTimeout(listenTimeoutRef.current);
+      if (silenceTimeoutRef.current) window.clearTimeout(silenceTimeoutRef.current);
       micStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
@@ -137,6 +141,13 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
     }
   }, []);
 
+  const clearSilenceTimeout = useCallback(() => {
+    if (silenceTimeoutRef.current) {
+      window.clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+  }, []);
+
   const releaseMicrophone = useCallback(() => {
     micStreamRef.current?.getTracks().forEach((track) => track.stop());
     micStreamRef.current = null;
@@ -145,16 +156,19 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
   const stop = useCallback(() => {
     userStoppedRef.current = true;
     clearListenTimeout();
+    clearSilenceTimeout();
     recognitionRef.current?.stop();
     setIsListening(false);
     setInterimTranscript('');
     releaseMicrophone();
-  }, [clearListenTimeout, releaseMicrophone]);
+  }, [clearListenTimeout, clearSilenceTimeout, releaseMicrophone]);
 
   const beginRecognition = useCallback(
     (attempt: number) => {
       const SpeechRecognitionClass = getSpeechRecognition();
       if (!SpeechRecognitionClass) return;
+
+      sessionFinalRef.current = '';
 
       const recognition = new SpeechRecognitionClass();
       recognition.lang = 'fr-FR';
@@ -167,6 +181,7 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
         setInterimTranscript('');
         playListeningStartSound();
         clearListenTimeout();
+        clearSilenceTimeout();
         listenTimeoutRef.current = window.setTimeout(() => {
           userStoppedRef.current = true;
           recognition.stop();
@@ -175,28 +190,33 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let interim = '';
-        let finalText = '';
 
-        for (let index = 0; index < event.results.length; index += 1) {
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const result = event.results[index];
-          const piece = result[0]?.transcript ?? '';
+          const piece = (result[0]?.transcript ?? '').trim();
+          if (!piece) continue;
+
           if (result.isFinal) {
-            finalText += piece;
+            sessionFinalRef.current = sessionFinalRef.current
+              ? `${sessionFinalRef.current} ${piece}`
+              : piece;
           } else {
-            interim += piece;
+            interim = interim ? `${interim} ${piece}` : piece;
           }
         }
 
-        const preview = `${finalText}${interim}`.trim();
-        if (preview) setInterimTranscript(preview);
-
-        const trimmedFinal = finalText.trim();
-        if (trimmedFinal) {
-          gotResultRef.current = true;
+        const preview = [sessionFinalRef.current, interim].filter(Boolean).join(' ').trim();
+        if (preview) {
+          setInterimTranscript(preview);
           setError(null);
-          onTranscriptRef.current(trimmedFinal);
-          userStoppedRef.current = true;
-          recognition.stop();
+        }
+
+        clearSilenceTimeout();
+        if (sessionFinalRef.current.trim()) {
+          silenceTimeoutRef.current = window.setTimeout(() => {
+            userStoppedRef.current = true;
+            recognition.stop();
+          }, SILENCE_AUTO_STOP_MS);
         }
       };
 
@@ -218,6 +238,7 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
         }
 
         clearListenTimeout();
+        clearSilenceTimeout();
         setIsListening(false);
         setInterimTranscript('');
         releaseMicrophone();
@@ -232,11 +253,20 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
 
       recognition.onend = () => {
         clearListenTimeout();
+        clearSilenceTimeout();
         setIsListening(false);
         setInterimTranscript('');
         releaseMicrophone();
 
         if (isRetryingRef.current) return;
+
+        const committed = sessionFinalRef.current.trim();
+        if (committed) {
+          gotResultRef.current = true;
+          setError(null);
+          onTranscriptRef.current(committed);
+          return;
+        }
 
         if (!gotResultRef.current && !userStoppedRef.current) {
           setError(ERRORS.voiceTranscription);
@@ -253,7 +283,7 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
         releaseMicrophone();
       }
     },
-    [clearListenTimeout, releaseMicrophone],
+    [clearListenTimeout, clearSilenceTimeout, releaseMicrophone],
   );
 
   const start = useCallback(async () => {

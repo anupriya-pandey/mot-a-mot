@@ -24,8 +24,8 @@ export function LandingScreen({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [showEmptyError, setShowEmptyError] = useState(false);
 
-  const appendTranscript = (transcript: string) => {
-    onSentenceChange(sentence ? `${sentence} ${transcript}` : transcript);
+  const applyVoiceTranscript = (transcript: string) => {
+    onSentenceChange(transcript.trim());
     inputRef.current?.focus();
   };
 
@@ -38,7 +38,7 @@ export function LandingScreen({
     error,
     start,
     stop,
-  } = useSpeechRecognition(appendTranscript);
+  } = useSpeechRecognition(applyVoiceTranscript);
 
   useEffect(() => {
     inputRef.current?.focus();
