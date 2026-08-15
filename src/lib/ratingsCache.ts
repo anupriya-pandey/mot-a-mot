@@ -2,6 +2,7 @@ import type { SentenceLanguage } from '../types/analysis';
 import { loadHistory } from './historyStorage';
 import { STORAGE_KEYS } from './storageKeys';
 import { notifyUserDataChanged } from './syncNotifier';
+import { safeGetItem, safeSetJson } from './safeStorage';
 
 const STORAGE_KEY = STORAGE_KEYS.ratingsCache;
 
@@ -16,7 +17,7 @@ function normalizeKey(ratedSentence: string, sentenceLanguage: SentenceLanguage)
 
 function loadCache(): Record<string, CachedRatings> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGetItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, CachedRatings>;
     return parsed && typeof parsed === 'object' ? parsed : {};
@@ -26,7 +27,7 @@ function loadCache(): Record<string, CachedRatings> {
 }
 
 function saveCache(cache: Record<string, CachedRatings>): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+  safeSetJson(STORAGE_KEY, cache);
   notifyUserDataChanged();
 }
 

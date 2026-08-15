@@ -6,6 +6,11 @@ import { submitFeedback } from './feedbackService.js';
 import { importToolboxText } from './importService.js';
 import { generatePracticeSession } from './practiceService.js';
 import { gradePracticeExercise } from './practiceGradeService.js';
+import {
+  getProgressStorageStatus,
+  getSavedProgress,
+  saveProgress,
+} from './progressService.js';
 
 dotenv.config();
 
@@ -87,6 +92,46 @@ app.post('/api/feedback', async (req, res) => {
   }
 });
 
+app.get('/api/progress', async (req, res) => {
+  if (req.query?.status === '1') {
+    return res.status(200).json(getProgressStorageStatus());
+  }
+
+  try {
+    const result = await getSavedProgress(req.headers['x-mot-device-id']);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('GET /api/progress failed:', error);
+    return res.status(500).json({
+      message: "We couldn't sync your progress right now. Please try again.",
+    });
+  }
+});
+
+app.put('/api/progress', async (req, res) => {
+  try {
+    const result = await saveProgress(req.headers['x-mot-device-id'], req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('PUT /api/progress failed:', error);
+    return res.status(500).json({
+      message: "We couldn't sync your progress right now. Please try again.",
+    });
+  }
+});
+
+app.post('/api/progress', async (req, res) => {
+  try {
+    const result = await saveProgress(req.headers['x-mot-device-id'], req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('POST /api/progress failed:', error);
+    return res.status(500).json({
+      message: "We couldn't sync your progress right now. Please try again.",
+    });
+  }
+});
+
 app.get('/', (_req, res) => {
   const health = getHealthStatus();
   res.json({
@@ -100,6 +145,7 @@ app.get('/', (_req, res) => {
       practiceSession: 'POST /api/practice-session',
       practiceGrade: 'POST /api/practice-grade',
       feedback: 'POST /api/feedback',
+      progress: 'GET/PUT /api/progress',
     },
   });
 });

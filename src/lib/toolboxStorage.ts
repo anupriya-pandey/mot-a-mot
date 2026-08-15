@@ -7,6 +7,7 @@ import {
 } from '../types/toolbox';
 import { STORAGE_KEYS } from './storageKeys';
 import { notifyUserDataChanged } from './syncNotifier';
+import { safeGetItem, safeSetJson } from './safeStorage';
 
 const STORAGE_KEY = STORAGE_KEYS.toolbox;
 
@@ -138,10 +139,10 @@ export function normalizePartOfSpeech(value: string): PartOfSpeech | null {
 
 export function loadToolbox(): VocabularyEntry[] {
   try {
-    let raw = localStorage.getItem(STORAGE_KEY);
+    let raw = safeGetItem(STORAGE_KEY);
 
     if (!raw) {
-      const legacy = localStorage.getItem('mot-a-mot-toolbox-v2');
+      const legacy = safeGetItem('mot-a-mot-toolbox-v2');
       if (legacy) {
         const parsed = JSON.parse(legacy) as Array<Record<string, unknown>>;
         if (Array.isArray(parsed)) {
@@ -178,7 +179,7 @@ export function loadToolbox(): VocabularyEntry[] {
 }
 
 function saveToolbox(entries: VocabularyEntry[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(consolidateEntries(entries)));
+  safeSetJson(STORAGE_KEY, consolidateEntries(entries));
   notifyUserDataChanged();
 }
 

@@ -1,32 +1,19 @@
-import type { SearchHistoryEntry } from '../types/history';
-import type { VocabularyEntry } from '../types/toolbox';
-import type { CompletedPracticeQuestion } from './practiceHistoryStorage';
-import type { CachedRatings } from './ratingsCache';
-import { DATA_SYNCED_EVENT, STORAGE_KEYS } from './storageKeys';
-import { getSupabaseClient } from './supabase';
-import { mergeToolboxSnapshots } from './toolboxStorage';
-
+import { fetchRemoteProgress, saveRemoteProgress } from '../api/syncProgress';
+import type { ProgressPayload } from './progressMerge';
+import { hasMeaningfulProgress, mergeProgress } from './progressMerge';
 import { registerSyncScheduler } from './syncNotifier';
+import { DATA_SYNCED_EVENT, STORAGE_KEYS } from './storageKeys';
+import { safeGetItem, safeSetJson, safeSetJsonWithTrim } from './safeStorage';
 
 const SYNC_DEBOUNCE_MS = 2000;
-const HISTORY_MAX = 50;
-const PRACTICE_HISTORY_MAX = 500;
-
-export interface UserProgressRow {
-  user_id: string;
-  toolbox: VocabularyEntry[];
-  search_history: SearchHistoryEntry[];
-  practice_history: CompletedPracticeQuestion[];
-  ratings_cache: Record<string, CachedRatings>;
-  updated_at: string;
-}
 
 let syncTimer: number | null = null;
-let activeUserId: string | null = null;
+let activeDeviceId: string | null = null;
+let cloudSyncEnabled = false;
 
 function readJson<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = safeGetItem(key);
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
   } catch {
@@ -34,180 +21,86 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
-function writeJson(key: string, value: unknown): void {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function hasMeaningfulLocalData(): boolean {
-  const toolbox = readJson<VocabularyEntry[]>(STORAGE_KEYS.toolbox, []);
-  const history = readJson<SearchHistoryEntry[]>(STORAGE_KEYS.history, []);
-  const practice = readJson<CompletedPracticeQuestion[]>(STORAGE_KEYS.practiceHistory, []);
-  const ratings = readJson<Record<string, CachedRatings>>(STORAGE_KEYS.ratingsCache, {});
-
-  return (
-    toolbox.length > 0 ||
-    history.length > 0 ||
-    practice.length > 0 ||
-    Object.keys(ratings).length > 0
-  );
-}
-
-function mergeHistory(
-  local: SearchHistoryEntry[],
-  remote: SearchHistoryEntry[],
-): SearchHistoryEntry[] {
-  const byId = new Map<string, SearchHistoryEntry>();
-
-  for (const entry of [...remote, ...local]) {
-    const existing = byId.get(entry.id);
-    if (!existing || new Date(entry.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
-      byId.set(entry.id, entry);
-    }
-  }
-
-  return [...byId.values()]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, HISTORY_MAX);
-}
-
-function mergePracticeHistory(
-  local: CompletedPracticeQuestion[],
-  remote: CompletedPracticeQuestion[],
-): CompletedPracticeQuestion[] {
-  const byId = new Map<string, CompletedPracticeQuestion>();
-
-  for (const entry of [...remote, ...local]) {
-    const existing = byId.get(entry.id);
-    if (
-      !existing ||
-      new Date(entry.completedAt).getTime() > new Date(existing.completedAt).getTime()
-    ) {
-      byId.set(entry.id, entry);
-    }
-  }
-
-  return [...byId.values()]
-    .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
-    .slice(0, PRACTICE_HISTORY_MAX);
-}
-
-function mergeRatingsCache(
-  local: Record<string, CachedRatings>,
-  remote: Record<string, CachedRatings>,
-): Record<string, CachedRatings> {
-  return { ...remote, ...local };
-}
-
-function readLocalProgress(): Omit<UserProgressRow, 'user_id' | 'updated_at'> {
+function readLocalProgress(): ProgressPayload {
   return {
-    toolbox: readJson<VocabularyEntry[]>(STORAGE_KEYS.toolbox, []),
-    search_history: readJson<SearchHistoryEntry[]>(STORAGE_KEYS.history, []),
-    practice_history: readJson<CompletedPracticeQuestion[]>(STORAGE_KEYS.practiceHistory, []),
-    ratings_cache: readJson<Record<string, CachedRatings>>(STORAGE_KEYS.ratingsCache, {}),
+    toolbox: readJson(STORAGE_KEYS.toolbox, []),
+    search_history: readJson(STORAGE_KEYS.history, []),
+    practice_history: readJson(STORAGE_KEYS.practiceHistory, []),
+    ratings_cache: readJson(STORAGE_KEYS.ratingsCache, {}),
   };
 }
 
-function applyLocalProgress(progress: Omit<UserProgressRow, 'user_id' | 'updated_at'>): void {
-  writeJson(STORAGE_KEYS.toolbox, progress.toolbox);
-  writeJson(STORAGE_KEYS.history, progress.search_history);
-  writeJson(STORAGE_KEYS.practiceHistory, progress.practice_history);
-  writeJson(STORAGE_KEYS.ratingsCache, progress.ratings_cache);
-}
-
-function mergeProgress(
-  local: Omit<UserProgressRow, 'user_id' | 'updated_at'>,
-  remote: Omit<UserProgressRow, 'user_id' | 'updated_at'>,
-): Omit<UserProgressRow, 'user_id' | 'updated_at'> {
-  return {
-    toolbox: mergeToolboxSnapshots(local.toolbox, remote.toolbox),
-    search_history: mergeHistory(local.search_history, remote.search_history),
-    practice_history: mergePracticeHistory(local.practice_history, remote.practice_history),
-    ratings_cache: mergeRatingsCache(local.ratings_cache, remote.ratings_cache),
-  };
+function applyLocalProgress(progress: ProgressPayload): void {
+  safeSetJson(STORAGE_KEYS.toolbox, progress.toolbox);
+  safeSetJsonWithTrim(STORAGE_KEYS.history, progress.search_history, 1);
+  safeSetJsonWithTrim(STORAGE_KEYS.practiceHistory, progress.practice_history, 0);
+  safeSetJson(STORAGE_KEYS.ratingsCache, progress.ratings_cache);
 }
 
 function dispatchDataSynced(): void {
   window.dispatchEvent(new CustomEvent(DATA_SYNCED_EVENT));
 }
 
-export function setActiveSyncUser(userId: string | null): void {
-  activeUserId = userId;
+export function setActiveSyncDevice(deviceId: string | null, cloudEnabled = false): void {
+  activeDeviceId = deviceId;
+  cloudSyncEnabled = cloudEnabled;
   if (syncTimer) {
     window.clearTimeout(syncTimer);
     syncTimer = null;
   }
 }
 
-export async function syncUserDataOnLogin(userId: string): Promise<void> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return;
-
-  setActiveSyncUser(userId);
+export async function syncProgressOnLoad(deviceId: string): Promise<void> {
+  setActiveSyncDevice(deviceId, false);
 
   const local = readLocalProgress();
-  const { data, error } = await supabase
-    .from('user_progress')
-    .select('toolbox, search_history, practice_history, ratings_cache')
-    .eq('user_id', userId)
-    .maybeSingle();
+  let remoteResult;
 
-  if (error) {
-    throw new Error(error.message);
+  try {
+    remoteResult = await fetchRemoteProgress();
+  } catch {
+    dispatchDataSynced();
+    return;
   }
 
-  if (!data) {
-    if (hasMeaningfulLocalData()) {
-      const { error: insertError } = await supabase.from('user_progress').insert({
-        user_id: userId,
-        ...local,
-      });
-      if (insertError) throw new Error(insertError.message);
+  if (!remoteResult.configured) {
+    dispatchDataSynced();
+    return;
+  }
+
+  cloudSyncEnabled = true;
+
+  if (!remoteResult.progress) {
+    if (hasMeaningfulProgress(local)) {
+      try {
+        await saveRemoteProgress(local);
+      } catch {
+        // Local data still works offline.
+      }
     }
     dispatchDataSynced();
     return;
   }
 
-  const remote = {
-    toolbox: (data.toolbox as VocabularyEntry[]) ?? [],
-    search_history: (data.search_history as SearchHistoryEntry[]) ?? [],
-    practice_history: (data.practice_history as CompletedPracticeQuestion[]) ?? [],
-    ratings_cache: (data.ratings_cache as Record<string, CachedRatings>) ?? {},
-  };
-
-  const merged = mergeProgress(local, remote);
+  const merged = mergeProgress(local, remoteResult.progress);
   applyLocalProgress(merged);
 
-  const { error: upsertError } = await supabase.from('user_progress').upsert({
-    user_id: userId,
-    ...merged,
-    updated_at: new Date().toISOString(),
-  });
-
-  if (upsertError) {
-    throw new Error(upsertError.message);
+  try {
+    await saveRemoteProgress(merged);
+  } catch {
+    // Merged local copy is still available.
   }
 
   dispatchDataSynced();
 }
 
-export async function pushUserDataNow(userId: string): Promise<void> {
-  const supabase = getSupabaseClient();
-  if (!supabase) return;
-
-  const local = readLocalProgress();
-  const { error } = await supabase.from('user_progress').upsert({
-    user_id: userId,
-    ...local,
-    updated_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
+export async function pushProgressNow(): Promise<void> {
+  if (!activeDeviceId || !cloudSyncEnabled) return;
+  await saveRemoteProgress(readLocalProgress());
 }
 
-export function scheduleUserDataSync(): void {
-  if (!activeUserId) return;
+export function scheduleProgressSync(): void {
+  if (!activeDeviceId || !cloudSyncEnabled) return;
 
   if (syncTimer) {
     window.clearTimeout(syncTimer);
@@ -215,15 +108,15 @@ export function scheduleUserDataSync(): void {
 
   syncTimer = window.setTimeout(() => {
     syncTimer = null;
-    if (!activeUserId) return;
-    void pushUserDataNow(activeUserId).catch(() => {
-      // Sync failures should not break local usage; next change retries.
+    if (!activeDeviceId || !cloudSyncEnabled) return;
+    void pushProgressNow().catch(() => {
+      // Retry on the next save.
     });
   }, SYNC_DEBOUNCE_MS);
 }
 
-registerSyncScheduler(scheduleUserDataSync);
+registerSyncScheduler(scheduleProgressSync);
 
 export function notifyUserDataChanged(): void {
-  scheduleUserDataSync();
+  scheduleProgressSync();
 }

@@ -1,6 +1,7 @@
 import type { PracticePrompt, PracticeStageId } from '../types/practice';
 import { STORAGE_KEYS } from './storageKeys';
 import { notifyUserDataChanged } from './syncNotifier';
+import { safeGetItem, safeSetJsonWithTrim } from './safeStorage';
 
 const STORAGE_KEY = STORAGE_KEYS.practiceHistory;
 const MAX_COMPLETED = 500;
@@ -14,7 +15,7 @@ export interface CompletedPracticeQuestion {
 
 function loadCompleted(): CompletedPracticeQuestion[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGetItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as CompletedPracticeQuestion[];
     return Array.isArray(parsed) ? parsed : [];
@@ -24,7 +25,7 @@ function loadCompleted(): CompletedPracticeQuestion[] {
 }
 
 function saveCompleted(entries: CompletedPracticeQuestion[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_COMPLETED)));
+  safeSetJsonWithTrim(STORAGE_KEY, entries.slice(0, MAX_COMPLETED), 0);
   notifyUserDataChanged();
 }
 

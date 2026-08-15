@@ -2,6 +2,7 @@ import type { AnalysisResult, SentenceLanguage } from '../types/analysis';
 import type { SearchHistoryEntry } from '../types/history';
 import { STORAGE_KEYS } from './storageKeys';
 import { notifyUserDataChanged } from './syncNotifier';
+import { safeGetItem, safeSetJsonWithTrim } from './safeStorage';
 
 const STORAGE_KEY = STORAGE_KEYS.history;
 const MAX_ENTRIES = 50;
@@ -12,7 +13,7 @@ function generateId(): string {
 
 export function loadHistory(): SearchHistoryEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGetItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as SearchHistoryEntry[];
     return Array.isArray(parsed) ? parsed : [];
@@ -22,7 +23,7 @@ export function loadHistory(): SearchHistoryEntry[] {
 }
 
 function saveHistory(entries: SearchHistoryEntry[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)));
+  safeSetJsonWithTrim(STORAGE_KEY, entries.slice(0, MAX_ENTRIES), 1);
   notifyUserDataChanged();
 }
 
