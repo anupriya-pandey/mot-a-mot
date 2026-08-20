@@ -14,13 +14,25 @@ export interface PracticeStageDefinition {
 export const PRACTICE_STAGES: PracticeStageDefinition[] = [
   {
     id: 'quick',
-    emoji: '🌱',
-    title: 'Spot & Match',
-    exerciseLabel: 'Fill-in-the-blank · Match meanings · Match the following · Find the error · Multiple choice',
-    description:
-      'Quick recognition drills from your toolbox — spot mistakes, match words to meanings, and choose the right answer.',
+    emoji: '🎯',
+    title: 'French Skills',
+    exerciseLabel:
+      'Gender · Conjugation · Meaning · Grammar · Expressions · Fill-in · Matching · Find the errors',
+    description: 'Test what you\'ve built in your French Toolbox — varied drills grounded in your vocabulary.',
     minEntries: 15,
-    exerciseTypes: ['fill_blank', 'match_meaning', 'match_following', 'find_error', 'multiple_choice'],
+    exerciseTypes: [
+      'noun_gender',
+      'mcq_conjugation',
+      'mcq_verb_meaning',
+      'mcq_pronoun',
+      'mcq_meaning',
+      'mcq_grammar',
+      'mcq_expression',
+      'find_errors_multi',
+      'fill_blank',
+      'match_following',
+      'adjective_transform',
+    ],
     comingSoon: false,
   },
   {
@@ -28,8 +40,7 @@ export const PRACTICE_STAGES: PracticeStageDefinition[] = [
     emoji: '🌿',
     title: 'Write in French',
     exerciseLabel: 'Translation · Question & answer · Build a sentence',
-    description:
-      'Production practice — translate into French, answer prompts, and build sentences using the words you have collected.',
+    description: 'Put your French into practice — translate, answer prompts, and build sentences from your toolbox.',
     minEntries: 40,
     exerciseTypes: ['translation', 'question_answer', 'build_sentence'],
     comingSoon: false,

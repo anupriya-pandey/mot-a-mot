@@ -1,5 +1,6 @@
 import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
 import { isConfigured } from './analyzeService.js';
+import { generateFrenchSkillsSession, normalizeQuestionCount } from './frenchSkillsGenerator.js';
 
 const SESSION_QUESTION_COUNT = 10;
 const SESSION_MIN_QUESTIONS = 10;
@@ -22,7 +23,7 @@ const STAGE_CONFIG = {
   quick: {
     minEntries: 15,
     types: ['fill_blank', 'match_meaning', 'match_following', 'find_error', 'multiple_choice'],
-    intro: 'Spot & Match',
+    intro: 'French Skills',
   },
   sentence: {
     minEntries: 40,
@@ -2574,6 +2575,35 @@ export async function generatePracticeSession(body) {
           focusCategory && focusCategory !== 'all'
             ? `Not enough ${focusCategory} in your toolbox for a focused session. Try "All categories" or add more words.`
             : 'Add more entries to your toolbox before starting practice.',
+      },
+    };
+  }
+
+  if (stage === 'quick') {
+    const questionCount = normalizeQuestionCount(body?.questionCount);
+    const skills = generateFrenchSkillsSession({
+      entries,
+      questionCount,
+      completedQuestionIds,
+    });
+
+    if (skills.generatedCount === 0) {
+      return {
+        status: 400,
+        body: { message: skills.sessionNotice ?? 'Not enough toolbox material for French Skills yet.' },
+      };
+    }
+
+    return {
+      status: 200,
+      body: {
+        stage,
+        focusCategory,
+        estimatedMinutes: skills.estimatedMinutes,
+        prompts: skills.prompts,
+        requestedCount: skills.requestedCount,
+        generatedCount: skills.generatedCount,
+        sessionNotice: skills.sessionNotice,
       },
     };
   }

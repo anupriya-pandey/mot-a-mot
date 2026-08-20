@@ -8,10 +8,22 @@ export type PracticeExerciseType =
   | 'match_meaning'
   | 'match_following'
   | 'find_error'
+  | 'find_errors_multi'
   | 'multiple_choice'
+  | 'noun_gender'
+  | 'mcq_conjugation'
+  | 'mcq_verb_meaning'
+  | 'mcq_pronoun'
+  | 'mcq_meaning'
+  | 'mcq_grammar'
+  | 'mcq_expression'
+  | 'adjective_transform'
   | 'translation'
   | 'question_answer'
   | 'build_sentence';
+
+export const PRACTICE_SESSION_LENGTHS = [5, 10, 15, 20, 25, 30] as const;
+export type PracticeSessionLength = (typeof PRACTICE_SESSION_LENGTHS)[number];
 
 export type PracticeFocusFilter = PartOfSpeech | 'all';
 
@@ -46,6 +58,10 @@ export interface PracticePrompt {
   explanation?: string;
   sentenceWithBlank?: string;
   flawedSentence?: string;
+  /** Multi-line passage for find-all-errors questions */
+  flawedPassage?: string;
+  /** All-or-nothing multi-select (comma-separated option ids in correctAnswer) */
+  multiSelect?: boolean;
   englishPrompt?: string;
   /** French word or sentence the learner must respond to — required for match/mc/fill types */
   frenchPrompt?: string;
@@ -56,6 +72,9 @@ export interface PracticeSessionPlan {
   focusCategory: PracticeFocusFilter;
   estimatedMinutes: string;
   prompts: PracticePrompt[];
+  requestedCount?: number;
+  generatedCount?: number;
+  sessionNotice?: string;
 }
 
 export interface PracticeExerciseGrading {
@@ -129,4 +148,5 @@ export interface CreatePracticeSessionRequest {
   stage: PracticeStageId;
   focusCategory: PracticeFocusFilter;
   completedQuestionIds: string[];
+  questionCount?: PracticeSessionLength;
 }

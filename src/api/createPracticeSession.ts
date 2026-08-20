@@ -26,6 +26,7 @@ export async function createPracticeSession(
         })),
         stage: options.stage,
         focusCategory: options.focusCategory,
+        questionCount: options.questionCount,
         completedQuestionIds: options.completedQuestionIds,
       }),
     });

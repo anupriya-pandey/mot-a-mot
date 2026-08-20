@@ -355,12 +355,21 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
       {
         id: 'practice-start-stage',
         view: 'practice-ready',
-        target: 'practice-stage-spot-match-start',
-        caption: 'Launch an exercise.',
+        target: 'practice-stage-french-skills-start',
+        caption: 'Launch French Skills.',
         narration:
-          'Tap Start on Spot and Match to launch fill-in-the-blank and matching drills from your toolbox.',
-        durationMs: 4600,
+          'Tap Start on French Skills to test what you\'ve built — choose how many questions and which categories to focus on.',
+        durationMs: 4800,
         click: true,
+      },
+      {
+        id: 'practice-question-count',
+        view: 'practice-setup',
+        target: 'practice-question-count',
+        caption: 'Choose session length.',
+        narration:
+          'Pick how many questions you want — five, ten, fifteen, and up to thirty — based on what your toolbox can support.',
+        durationMs: 4800,
       },
       {
         id: 'practice-setup',
@@ -368,7 +377,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-begin-session',
         caption: 'Focus your session.',
         narration:
-          'Choose which categories to practise, then tap Begin Session.',
+          'Choose which categories to emphasise, then tap Begin Session.',
         durationMs: 4800,
         click: true,
       },
