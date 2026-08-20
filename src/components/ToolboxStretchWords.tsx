@@ -1,9 +1,10 @@
 import { Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  TOOLBOX_STRETCH_BODY,
-  TOOLBOX_STRETCH_EMPTY,
-  TOOLBOX_STRETCH_TITLE,
+  TOOLBOX_GROW_BODY,
+  TOOLBOX_GROW_EMPTY,
+  TOOLBOX_GROW_TAGLINE,
+  TOOLBOX_GROW_TITLE,
 } from '../constants/microcopy';
 import { computePracticeReadiness } from '../lib/practiceReadiness';
 import {
@@ -162,13 +163,13 @@ export function ToolboxStretchWords({
     return (
       <section
         className="mt-l rounded-card bg-surface p-l shadow-card"
-        aria-labelledby="toolbox-stretch"
+        aria-labelledby="toolbox-grow"
         data-demo-target="toolbox-recommendations"
       >
-        <h2 id="toolbox-stretch" className="text-lg font-semibold text-text-primary">
-          {TOOLBOX_STRETCH_TITLE}
+        <h2 id="toolbox-grow" className="text-lg font-semibold text-text-primary">
+          {TOOLBOX_GROW_TITLE}
         </h2>
-        <p className="mt-xs text-sm text-text-secondary">{TOOLBOX_STRETCH_EMPTY}</p>
+        <p className="mt-xs text-sm text-text-secondary">{TOOLBOX_GROW_EMPTY}</p>
       </section>
     );
   }
@@ -176,13 +177,14 @@ export function ToolboxStretchWords({
   return (
     <section
       className="mt-l rounded-card bg-surface p-l shadow-card"
-      aria-labelledby="toolbox-stretch"
+      aria-labelledby="toolbox-grow"
       data-demo-target="toolbox-recommendations"
     >
-      <h2 id="toolbox-stretch" className="text-lg font-semibold text-text-primary">
-        {TOOLBOX_STRETCH_TITLE}
+      <h2 id="toolbox-grow" className="text-lg font-semibold text-text-primary">
+        {TOOLBOX_GROW_TITLE}
       </h2>
-      <p className="mt-xs text-sm text-text-secondary">{TOOLBOX_STRETCH_BODY}</p>
+      <p className="mt-xs text-sm text-text-primary">{TOOLBOX_GROW_TAGLINE}</p>
+      <p className="mt-xs text-sm text-text-secondary">{TOOLBOX_GROW_BODY}</p>
       <ul className="mt-m space-y-s">
         {displayed.map((item, index) => {
           const key = recommendationKey(item);

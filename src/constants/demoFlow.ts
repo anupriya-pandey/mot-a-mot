@@ -129,7 +129,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   toolbox: {
     title: 'French Toolbox',
     description:
-      'Your personal vocabulary grows automatically from every check and import — organised by grammar, with stretch-word suggestions at the bottom.',
+      'Your personal vocabulary grows automatically from every check and import — organised by grammar, with Grow Your Toolbox suggestions at the bottom.',
     steps: [
       {
         id: 'toolbox-intro',
@@ -137,7 +137,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'toolbox-search',
         caption: 'What your French Toolbox does',
         narration:
-          'Your French Toolbox stores every word you collect from checks and imports, organised by grammar so you can search, export, and manage your vocabulary. At the bottom, Stretch your French suggests new words matched to your level.',
+          'Your French Toolbox stores every word you collect from checks and imports, organised by grammar so you can search, export, and manage your vocabulary. At the bottom, Grow Your Toolbox suggests words worth adding next.',
         durationMs: 5600,
       },
       {
@@ -265,18 +265,18 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         id: 'toolbox-stretch',
         view: 'toolbox-main',
         target: 'toolbox-recommendations',
-        caption: 'Stretch your French at the bottom.',
+        caption: 'Grow Your Toolbox at the bottom.',
         narration:
-          'Scroll to Stretch your French — ten level-matched words across grammatical functions you probably know. Add them or skip; each choice brings a fresher pick.',
+          'Scroll to Grow Your Toolbox — ten words matched to your current vocabulary, spread across grammatical functions. Add them or skip; each choice brings a fresh pick.',
         durationMs: 5600,
       },
       {
         id: 'toolbox-stretch-add',
         view: 'toolbox-main',
         target: 'toolbox-recommendation-add',
-        caption: 'Add a stretch word to your toolbox.',
+        caption: 'Add a word to your toolbox.',
         narration:
-          'Tap plus to save a word you already know — it joins your toolbox with its meaning and grammatical function.',
+          'Tap plus to save a word worth adding — it joins your toolbox with its meaning and grammatical function.',
         durationMs: 4800,
         click: true,
       },

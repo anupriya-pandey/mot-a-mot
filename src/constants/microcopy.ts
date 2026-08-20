@@ -39,11 +39,12 @@ export const TOOLBOX_METHOD_PRACTICE =
 export const TOOLBOX_METHOD_IMPORT =
   'From your notes — import class lists, textbook pages, or pasted notes to add many entries at once.';
 export const TOOLBOX_EMPTY = 'No entries yet — your toolbox will grow as you check sentences and import notes.';
-export const TOOLBOX_STRETCH_TITLE = 'Stretch your French';
-export const TOOLBOX_STRETCH_BODY =
-  'Based on your toolbox scope and level, here are ten words across grammatical functions you probably know already. Add them or skip — each choice brings a fresher pick.';
-export const TOOLBOX_STRETCH_EMPTY =
-  'You\'ve reviewed every stretch word we had for now. Keep checking sentences and importing notes — new picks will appear as your toolbox grows.';
+export const TOOLBOX_GROW_TITLE = '🌱 Grow Your Toolbox';
+export const TOOLBOX_GROW_TAGLINE = 'Discover French that fits what you already know.';
+export const TOOLBOX_GROW_BODY =
+  'Based on your current vocabulary, here are 10 words worth adding next.';
+export const TOOLBOX_GROW_EMPTY =
+  'You\'ve reviewed every word we had for now. Keep checking sentences and importing notes — new picks will appear as your toolbox grows.';
 
 export const VOICE_HINT =
   'Tap the mic — you\'ll hear a short chime when it\'s ready, then speak your French sentence.';
