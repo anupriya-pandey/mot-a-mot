@@ -305,9 +305,7 @@ export function DemoMockScreen({ tab, step, scrollRef, lockScroll = false }: Dem
 
   return (
     <DemoScaledViewport scrollRef={scrollRef} lockScroll={lockScroll} viewKey={step.view}>
-      <div key={step.view} className="demo-view-enter">
-        <DemoChrome tab={tab}>{content}</DemoChrome>
-      </div>
+      <DemoChrome tab={tab}>{content}</DemoChrome>
     </DemoScaledViewport>
   );
 }

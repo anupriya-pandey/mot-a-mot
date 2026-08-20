@@ -7,20 +7,3 @@
     @apply bg-background text-text-primary font-sans antialiased;
   }
 }
-
-@layer utilities {
-  @keyframes demo-view-enter {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .demo-view-enter {
-    animation: demo-view-enter 280ms ease-out both;
-  }
-}

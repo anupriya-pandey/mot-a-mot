@@ -295,7 +295,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   practice: {
     title: 'Practice Lab',
     description:
-      'Short Spot and Match exercises built from your own words so you reinforce what you actually use.',
+      'Several exercise types built from your toolbox — in this walkthrough we try Spot and Match.',
     steps: [
       {
         id: 'practice-intro-tab',
@@ -303,8 +303,8 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-readiness',
         caption: 'What Practice Lab does',
         narration:
-          'Practice Lab turns your toolbox into short Spot and Match exercises built from your own words, so you reinforce what you actually use.',
-        durationMs: 5200,
+          'Practice Lab turns your toolbox into personalised exercises. Spot and Match, Write in French, and more ways to practise are all built from the French you have collected.',
+        durationMs: 5400,
       },
       {
         id: 'practice-ready',
@@ -312,16 +312,25 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-readiness',
         caption: 'Start when your toolbox is ready.',
         narration:
-          'Practice unlocks when your toolbox reaches one hundred percent readiness \u2014 enough entries, categories, and verbs to begin.',
+          'Practice unlocks when your toolbox reaches one hundred percent readiness — enough entries, categories, and verbs to begin.',
         durationMs: 5200,
+      },
+      {
+        id: 'practice-stages',
+        view: 'practice-ready',
+        target: 'practice-stages',
+        caption: 'Several ways to practice.',
+        narration:
+          'Under Ways to Practice you will see several exercise types — Spot and Match, Write in French, and more on the way. This demo walks through Spot and Match.',
+        durationMs: 5600,
       },
       {
         id: 'practice-start-stage',
         view: 'practice-ready',
-        target: 'practice-stage-start',
-        caption: 'Choose Spot and Match.',
+        target: 'practice-stage-spot-match-start',
+        caption: 'Start Spot and Match.',
         narration:
-          'Pick Spot and Match and tap Start to begin fill-in-the-blank and matching drills from your toolbox.',
+          'Choose Spot and Match from the list and tap Start to begin fill-in-the-blank and matching drills from your toolbox.',
         durationMs: 4600,
         click: true,
       },

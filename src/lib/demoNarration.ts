@@ -64,6 +64,7 @@ function normalizeNarrationInput(text: string): string {
     .replace(/Mo ah mo/gi, '\u0000BRAND\u0000')
     .replace(/Mo-Ah-Mo/gi, '\u0000BRAND\u0000')
     .replace(/Mohahmoh/gi, '\u0000BRAND\u0000')
+    .replace(/moamo/gi, '\u0000BRAND\u0000')
     .replace(/«([^»]+)»/g, (_, french: string) => `\u0000FR:${french.trim()}\u0000`)
     .replace(/\{\{fr:([^}]+)\}\}/g, (_, french: string) => `\u0000FR:${french.trim()}\u0000`)
     .replace(/\bN A\b/g, 'N/A');
@@ -132,11 +133,11 @@ function buildSegmentSpeech(
 ): { text: string; lang: string; voice?: SpeechSynthesisVoice; rate: number; pitch: number } | null {
   if (segment.kind === 'brand') {
     return {
-      text: 'Mo ah Mo',
+      text: 'moamo',
       lang: 'en-US',
       voice: englishVoice,
-      rate: 0.94,
-      pitch: 1.22,
+      rate: 0.96,
+      pitch: 1.18,
     };
   }
 
