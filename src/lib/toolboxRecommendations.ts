@@ -105,7 +105,12 @@ function isBlocked(
   return blockedKeys.has(normalizeLemma(candidate.lemma));
 }
 
-export function rankToolboxRecommendations(
+interface RankOptions {
+  blockDismissed?: boolean;
+  tierOffset?: number;
+}
+
+function rankToolboxRecommendationsInternal(
   entries: VocabularyEntry[],
   counts: CategoryCounts,
   totalCount: number,
@@ -113,10 +118,15 @@ export function rankToolboxRecommendations(
   dismissed: Set<string>,
   excludedKeys: Set<string> = new Set(),
   limit = RECOMMENDATION_SLOT_COUNT,
+  { blockDismissed = true, tierOffset = 1 }: RankOptions = {},
 ): VocabularyItem[] {
   const tier = inferRecommendationTier(totalCount, readinessScore);
   const toolboxKeys = buildToolboxBlockKeys(entries);
-  const blocked = new Set([...toolboxKeys, ...dismissed, ...excludedKeys]);
+  const blocked = new Set([
+    ...toolboxKeys,
+    ...(blockDismissed ? dismissed : []),
+    ...excludedKeys,
+  ]);
 
   const missingCategories = READINESS_CATEGORY_CHECKLIST.filter(
     (category) => (counts[category] ?? 0) === 0,
@@ -124,7 +134,7 @@ export function rankToolboxRecommendations(
   const avgCount = averageCategoryCount(counts);
 
   const eligible = TOOLBOX_RECOMMENDATION_POOL.filter(
-    (candidate) => !isBlocked(candidate, blocked) && candidate.tier <= tier + 1,
+    (candidate) => !isBlocked(candidate, blocked) && candidate.tier <= tier + tierOffset,
   );
 
   const scored = eligible
@@ -160,7 +170,28 @@ export function rankToolboxRecommendations(
   return picked.slice(0, limit).map(toVocabularyItem);
 }
 
-/** Fill exactly `limit` recommendations when the pool allows. */
+export function rankToolboxRecommendations(
+  entries: VocabularyEntry[],
+  counts: CategoryCounts,
+  totalCount: number,
+  readinessScore: number,
+  dismissed: Set<string>,
+  excludedKeys: Set<string> = new Set(),
+  limit = RECOMMENDATION_SLOT_COUNT,
+): VocabularyItem[] {
+  return rankToolboxRecommendationsInternal(
+    entries,
+    counts,
+    totalCount,
+    readinessScore,
+    dismissed,
+    excludedKeys,
+    limit,
+    { blockDismissed: true, tierOffset: 1 },
+  );
+}
+
+/** Fill up to `limit` recommendations, recycling dismissed words only when needed. */
 export function fillToolboxRecommendations(
   entries: VocabularyEntry[],
   counts: CategoryCounts,
@@ -170,15 +201,66 @@ export function fillToolboxRecommendations(
   excludedKeys: Set<string> = new Set(),
   limit = RECOMMENDATION_SLOT_COUNT,
 ): VocabularyItem[] {
-  return rankToolboxRecommendations(
-    entries,
-    counts,
-    totalCount,
-    readinessScore,
-    dismissed,
-    excludedKeys,
-    limit,
+  const result: VocabularyItem[] = [];
+  const usedKeys = new Set<string>();
+
+  const mergeBatch = (batch: VocabularyItem[]) => {
+    for (const item of batch) {
+      const key = recommendationKey(item);
+      if (usedKeys.has(key) || isRecommendationInToolbox(item, entries)) continue;
+      usedKeys.add(key);
+      result.push(item);
+      if (result.length >= limit) break;
+    }
+  };
+
+  const nextExcluded = () =>
+    new Set([...excludedKeys, ...result.map((item) => recommendationKey(item))]);
+
+  mergeBatch(
+    rankToolboxRecommendationsInternal(
+      entries,
+      counts,
+      totalCount,
+      readinessScore,
+      dismissed,
+      nextExcluded(),
+      limit,
+      { blockDismissed: true, tierOffset: 1 },
+    ),
   );
+
+  if (result.length < limit) {
+    mergeBatch(
+      rankToolboxRecommendationsInternal(
+        entries,
+        counts,
+        totalCount,
+        readinessScore,
+        dismissed,
+        nextExcluded(),
+        limit - result.length,
+        { blockDismissed: false, tierOffset: 1 },
+      ),
+    );
+  }
+
+  if (result.length < limit) {
+    mergeBatch(
+      rankToolboxRecommendationsInternal(
+        entries,
+        counts,
+        totalCount,
+        readinessScore,
+        dismissed,
+        nextExcluded(),
+        limit - result.length,
+        { blockDismissed: false, tierOffset: 2 },
+      ),
+    );
+  }
+
+  return result.slice(0, limit);
 }
 
 export function getNextToolboxRecommendation(
@@ -190,7 +272,7 @@ export function getNextToolboxRecommendation(
   excludedKeys: Set<string>,
 ): VocabularyItem | null {
   return (
-    rankToolboxRecommendations(
+    fillToolboxRecommendations(
       entries,
       counts,
       totalCount,
