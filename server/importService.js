@@ -1,6 +1,6 @@
 import { generateStructured, getRuntimeConfig, isVercel } from './aiClient.js';
 import { isConfigured } from './analyzeService.js';
-import { isInvalidItem, normalizePartOfSpeechLabel } from './vocabularySanitizer.js';
+import { isInvalidItem, normalizeExportForms, normalizePartOfSpeechLabel } from './vocabularySanitizer.js';
 
 const IMPORT_SYSTEM_PROMPT = `You are a French linguistics assistant helping learners build a personal French Toolbox from pasted notes.
 
@@ -18,6 +18,11 @@ Rules:
 - surface: form as it appeared in the pasted text, or lemma if not found
 - example: a short French example sentence using the entry (from the pasted text when possible, otherwise invent a simple one)
 - examples: additional example sentences when available (especially common expressions, collocations)
+- exportForms: validated export columns { mascSingular, mascPlural, femSingular, femPlural } — real French forms OR exactly "N/A" when not applicable
+  - Proper nouns (Delhi, Paris, Marie): usually one gender singular only; plural is always N/A
+  - Feminine-only nouns (patte): fem singular + fem plural only; masculine columns N/A
+  - Adjectives: all four forms when they vary; N/A only when truly invariant
+  - Verbs, adverbs, prepositions, etc.: all four columns N/A (lemma column holds the word)
 - When the SAME French word has MULTIPLE valid meanings or parts of speech (e.g. entre = verb "to enter" AND preposition "between"; livre = noun "book" AND noun "pound"), return SEPARATE entries — do NOT merge them
 - "ne" and "pas" are separate entries. Never combine negation with a verb
 - Skip pure English text, headers without French content, and duplicate exact entries
@@ -38,6 +43,15 @@ const IMPORT_SCHEMA = {
           example: { type: 'string' },
           examples: { type: 'array', items: { type: 'string' } },
           surfaces: { type: 'array', items: { type: 'string' } },
+          exportForms: {
+            type: 'object',
+            properties: {
+              mascSingular: { type: 'string' },
+              mascPlural: { type: 'string' },
+              femSingular: { type: 'string' },
+              femPlural: { type: 'string' },
+            },
+          },
         },
         required: ['lemma', 'surface', 'meaning', 'partOfSpeech', 'example'],
       },
@@ -97,6 +111,9 @@ function normalizeImportEntries(rawItems) {
       example: examples[0] ?? '',
       examples,
       surfaces,
+      ...(normalizeExportForms(item.exportForms, partOfSpeech)
+        ? { exportForms: normalizeExportForms(item.exportForms, partOfSpeech) }
+        : {}),
     });
   }
 

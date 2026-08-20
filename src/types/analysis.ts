@@ -9,6 +9,14 @@ export interface AdjectiveForms {
   femininePlural: string;
 }
 
+/** Validated export columns — use "N/A" when a form does not apply */
+export interface ExportForms {
+  mascSingular: string;
+  mascPlural: string;
+  femSingular: string;
+  femPlural: string;
+}
+
 export interface CorrectionChange {
   youWrote: string;
   /** Fix phrase from the everyday speaking suggestion */
@@ -49,6 +57,7 @@ export interface VocabularyItem {
   surfaces?: string[];
   examples?: string[];
   adjectiveForms?: AdjectiveForms;
+  exportForms?: ExportForms;
 }
 
 export interface AnalysisResult {

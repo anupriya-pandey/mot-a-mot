@@ -1,8 +1,11 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import type { ExportForms } from '../types/analysis';
 import { inferAdjectiveForms } from './vocabForms';
 import { PARTS_OF_SPEECH, type PartOfSpeech, type VocabularyEntry } from '../types/toolbox';
+
+export const EXPORT_NA = 'N/A';
 
 export const EXPORT_HEADERS = [
   'No.',
@@ -26,9 +29,34 @@ export type ExportRow = [
   string,
 ];
 
+function cell(value: string | undefined): string {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) return EXPORT_NA;
+  if (/^n\/?a$/i.test(trimmed)) return EXPORT_NA;
+  return trimmed;
+}
+
+function isLikelyProperNoun(lemma: string, meaning: string): boolean {
+  const trimmed = lemma.trim();
+  if (/^[A-ZÀ-ÖØ-Þ]/.test(trimmed) && trimmed !== trimmed.toLowerCase()) {
+    return true;
+  }
+  return /proper noun|city|country|place name|capital of|given name|surname/i.test(meaning);
+}
+
+function isLikelyFeminineNoun(lemma: string): boolean {
+  const lower = lemma.trim().toLowerCase();
+  if (!lower) return false;
+
+  return (
+    /(?:euse|trice|tion|sion|té|esse|ette|ière|ance|ence|ure|ade|ée|ie|e)$/u.test(lower) &&
+    !/(?:age|isme|eau|ment)$/u.test(lower)
+  );
+}
+
 function inferPlural(singular: string): string {
   const trimmed = singular.trim();
-  if (!trimmed) return '';
+  if (!trimmed || trimmed === EXPORT_NA) return EXPORT_NA;
 
   const lower = trimmed.toLowerCase();
   if (lower.endsWith('s') || lower.endsWith('x') || lower.endsWith('z')) {
@@ -43,22 +71,45 @@ function inferPlural(singular: string): string {
   return `${trimmed}s`;
 }
 
-function isLikelyFeminineNoun(lemma: string): boolean {
-  const lower = lemma.trim().toLowerCase();
-  if (!lower) return false;
-
-  return (
-    /(?:euse|trice|tion|sion|té|esse|ette|ière|ance|ence|ure|ade|ée|ie|e)$/u.test(lower) &&
-    !/(?:age|isme|eau|ment)$/u.test(lower)
-  );
+function emptyForms(): ExportForms {
+  return {
+    mascSingular: EXPORT_NA,
+    mascPlural: EXPORT_NA,
+    femSingular: EXPORT_NA,
+    femPlural: EXPORT_NA,
+  };
 }
 
-function emptyForms(): { mascSingular: string; mascPlural: string; femSingular: string; femPlural: string } {
-  return { mascSingular: '', mascPlural: '', femSingular: '', femPlural: '' };
-}
+function buildLegacyNounForms(entry: VocabularyEntry): ExportForms {
+  if (entry.exportForms) {
+    return {
+      mascSingular: cell(entry.exportForms.mascSingular),
+      mascPlural: cell(entry.exportForms.mascPlural),
+      femSingular: cell(entry.exportForms.femSingular),
+      femPlural: cell(entry.exportForms.femPlural),
+    };
+  }
 
-function buildNounForms(entry: VocabularyEntry) {
   const forms = emptyForms();
+  const lemma = entry.lemma.trim();
+
+  if (isLikelyProperNoun(lemma, entry.meaning)) {
+    if (entry.nounGenderForms) {
+      forms.mascSingular = cell(entry.nounGenderForms.masculine);
+      if (entry.nounGenderForms.feminine) {
+        forms.femSingular = cell(entry.nounGenderForms.feminine);
+      } else if (isLikelyFeminineNoun(lemma)) {
+        forms.femSingular = lemma;
+      } else {
+        forms.mascSingular = forms.mascSingular === EXPORT_NA ? lemma : forms.mascSingular;
+      }
+    } else if (isLikelyFeminineNoun(lemma)) {
+      forms.femSingular = lemma;
+    } else {
+      forms.mascSingular = lemma;
+    }
+    return forms;
+  }
 
   if (entry.nounGenderForms) {
     const { masculine, feminine } = entry.nounGenderForms;
@@ -71,7 +122,6 @@ function buildNounForms(entry: VocabularyEntry) {
     return forms;
   }
 
-  const lemma = entry.lemma.trim();
   if (isLikelyFeminineNoun(lemma)) {
     forms.femSingular = lemma;
     forms.femPlural = inferPlural(lemma);
@@ -83,24 +133,42 @@ function buildNounForms(entry: VocabularyEntry) {
   return forms;
 }
 
-function buildAdjectiveForms(entry: VocabularyEntry) {
+function buildLegacyAdjectiveForms(entry: VocabularyEntry): ExportForms {
+  if (entry.exportForms) {
+    return {
+      mascSingular: cell(entry.exportForms.mascSingular),
+      mascPlural: cell(entry.exportForms.mascPlural),
+      femSingular: cell(entry.exportForms.femSingular),
+      femPlural: cell(entry.exportForms.femPlural),
+    };
+  }
+
   const inferred = inferAdjectiveForms(entry.lemma, entry.adjectiveForms);
   if (!inferred) return emptyForms();
 
   return {
-    mascSingular: inferred.masculineSingular,
-    mascPlural: inferred.masculinePlural,
-    femSingular: inferred.feminineSingular,
-    femPlural: inferred.femininePlural,
+    mascSingular: cell(inferred.masculineSingular),
+    mascPlural: cell(inferred.masculinePlural),
+    femSingular: cell(inferred.feminineSingular),
+    femPlural: cell(inferred.femininePlural),
   };
 }
 
-function buildFormsForEntry(entry: VocabularyEntry) {
+function buildFormsForEntry(entry: VocabularyEntry): ExportForms {
+  if (entry.exportForms) {
+    return {
+      mascSingular: cell(entry.exportForms.mascSingular),
+      mascPlural: cell(entry.exportForms.mascPlural),
+      femSingular: cell(entry.exportForms.femSingular),
+      femPlural: cell(entry.exportForms.femPlural),
+    };
+  }
+
   if (entry.partOfSpeech === 'Nouns') {
-    return buildNounForms(entry);
+    return buildLegacyNounForms(entry);
   }
   if (entry.partOfSpeech === 'Adjectives') {
-    return buildAdjectiveForms(entry);
+    return buildLegacyAdjectiveForms(entry);
   }
   return emptyForms();
 }

@@ -1,4 +1,4 @@
-import type { AdjectiveForms } from './analysis';
+import type { AdjectiveForms, ExportForms } from './analysis';
 
 export const PARTS_OF_SPEECH = [
   'Nouns',
@@ -25,6 +25,8 @@ export interface VocabularyEntry {
   adjectiveForms?: AdjectiveForms;
   /** Masculine/feminine noun pair on one card (e.g. acteur / actrice) */
   nounGenderForms?: NounGenderForms;
+  /** AI-validated export columns — "N/A" when a form does not apply */
+  exportForms?: ExportForms;
 }
 
 export interface NounGenderForms {

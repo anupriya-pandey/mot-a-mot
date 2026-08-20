@@ -129,6 +129,50 @@ function mergeAdjectiveForms(existing, incoming) {
   };
 }
 
+export const EXPORT_NA = 'N/A';
+
+function normalizeExportCell(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return EXPORT_NA;
+  if (/^n\/?a$/i.test(trimmed)) return EXPORT_NA;
+  return trimmed;
+}
+
+export function normalizeExportForms(raw, partOfSpeech) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const forms = {
+    mascSingular: normalizeExportCell(raw.mascSingular),
+    mascPlural: normalizeExportCell(raw.mascPlural),
+    femSingular: normalizeExportCell(raw.femSingular),
+    femPlural: normalizeExportCell(raw.femPlural),
+  };
+
+  const hasRealForm = Object.values(forms).some((value) => value !== EXPORT_NA);
+  if (!hasRealForm) {
+    return partOfSpeech === 'Noun' || partOfSpeech === 'Adjective' ? forms : null;
+  }
+
+  return forms;
+}
+
+function mergeExportForms(existing, incoming) {
+  if (!incoming) return existing ?? null;
+  if (!existing) return incoming;
+
+  const pick = (current, next) => {
+    if (next !== EXPORT_NA) return next;
+    return current;
+  };
+
+  return {
+    mascSingular: pick(existing.mascSingular, incoming.mascSingular),
+    mascPlural: pick(existing.mascPlural, incoming.mascPlural),
+    femSingular: pick(existing.femSingular, incoming.femSingular),
+    femPlural: pick(existing.femPlural, incoming.femPlural),
+  };
+}
+
 export function sanitizeVocabulary(rawItems) {
   if (!Array.isArray(rawItems)) return [];
 
@@ -152,6 +196,7 @@ export function sanitizeVocabulary(rawItems) {
         surfaces: new Set(),
         examples: new Set(),
         adjectiveForms: null,
+        exportForms: null,
       });
 
     for (const part of meaningParts(item.meaning)) bucket.meanings.add(part);
@@ -162,6 +207,11 @@ export function sanitizeVocabulary(rawItems) {
     if (partOfSpeech === 'Adjective') {
       bucket.adjectiveForms = mergeAdjectiveForms(bucket.adjectiveForms, buildAdjectiveForms(item));
     }
+
+    bucket.exportForms = mergeExportForms(
+      bucket.exportForms,
+      normalizeExportForms(item.exportForms, partOfSpeech),
+    );
 
     map.set(key, bucket);
   }
@@ -181,6 +231,7 @@ export function sanitizeVocabulary(rawItems) {
       surfaces,
       examples,
       ...(bucket.adjectiveForms ? { adjectiveForms: bucket.adjectiveForms } : {}),
+      ...(bucket.exportForms ? { exportForms: bucket.exportForms } : {}),
     };
   });
 }

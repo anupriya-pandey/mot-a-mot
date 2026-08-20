@@ -1,7 +1,27 @@
-export const HOME_TAGLINE = 'Write confidently. Learn naturally.';
+export const HOME_TAGLINE = 'French you know. French you can use.';
+export const HOME_ABOUT_TITLE = 'About Us';
+export const HOME_ABOUT_PARAGRAPHS = [
+  'Mot-à-Mot started with a simple frustration: knowing a French word or grammar rule does not necessarily mean you can use it when you need it.',
+  'Language learning often gives us plenty of things to study, but not enough opportunities to use what we\u2019ve already learned.',
+  'Mot-à-Mot is being built as a practice companion for that gap.',
+  'Write something. See how a French speaker might naturally say it. Build your own French Toolbox from what you encounter. Then come back and practice using it.',
+  'The goal isn\u2019t to teach you all of French.',
+  'It\u2019s to help you get better at using the French you already have. You know more French than you think. Let\u2019s use it.',
+] as const;
 export const HOME_MISSION_TITLE = 'Our mission';
 export const HOME_MISSION =
-  'Mot-à-Mot is an AI messaging assistant for beginner French learners, built for the moment right before you press Send. We shorten the loop between thinking, writing, correcting, understanding, and communicating — with instant, beginner-friendly feedback on your real messages, a personal toolbox grown from the French you actually use, and practice that keeps you moving toward confident everyday communication.';
+  'Turn the French you know into French you can use.';
+export const HOME_MISSION_BODY =
+  'We believe language learning becomes more meaningful when knowledge moves from something you recognize to something you can produce.';
+export const HOME_LOOP_TITLE = 'That\u2019s why Mot-à-Mot is built around a simple loop:';
+export const HOME_LOOP_STEPS = [
+  'Produce',
+  'Understand',
+  'Collect',
+  'Practice',
+  'Reuse',
+] as const;
+export const HOME_LOOP_FOOTER = 'Keep what you can use as is.';
 export const HOME_FEATURES_TITLE = 'What you can do';
 export const HOME_FEATURES = [
   {

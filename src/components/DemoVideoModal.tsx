@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw, X } from 'lucide-react';
 import { SecondaryButton } from './SecondaryButton';
 import { DemoMockScreen } from './demo/DemoMockScreen';
@@ -12,6 +12,11 @@ import {
 
 interface DemoVideoModalProps {
   onClose: () => void;
+}
+
+interface DemoOverlay {
+  highlight: { left: number; top: number; width: number; height: number };
+  cursor: { left: number; top: number };
 }
 
 function speakText(text: string): Promise<void> {
@@ -32,40 +37,38 @@ function speakText(text: string): Promise<void> {
 }
 
 function DemoCursor({
-  step,
+  overlay,
   showClick,
 }: {
-  step: DemoFlowStep;
+  overlay: DemoOverlay;
   showClick: boolean;
 }) {
   return (
     <>
-      {step.highlight && (
-        <div
-          className="pointer-events-none absolute rounded border-2 border-primary/70 bg-primary/10 transition-all duration-700 ease-out"
-          style={{
-            left: `${step.highlight.x}%`,
-            top: `${step.highlight.y}%`,
-            width: `${step.highlight.width}%`,
-            height: `${step.highlight.height}%`,
-          }}
-        />
-      )}
+      <div
+        className="pointer-events-none absolute rounded border-2 border-primary bg-primary/10 transition-all duration-700 ease-out"
+        style={{
+          left: overlay.highlight.left,
+          top: overlay.highlight.top,
+          width: overlay.highlight.width,
+          height: overlay.highlight.height,
+        }}
+      />
 
       <div
         className="pointer-events-none absolute z-20 transition-all duration-700 ease-out"
         style={{
-          left: `${step.cursor.x}%`,
-          top: `${step.cursor.y}%`,
-          transform: 'translate(-20%, -10%)',
+          left: overlay.cursor.left,
+          top: overlay.cursor.top,
+          transform: 'translate(-4px, -2px)',
         }}
       >
         {showClick && (
-          <span className="absolute left-1 top-1 h-6 w-6 animate-ping rounded-full bg-primary/40" />
+          <span className="absolute left-0 top-0 h-5 w-5 animate-ping rounded-full bg-primary/40" />
         )}
         <svg
-          width="24"
-          height="24"
+          width="22"
+          height="22"
           viewBox="0 0 24 24"
           fill="none"
           aria-hidden
@@ -83,15 +86,68 @@ function DemoCursor({
   );
 }
 
+function useDemoOverlay(containerRef: React.RefObject<HTMLDivElement | null>, step?: DemoFlowStep) {
+  const [overlay, setOverlay] = useState<DemoOverlay | null>(null);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container || !step?.target) {
+      setOverlay(null);
+      return;
+    }
+
+    const measure = () => {
+      const currentContainer = containerRef.current;
+      if (!currentContainer) return;
+
+      const target = currentContainer.querySelector(`[data-demo-target="${step.target}"]`);
+      if (!(target instanceof HTMLElement)) {
+        setOverlay(null);
+        return;
+      }
+
+      const containerRect = currentContainer.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+
+      setOverlay({
+        highlight: {
+          left: targetRect.left - containerRect.left - 2,
+          top: targetRect.top - containerRect.top - 2,
+          width: targetRect.width + 4,
+          height: targetRect.height + 4,
+        },
+        cursor: {
+          left: targetRect.left - containerRect.left + targetRect.width * 0.72,
+          top: targetRect.top - containerRect.top + targetRect.height * 0.58,
+        },
+      });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    window.addEventListener('resize', measure);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [containerRef, step?.target, step?.id]);
+
+  return overlay;
+}
+
 export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
   const [selectedTab, setSelectedTab] = useState<DemoTabId | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [showClick, setShowClick] = useState(false);
   const runIdRef = useRef(0);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const flow = selectedTab ? DEMO_FLOWS[selectedTab] : null;
   const currentStep = flow?.steps[stepIndex];
+  const overlay = useDemoOverlay(stageRef, currentStep);
 
   const handleClose = useCallback(() => {
     runIdRef.current += 1;
@@ -106,7 +162,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
     setStepIndex(index);
     setShowClick(false);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 450));
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
     if (runIdRef.current !== runId) return;
 
     if (step.click) {
@@ -235,9 +291,11 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
             </div>
 
             <div className="overflow-hidden rounded-card border border-border bg-[#111827] shadow-card">
-              <div className="relative aspect-video w-full">
+              <div ref={stageRef} className="relative aspect-video w-full overflow-hidden">
                 <DemoMockScreen tab={selectedTab} stepId={currentStep?.id ?? ''} />
-                {currentStep && <DemoCursor step={currentStep} showClick={showClick} />}
+                {overlay && currentStep && (
+                  <DemoCursor overlay={overlay} showClick={showClick} />
+                )}
               </div>
 
               <div className="border-t border-white/10 bg-black/80 px-m py-s">

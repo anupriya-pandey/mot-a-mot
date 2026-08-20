@@ -1,4 +1,4 @@
-import type { AdjectiveForms, VocabularyItem } from '../types/analysis';
+import type { AdjectiveForms, ExportForms, VocabularyItem } from '../types/analysis';
 import {
   PARTS_OF_SPEECH,
   type CategoryCounts,
@@ -76,6 +76,20 @@ function mergeMeanings(existing: string, incoming: string): string {
     .join(' / ');
 }
 
+function mergeExportForms(existing?: ExportForms, incoming?: ExportForms): ExportForms | undefined {
+  if (!incoming) return existing;
+  if (!existing) return incoming;
+
+  const pick = (current: string, next: string) => (next !== 'N/A' ? next : current);
+
+  return {
+    mascSingular: pick(existing.mascSingular, incoming.mascSingular),
+    mascPlural: pick(existing.mascPlural, incoming.mascPlural),
+    femSingular: pick(existing.femSingular, incoming.femSingular),
+    femPlural: pick(existing.femPlural, incoming.femPlural),
+  };
+}
+
 function mergeAdjectiveForms(
   existing?: AdjectiveForms,
   incoming?: AdjectiveForms,
@@ -123,6 +137,7 @@ function consolidateEntries(entries: VocabularyEntry[]): VocabularyEntry[] {
     existing.surfaces = uniqueStrings([...existing.surfaces, ...entry.surfaces]);
     existing.examples = uniqueStrings([...existing.examples, ...entry.examples]);
     existing.adjectiveForms = mergeAdjectiveForms(existing.adjectiveForms, entry.adjectiveForms);
+    existing.exportForms = mergeExportForms(existing.exportForms, entry.exportForms);
   }
 
   return [...map.values()]
@@ -254,17 +269,20 @@ export function addVocabulary(items: VocabularyItem[]): number {
       const nextSurfaces = uniqueStrings([...current.surfaces, ...incomingSurfaces]);
       const nextExamples = uniqueStrings([...current.examples, ...incomingExamples]);
       const nextForms = mergeAdjectiveForms(current.adjectiveForms, item.adjectiveForms);
+      const nextExportForms = mergeExportForms(current.exportForms, item.exportForms);
 
       if (
         nextMeaning !== current.meaning ||
         nextSurfaces.length !== current.surfaces.length ||
         nextExamples.length !== current.examples.length ||
-        JSON.stringify(nextForms) !== JSON.stringify(current.adjectiveForms)
+        JSON.stringify(nextForms) !== JSON.stringify(current.adjectiveForms) ||
+        JSON.stringify(nextExportForms) !== JSON.stringify(current.exportForms)
       ) {
         current.meaning = nextMeaning;
         current.surfaces = nextSurfaces;
         current.examples = nextExamples;
         current.adjectiveForms = nextForms;
+        current.exportForms = nextExportForms;
         changed = true;
       }
       continue;
@@ -278,6 +296,7 @@ export function addVocabulary(items: VocabularyItem[]): number {
       examples: incomingExamples,
       adjectiveForms:
         partOfSpeech === 'Adjectives' ? inferAdjectiveForms(lemma, item.adjectiveForms) : item.adjectiveForms,
+      exportForms: item.exportForms,
     });
 
     indexByKey.set(key, existing.length);

@@ -201,6 +201,15 @@ const VOCABULARY_ITEM_PROPERTIES = {
       femininePlural: { type: 'string' },
     },
   },
+  exportForms: {
+    type: 'object',
+    properties: {
+      mascSingular: { type: 'string' },
+      mascPlural: { type: 'string' },
+      femSingular: { type: 'string' },
+      femPlural: { type: 'string' },
+    },
+  },
 };
 
 const VOCABULARY_LIST_SCHEMA = {
@@ -221,6 +230,12 @@ Return TWO vocabulary lists in one JSON response:
 2. suggestedAdditions — words NEWLY INTRODUCED in ANY corrected French version provided: the everyday speaking correction AND every writing style (simple, natural, refined). Compare against what the learner already used — not spelling fixes. Merge duplicates by lemma + part of speech. Multi-word expressions stay together. Lemma form for verbs/adjectives.
 
 Part of speech: Noun, Verb, Adjective, Adverb, Pronoun, Article / Determiner, Preposition, Conjunction, Expression, Negation Particle, Reflexive Pronoun
+
+For each entry include exportForms { mascSingular, mascPlural, femSingular, femPlural } with validated French forms OR exactly "N/A" when not applicable:
+- Proper nouns (Delhi, Paris): applicable gender singular only; plural always N/A
+- Feminine-only nouns (patte): fem singular + fem plural; masculine columns N/A
+- Adjectives: all four forms when they vary
+- Verbs, adverbs, prepositions, etc.: all four columns N/A
 
 "ne" and "pas" are separate entries. Never combine negation with a verb.
 Return ONLY valid JSON.`;
