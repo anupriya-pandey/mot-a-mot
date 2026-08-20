@@ -5,9 +5,14 @@ const DEMO_CONTENT_WIDTH = 720;
 interface DemoScaledViewportProps {
   children: ReactNode;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
+  lockScroll?: boolean;
 }
 
-export function DemoScaledViewport({ children, scrollRef }: DemoScaledViewportProps) {
+export function DemoScaledViewport({
+  children,
+  scrollRef,
+  lockScroll = false,
+}: DemoScaledViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
 
@@ -30,7 +35,8 @@ export function DemoScaledViewport({ children, scrollRef }: DemoScaledViewportPr
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
       <div
         ref={scrollRef as React.LegacyRef<HTMLDivElement> | undefined}
-        className="h-full w-full overflow-x-hidden overflow-y-auto overscroll-contain"
+        className="h-full w-full overscroll-contain"
+        style={{ overflow: lockScroll ? 'hidden' : 'auto' }}
       >
         <div
           className="origin-top-left"

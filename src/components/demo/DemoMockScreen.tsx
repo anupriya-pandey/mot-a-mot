@@ -39,6 +39,7 @@ interface DemoMockScreenProps {
   tab: DemoTabId;
   step: DemoFlowStep;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
+  lockScroll?: boolean;
 }
 
 function DemoChrome({ tab, children }: { tab: DemoTabId; children: React.ReactNode }) {
@@ -283,7 +284,7 @@ function renderHistoryView(step: DemoFlowStep) {
   return <HistoryScreen entries={DEMO_HISTORY_ENTRIES} onSelectEntry={DEMO_NOOP} />;
 }
 
-export function DemoMockScreen({ tab, step, scrollRef }: DemoMockScreenProps) {
+export function DemoMockScreen({ tab, step, scrollRef, lockScroll = false }: DemoMockScreenProps) {
   const content = useMemo(() => {
     switch (tab) {
       case 'check':
@@ -300,7 +301,7 @@ export function DemoMockScreen({ tab, step, scrollRef }: DemoMockScreenProps) {
   }, [tab, step]);
 
   return (
-    <DemoScaledViewport scrollRef={scrollRef}>
+    <DemoScaledViewport scrollRef={scrollRef} lockScroll={lockScroll}>
       <DemoChrome tab={tab}>{content}</DemoChrome>
     </DemoScaledViewport>
   );
