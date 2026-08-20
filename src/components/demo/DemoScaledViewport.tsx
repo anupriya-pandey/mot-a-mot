@@ -6,12 +6,14 @@ interface DemoScaledViewportProps {
   children: ReactNode;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   lockScroll?: boolean;
+  viewKey?: string;
 }
 
 export function DemoScaledViewport({
   children,
   scrollRef,
   lockScroll = false,
+  viewKey,
 }: DemoScaledViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
@@ -30,6 +32,12 @@ export function DemoScaledViewport({
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    if (scrollRef?.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [scrollRef, viewKey]);
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">

@@ -14,6 +14,7 @@ import {
   speakDemoNarration,
   stopDemoNarration,
 } from '../lib/demoNarration';
+import { estimateViewReadyMs, waitForDemoStepReady } from '../lib/demoPlayback';
 
 interface DemoVideoModalProps {
   onClose: () => void;
@@ -24,24 +25,29 @@ interface DemoOverlay {
   cursor: { left: number; top: number };
 }
 
-const STEP_INTRO_MS = 650;
 const STEP_CLICK_MS = 350;
+const STEP_POST_NARRATION_MS = 350;
+const VIEW_READY_MS = estimateViewReadyMs();
 
 function getStepTimelineMs(step: DemoFlowStep): number {
-  return STEP_INTRO_MS + (step.click ? STEP_CLICK_MS : 0) + step.durationMs;
+  return VIEW_READY_MS + (step.click ? STEP_CLICK_MS : 0) + step.durationMs + STEP_POST_NARRATION_MS;
 }
 
 function DemoCursor({
   overlay,
   showClick,
+  visible,
 }: {
   overlay: DemoOverlay;
   showClick: boolean;
+  visible: boolean;
 }) {
+  if (!visible) return null;
+
   return (
     <>
       <div
-        className="pointer-events-none absolute rounded border-2 border-primary bg-primary/10 transition-all duration-700 ease-out"
+        className="pointer-events-none absolute rounded border-2 border-primary bg-primary/10 transition-all duration-300 ease-out"
         style={{
           left: overlay.highlight.left,
           top: overlay.highlight.top,
@@ -51,7 +57,7 @@ function DemoCursor({
       />
 
       <div
-        className="pointer-events-none absolute z-20 transition-all duration-700 ease-out"
+        className="pointer-events-none absolute z-20 transition-all duration-300 ease-out"
         style={{
           left: overlay.cursor.left,
           top: overlay.cursor.top,
@@ -217,12 +223,13 @@ function useDemoOverlay(
   stageRef: React.RefObject<HTMLDivElement | null>,
   scrollRef: React.RefObject<HTMLDivElement | null>,
   step?: DemoFlowStep,
+  stepReady?: boolean,
 ) {
   const [overlay, setOverlay] = useState<DemoOverlay | null>(null);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
-    if (!stage || !step?.target) {
+    if (!stage || !step?.target || !stepReady) {
       setOverlay(null);
       return;
     }
@@ -273,7 +280,7 @@ function useDemoOverlay(
       cancelled = true;
       window.removeEventListener('resize', handleResize);
     };
-  }, [stageRef, scrollRef, step?.target, step?.id, step?.view]);
+  }, [stageRef, scrollRef, step?.target, step?.id, step?.view, stepReady]);
 
   return overlay;
 }
@@ -284,14 +291,16 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
   const [playing, setPlaying] = useState(false);
   const [showClick, setShowClick] = useState(false);
   const [stepElapsedMs, setStepElapsedMs] = useState(0);
+  const [stepReady, setStepReady] = useState(false);
   const runIdRef = useRef(0);
   const stageRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const progressTimerRef = useRef<number | null>(null);
+  const stepStartedAtRef = useRef(0);
 
   const flow = selectedTab ? DEMO_FLOWS[selectedTab] : null;
   const currentStep = flow?.steps[stepIndex];
-  const overlay = useDemoOverlay(stageRef, scrollRef, currentStep);
+  const overlay = useDemoOverlay(stageRef, scrollRef, currentStep, stepReady);
 
   const clearProgressTimer = useCallback(() => {
     if (progressTimerRef.current !== null) {
@@ -327,12 +336,17 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       const step = DEMO_FLOWS[tab].steps[index];
       if (!step) return;
 
+      stopDemoNarration();
       setStepIndex(index);
       setShowClick(false);
+      setStepReady(false);
+      stepStartedAtRef.current = performance.now();
       startProgressTimer(step);
 
-      await new Promise((resolve) => window.setTimeout(resolve, STEP_INTRO_MS));
+      const ready = await waitForDemoStepReady(stageRef, step);
       if (runIdRef.current !== runId) return;
+
+      setStepReady(ready);
 
       if (step.click) {
         setShowClick(true);
@@ -341,10 +355,19 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
         setShowClick(false);
       }
 
-      const narrationPromise = speakDemoNarration(step.narration);
-      const dwellPromise = new Promise((resolve) => window.setTimeout(resolve, step.durationMs));
-      await Promise.all([narrationPromise, dwellPromise]);
+      await speakDemoNarration(step.narration);
+      if (runIdRef.current !== runId) return;
 
+      const elapsed = performance.now() - stepStartedAtRef.current;
+      const targetElapsed = VIEW_READY_MS + (step.click ? STEP_CLICK_MS : 0) + step.durationMs;
+      const remaining = targetElapsed - elapsed;
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
+
+      if (runIdRef.current !== runId) return;
+
+      await new Promise((resolve) => window.setTimeout(resolve, STEP_POST_NARRATION_MS));
       if (runIdRef.current !== runId) return;
 
       const nextIndex = index + 1;
@@ -354,9 +377,10 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       }
 
       clearProgressTimer();
+      setStepReady(false);
       setPlaying(false);
     },
-    [clearProgressTimer, startProgressTimer],
+    [clearProgressTimer, stageRef, startProgressTimer],
   );
 
   const startPlayback = useCallback(
@@ -380,6 +404,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       stopDemoNarration();
       setStepIndex(index);
       setShowClick(false);
+      setStepReady(false);
       setStepElapsedMs(0);
 
       if (continuePlaying) {
@@ -471,7 +496,10 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
         ) : (
           <>
             <div className="mb-s flex items-center justify-between gap-s">
-              <p className="text-sm font-medium text-primary">{flow?.title}</p>
+              <div>
+                <p className="text-sm font-medium text-primary">{flow?.title}</p>
+                <p className="mt-xs text-xs text-text-secondary">{flow?.description}</p>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -482,6 +510,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
                   setSelectedTab(null);
                   setStepIndex(0);
                   setStepElapsedMs(0);
+                  setStepReady(false);
                 }}
                 className="text-xs font-medium text-primary hover:text-primary-hover"
               >
@@ -500,7 +529,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
                   />
                 )}
                 {overlay && currentStep && (
-                  <DemoCursor overlay={overlay} showClick={showClick} />
+                  <DemoCursor overlay={overlay} showClick={showClick} visible={stepReady} />
                 )}
               </div>
 
