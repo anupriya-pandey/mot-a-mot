@@ -76,12 +76,9 @@ function renderCheckView(step: DemoFlowStep) {
     );
   }
 
-  const sentence =
-    step.id === 'check-type' ? 'Je peux pas venir auj|' : DEMO_SENTENCE;
-
   return (
     <LandingScreen
-      sentence={sentence}
+      sentence={DEMO_SENTENCE}
       onSentenceChange={DEMO_NOOP}
       onSubmit={DEMO_NOOP}
       isSubmitting={false}
