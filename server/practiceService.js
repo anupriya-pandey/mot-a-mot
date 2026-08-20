@@ -23,7 +23,7 @@ const STAGE_CONFIG = {
   quick: {
     minEntries: 15,
     types: ['fill_blank', 'match_meaning', 'match_following', 'find_error', 'multiple_choice'],
-    intro: 'French Skills',
+    intro: 'Quick Drills',
   },
   sentence: {
     minEntries: 40,
@@ -2590,7 +2590,7 @@ export async function generatePracticeSession(body) {
     if (skills.generatedCount === 0) {
       return {
         status: 400,
-        body: { message: skills.sessionNotice ?? 'Not enough toolbox material for French Skills yet.' },
+        body: { message: skills.sessionNotice ?? 'Not enough toolbox material for Quick Drills yet.' },
       };
     }
 

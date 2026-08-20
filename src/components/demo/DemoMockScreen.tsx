@@ -171,7 +171,7 @@ function renderPracticeView(step: DemoFlowStep) {
     return (
       <PracticeSetupScreen
         stageId="quick"
-        stageTitle={spotAndMatchStage?.title ?? 'French Skills'}
+        stageTitle={spotAndMatchStage?.title ?? 'Quick Drills'}
         categoryCounts={DEMO_TOOLBOX_COUNTS}
         onBack={DEMO_NOOP}
         onStart={DEMO_NOOP}

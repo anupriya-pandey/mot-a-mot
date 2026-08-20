@@ -103,7 +103,7 @@ export const PRACTICE_STAGE_LOCKED =
   'Keep growing your toolbox to unlock this mode.';
 
 export const PRACTICE_QUICK_INTRO =
-  'French Skills tests what you\'ve built — gender, conjugation, meaning, grammar, expressions, fill-in-the-blank, matching, and find-the-errors. Instant feedback after each question.';
+  'Quick Drills tests what you\'ve built — gender, conjugation, meaning, grammar, expressions, fill-in-the-blank, matching, and find-the-errors. Instant feedback after each question.';
 
 export const PRACTICE_SENTENCE_INTRO =
   'Ten Write in French exercises — translation (English→French, scored 0 or 1), French Q&A, and building cohesive sentences with toolbox words.';
