@@ -25,7 +25,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'check-input',
         caption: 'Type what you want to say in French.',
         narration:
-          'On the Check tab, type the French sentence you want to send. Here the learner writes: Je peux pas venir aujourd\u2019hui.',
+          'On the Check tab, type the French sentence you want to send. Here the learner writes: «Je peux pas venir aujourd\u2019hui».',
         durationMs: 5200,
       },
       {
@@ -44,7 +44,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'check-submit',
         caption: 'Tap Check My French.',
         narration:
-          'Tap Check My French. Mo ah mo analyses your sentence and prepares structured feedback.',
+          'Tap Check My French. Mot-à-Mot analyses your sentence and prepares structured feedback.',
         durationMs: 4600,
         click: true,
       },
@@ -151,7 +151,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'toolbox-import-text',
         caption: 'Review what you pasted.',
         narration:
-          'When your notes are ready, tap Analyze Import. Mo ah mo extracts every meaningful entry.',
+          'When your notes are ready, tap Analyze Import. Mot-à-Mot extracts every meaningful entry.',
         durationMs: 4800,
       },
       {
@@ -317,7 +317,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-answer-input',
         caption: 'Try the question.',
         narration:
-          'Every question uses words from your toolbox. Here the learner fills in the blank with an incorrect answer: va.',
+          'Every question uses words from your toolbox. Here the learner fills in the blank with an incorrect answer: «va».',
         durationMs: 5000,
       },
       {
@@ -336,7 +336,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-feedback',
         caption: 'Learn from a wrong answer.',
         narration:
-          'When the answer is wrong, Mot-à-Mot shows the correct form and explains why \u2014 here, je vais not va.',
+          'When the answer is wrong, Mot-à-Mot shows the correct form and explains why \u2014 here, «je vais» not «va».',
         durationMs: 5400,
       },
       {
@@ -345,7 +345,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-answer-input',
         caption: 'Try again with the right form.',
         narration:
-          'The learner tries again with the correct answer: vais.',
+          'The learner tries again with the correct answer: «vais».',
         durationMs: 4600,
       },
       {

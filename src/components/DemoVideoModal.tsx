@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Pause, Play, RotateCcw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw, X } from 'lucide-react';
 import { SecondaryButton } from './SecondaryButton';
 import { DemoMockScreen } from './demo/DemoMockScreen';
 import { DEMO_FLOWS, type DemoFlowStep } from '../constants/demoFlow';
@@ -9,6 +9,11 @@ import {
   HOME_DEMO_TITLE,
   type DemoTabId,
 } from '../constants/homeMicrocopy';
+import {
+  formatNarrationForDisplay,
+  speakDemoNarration,
+  stopDemoNarration,
+} from '../lib/demoNarration';
 
 interface DemoVideoModalProps {
   onClose: () => void;
@@ -17,31 +22,6 @@ interface DemoVideoModalProps {
 interface DemoOverlay {
   highlight: { left: number; top: number; width: number; height: number };
   cursor: { left: number; top: number };
-}
-
-/** Pronounce Mot-à-Mot as "mo ah mo" instead of spelling letters in TTS */
-function prepareNarration(text: string): string {
-  return text
-    .replace(/Mot-à-Mot/g, 'Mo ah mo')
-    .replace(/Mot à Mot/g, 'Mo ah mo')
-    .replace(/\bN A\b/g, 'N/A');
-}
-
-function speakText(text: string): Promise<void> {
-  return new Promise((resolve) => {
-    if (!('speechSynthesis' in window)) {
-      resolve();
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(prepareNarration(text));
-    utterance.lang = 'en-US';
-    utterance.rate = 0.95;
-    utterance.onend = () => resolve();
-    utterance.onerror = () => resolve();
-    window.speechSynthesis.speak(utterance);
-  });
 }
 
 function DemoCursor({
@@ -108,7 +88,11 @@ function useDemoOverlay(
       return;
     }
 
+    let cancelled = false;
+
     const measure = () => {
+      if (cancelled) return;
+
       const currentStage = stageRef.current;
       if (!currentStage) return;
 
@@ -118,9 +102,11 @@ function useDemoOverlay(
         return;
       }
 
-      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
 
-      window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+
         const stageRect = currentStage.getBoundingClientRect();
         const targetRect = target.getBoundingClientRect();
 
@@ -136,17 +122,17 @@ function useDemoOverlay(
             top: targetRect.top - stageRect.top + targetRect.height * 0.58,
           },
         });
-      }, 280);
+      });
     };
 
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(stage);
-    window.addEventListener('resize', measure);
+
+    const handleResize = () => measure();
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', measure);
+      cancelled = true;
+      window.removeEventListener('resize', handleResize);
     };
   }, [stageRef, scrollRef, step?.target, step?.id, step?.view]);
 
@@ -168,7 +154,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
 
   const handleClose = useCallback(() => {
     runIdRef.current += 1;
-    window.speechSynthesis?.cancel();
+    stopDemoNarration();
     onClose();
   }, [onClose]);
 
@@ -189,7 +175,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       setShowClick(false);
     }
 
-    const narrationPromise = speakText(step.narration);
+    const narrationPromise = speakDemoNarration(step.narration);
     const dwellPromise = new Promise((resolve) => window.setTimeout(resolve, step.durationMs));
     await Promise.all([narrationPromise, dwellPromise]);
 
@@ -205,27 +191,47 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
   }, []);
 
   const startPlayback = useCallback(
-    (tab: DemoTabId) => {
+    (tab: DemoTabId, fromIndex = 0) => {
       runIdRef.current += 1;
       const runId = runIdRef.current;
-      window.speechSynthesis?.cancel();
-      setStepIndex(0);
+      stopDemoNarration();
+      setStepIndex(fromIndex);
       setPlaying(true);
-      void runStep(tab, 0, runId);
+      void runStep(tab, fromIndex, runId);
     },
     [runStep],
+  );
+
+  const goToStep = useCallback(
+    (index: number, continuePlaying: boolean) => {
+      if (!selectedTab || !flow) return;
+
+      runIdRef.current += 1;
+      stopDemoNarration();
+      setStepIndex(index);
+      setShowClick(false);
+
+      if (continuePlaying) {
+        const runId = runIdRef.current;
+        setPlaying(true);
+        void runStep(selectedTab, index, runId);
+      } else {
+        setPlaying(false);
+      }
+    },
+    [flow, runStep, selectedTab],
   );
 
   useEffect(() => {
     return () => {
       runIdRef.current += 1;
-      window.speechSynthesis?.cancel();
+      stopDemoNarration();
     };
   }, []);
 
   const handleSelectTab = (tab: DemoTabId) => {
     setSelectedTab(tab);
-    startPlayback(tab);
+    startPlayback(tab, 0);
   };
 
   const handleTogglePlay = () => {
@@ -233,17 +239,27 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
 
     if (playing) {
       runIdRef.current += 1;
-      window.speechSynthesis?.cancel();
+      stopDemoNarration();
       setPlaying(false);
       return;
     }
 
-    startPlayback(selectedTab);
+    startPlayback(selectedTab, stepIndex);
   };
 
   const handleRestart = () => {
     if (!selectedTab) return;
-    startPlayback(selectedTab);
+    startPlayback(selectedTab, 0);
+  };
+
+  const handlePrevious = () => {
+    if (!flow || stepIndex === 0) return;
+    goToStep(stepIndex - 1, playing);
+  };
+
+  const handleNext = () => {
+    if (!flow || stepIndex >= flow.steps.length - 1) return;
+    goToStep(stepIndex + 1, playing);
   };
 
   const progress =
@@ -296,7 +312,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
                 type="button"
                 onClick={() => {
                   runIdRef.current += 1;
-                  window.speechSynthesis?.cancel();
+                  stopDemoNarration();
                   setPlaying(false);
                   setSelectedTab(null);
                   setStepIndex(0);
@@ -314,6 +330,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
                     tab={selectedTab}
                     step={currentStep}
                     scrollRef={scrollRef}
+                    lockScroll={Boolean(currentStep.target)}
                   />
                 )}
                 {overlay && currentStep && (
@@ -329,15 +346,37 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
                   />
                 </div>
                 <p className="text-sm font-medium text-white">{currentStep?.caption}</p>
-                <p className="mt-xs text-xs text-white/70">{currentStep?.narration}</p>
+                <p className="mt-xs text-xs text-white/70">
+                  {currentStep ? formatNarrationForDisplay(currentStep.narration) : ''}
+                </p>
               </div>
             </div>
 
             <div className="mt-m flex flex-wrap items-center gap-s">
+              <SecondaryButton
+                onClick={handlePrevious}
+                className="!w-auto"
+                disabled={stepIndex === 0}
+              >
+                <span className="inline-flex items-center gap-xs">
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </span>
+              </SecondaryButton>
               <SecondaryButton onClick={handleTogglePlay} className="!w-auto">
                 <span className="inline-flex items-center gap-xs">
                   {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   {playing ? 'Pause' : 'Play'}
+                </span>
+              </SecondaryButton>
+              <SecondaryButton
+                onClick={handleNext}
+                className="!w-auto"
+                disabled={!flow || stepIndex >= flow.steps.length - 1}
+              >
+                <span className="inline-flex items-center gap-xs">
+                  Next
+                  <ChevronRight className="h-4 w-4" />
                 </span>
               </SecondaryButton>
               <SecondaryButton onClick={handleRestart} className="!w-auto">
