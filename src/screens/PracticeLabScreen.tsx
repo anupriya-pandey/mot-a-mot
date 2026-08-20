@@ -125,6 +125,7 @@ function StageCard({
   entriesNeeded,
   totalEntries,
   onSelect,
+  startDemoTarget,
 }: {
   emoji: string;
   title: string;
@@ -135,6 +136,7 @@ function StageCard({
   entriesNeeded: number;
   totalEntries: number;
   onSelect: () => void;
+  startDemoTarget?: string;
 }) {
   const locked = comingSoon || !unlocked;
 
@@ -172,7 +174,7 @@ function StageCard({
       )}
 
       {!comingSoon && unlocked && (
-        <div className="mt-m" data-demo-target="practice-stage-start">
+        <div className="mt-m" data-demo-target={startDemoTarget}>
           <PrimaryButton onClick={onSelect}>Start</PrimaryButton>
         </div>
       )}
@@ -219,20 +221,32 @@ export function PracticeLabScreen({
 
           <div>
             <h2 className="text-lg font-semibold text-text-primary">{PRACTICE_STAGES_TITLE}</h2>
-            <div className="mt-m space-y-m">
+            <div className="mt-m space-y-m" data-demo-target="practice-stages">
               {PRACTICE_STAGES.map((stage) => (
-                <div key={stage.id} data-demo-target={stage.id === 'quick' ? 'practice-stage-start' : undefined}>
-                <StageCard
-                  emoji={stage.emoji}
-                  title={stage.title}
-                  exerciseLabel={stage.exerciseLabel}
-                  description={stage.description}
-                  comingSoon={stage.comingSoon}
-                  entriesNeeded={stage.minEntries}
-                  totalEntries={totalEntries}
-                  unlocked={isStageUnlocked(stage.id, totalEntries, readiness)}
-                  onSelect={() => onSelectStage(stage.id)}
-                />
+                <div
+                  key={stage.id}
+                  data-demo-target={
+                    stage.id === 'quick'
+                      ? 'practice-stage-spot-match'
+                      : stage.id === 'sentence'
+                        ? 'practice-stage-write'
+                        : undefined
+                  }
+                >
+                  <StageCard
+                    emoji={stage.emoji}
+                    title={stage.title}
+                    exerciseLabel={stage.exerciseLabel}
+                    description={stage.description}
+                    comingSoon={stage.comingSoon}
+                    entriesNeeded={stage.minEntries}
+                    totalEntries={totalEntries}
+                    unlocked={isStageUnlocked(stage.id, totalEntries, readiness)}
+                    onSelect={() => onSelectStage(stage.id)}
+                    startDemoTarget={
+                      stage.id === 'quick' ? 'practice-stage-spot-match-start' : undefined
+                    }
+                  />
                 </div>
               ))}
             </div>
