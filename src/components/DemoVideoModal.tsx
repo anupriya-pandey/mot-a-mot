@@ -9,7 +9,7 @@ import {
   HOME_DEMO_TITLE,
   type DemoTabId,
 } from '../constants/homeMicrocopy';
-import { speakDemoNarration, stopDemoNarration } from '../lib/demoNarration';
+import { preloadDemoNarration, speakDemoNarration, stopDemoNarration } from '../lib/demoNarration';
 import {
   animateDemoFocus,
   DEMO_SCROLL_MS,
@@ -322,6 +322,8 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       setShowClick(false);
       startProgressTimer(step);
 
+      const narrPromise = speakDemoNarration(step.narration);
+
       await new Promise((resolve) => requestAnimationFrame(resolve));
       if (runIdRef.current !== runId) return;
 
@@ -332,14 +334,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
         await focusStepTarget(step, false);
       } else {
         setOverlayLive(true);
-        if (step.click) {
-          await focusStepTarget(step, true);
-        } else {
-          await Promise.all([focusStepTarget(step, true), speakDemoNarration(step.narration)]);
-          setOverlayLive(false);
-          await finishStep(tab, index, runId);
-          return;
-        }
+        await focusStepTarget(step, true);
         setOverlayLive(false);
       }
 
@@ -352,7 +347,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
         setShowClick(false);
       }
 
-      await speakDemoNarration(step.narration);
+      await narrPromise;
       if (runIdRef.current !== runId) return;
 
       await finishStep(tab, index, runId);
@@ -399,6 +394,10 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
   );
 
   useEffect(() => {
+    void preloadDemoNarration();
+  }, []);
+
+  useEffect(() => {
     const handleResize = () => {
       const stage = stageRef.current;
       const step = currentStepRef.current;
@@ -427,6 +426,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
   }, [clearProgressTimer]);
 
   const handleSelectTab = (tab: DemoTabId) => {
+    void preloadDemoNarration();
     setSelectedTab(tab);
     startPlayback(tab, 0);
   };

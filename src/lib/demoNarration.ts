@@ -6,31 +6,55 @@ export type NarrationSegment =
   | { kind: 'brand' };
 
 let narrationGeneration = 0;
+let cachedVoices: SpeechSynthesisVoice[] | null = null;
+let voicesReadyPromise: Promise<SpeechSynthesisVoice[]> | null = null;
 
 function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
-  return new Promise((resolve) => {
+  if (cachedVoices && cachedVoices.length > 0) {
+    return Promise.resolve(cachedVoices);
+  }
+
+  if (voicesReadyPromise) {
+    return voicesReadyPromise;
+  }
+
+  voicesReadyPromise = new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
       resolve([]);
       return;
     }
 
-    const existing = window.speechSynthesis.getVoices();
-    if (existing.length > 0) {
-      resolve(existing);
-      return;
-    }
+    const resolveVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        cachedVoices = voices;
+        resolve(voices);
+        return true;
+      }
+      return false;
+    };
+
+    if (resolveVoices()) return;
 
     const handleChange = () => {
-      window.speechSynthesis.removeEventListener('voiceschanged', handleChange);
-      resolve(window.speechSynthesis.getVoices());
+      if (resolveVoices()) {
+        window.speechSynthesis.removeEventListener('voiceschanged', handleChange);
+      }
     };
 
     window.speechSynthesis.addEventListener('voiceschanged', handleChange);
     window.setTimeout(() => {
       window.speechSynthesis.removeEventListener('voiceschanged', handleChange);
-      resolve(window.speechSynthesis.getVoices());
-    }, 250);
+      cachedVoices = window.speechSynthesis.getVoices();
+      resolve(cachedVoices);
+    }, 120);
   });
+
+  return voicesReadyPromise;
+}
+
+export function preloadDemoNarration(): Promise<void> {
+  return waitForVoices().then(() => undefined);
 }
 
 function pickFriendlyEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
@@ -41,6 +65,14 @@ function pickFriendlyEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthes
   return ranked[0] || voices.find((voice) => voice.lang.startsWith('en'));
 }
 
+function pickNarratorVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  return (
+    pickFriendlyEnglishVoice(voices) ||
+    pickFrenchVoice(voices) ||
+    voices.find((voice) => voice.lang.startsWith('en'))
+  );
+}
+
 function scoreEnglishVoice(voice: SpeechSynthesisVoice): number {
   let score = 0;
   const name = voice.name.toLowerCase();
@@ -49,7 +81,7 @@ function scoreEnglishVoice(voice: SpeechSynthesisVoice): number {
     score += 40;
   }
   if (/female|woman/i.test(name)) score += 12;
-  if (/enhanced|premium|natural|neural|expressive|hd|wavenet/i.test(name)) score += 20;
+  if (/enhanced|premium|natural|neural|expressive|hd|wavenet|multilingual|bilingual/i.test(name)) score += 20;
   if (voice.lang === 'en-US') score += 8;
   if (voice.default) score += 4;
   if (/compact|low quality|espeak|robot|fred|bad/i.test(name)) score -= 30;
@@ -97,99 +129,74 @@ export function parseDemoNarration(text: string): NarrationSegment[] {
   return segments.length > 0 ? segments : [{ kind: 'en', text }];
 }
 
-function speakUtterance(
-  text: string,
-  options: {
-    lang: string;
-    voice?: SpeechSynthesisVoice;
-    rate?: number;
-    pitch?: number;
-  },
-  generation: number,
-): Promise<void> {
-  return new Promise((resolve) => {
-    if (!('speechSynthesis' in window) || !text.trim() || generation !== narrationGeneration) {
-      resolve();
-      return;
-    }
+const NARRATOR_RATE = 1.2;
+const NARRATOR_PITCH = 1.24;
 
-    const utterance = new SpeechSynthesisUtterance(text.trim());
-    utterance.lang = options.lang;
-    utterance.rate = options.rate ?? 1.05;
-    utterance.pitch = options.pitch ?? 1.12;
-    utterance.volume = 1;
-    if (options.voice) utterance.voice = options.voice;
-
-    utterance.onend = () => resolve();
-    utterance.onerror = () => resolve();
-    window.speechSynthesis.speak(utterance);
-  });
-}
-
-function buildSegmentSpeech(
+function buildUtterance(
   segment: NarrationSegment,
-  englishVoice?: SpeechSynthesisVoice,
-  frenchVoice?: SpeechSynthesisVoice,
-): { text: string; lang: string; voice?: SpeechSynthesisVoice; rate: number; pitch: number } | null {
+  narratorVoice?: SpeechSynthesisVoice,
+): SpeechSynthesisUtterance | null {
+  let text = '';
+  let lang = 'en-US';
+
   if (segment.kind === 'brand') {
-    return {
-      text: 'Mot à mot',
-      lang: 'fr-FR',
-      voice: frenchVoice,
-      rate: 0.94,
-      pitch: 1.04,
-    };
+    text = 'Mot à mot';
+    lang = 'fr-FR';
+  } else if (segment.kind === 'fr') {
+    text = segment.text.trim();
+    lang = 'fr-FR';
+  } else {
+    text = segment.text.trim();
+    lang = 'en-US';
   }
 
-  if (segment.kind === 'fr') {
-    return {
-      text: segment.text.trim(),
-      lang: 'fr-FR',
-      voice: frenchVoice,
-      rate: 1.04,
-      pitch: 1.08,
-    };
-  }
+  if (!text) return null;
 
-  return {
-    text: segment.text.trim(),
-    lang: 'en-US',
-    voice: englishVoice,
-    rate: 1.22,
-    pitch: 1.26,
-  };
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  utterance.rate = NARRATOR_RATE;
+  utterance.pitch = NARRATOR_PITCH;
+  utterance.volume = 1;
+  if (narratorVoice) utterance.voice = narratorVoice;
+  return utterance;
 }
 
 export async function speakDemoNarration(text: string): Promise<void> {
   if (!('speechSynthesis' in window)) return;
 
   const generation = narrationGeneration;
-  window.speechSynthesis.cancel();
-
   const voices = await waitForVoices();
   if (generation !== narrationGeneration) return;
 
-  const englishVoice = pickFriendlyEnglishVoice(voices);
-  const frenchVoice = pickFrenchVoice(voices);
-  const segments = parseDemoNarration(text);
+  const narratorVoice = pickNarratorVoice(voices);
+  const utterances = parseDemoNarration(text)
+    .map((segment) => buildUtterance(segment, narratorVoice))
+    .filter((utterance): utterance is SpeechSynthesisUtterance => utterance !== null);
 
-  for (const segment of segments) {
-    if (generation !== narrationGeneration) return;
+  if (utterances.length === 0) return;
 
-    const speech = buildSegmentSpeech(segment, englishVoice, frenchVoice);
-    if (!speech || !speech.text) continue;
+  window.speechSynthesis.cancel();
 
-    await speakUtterance(
-      speech.text,
-      {
-        lang: speech.lang,
-        voice: speech.voice,
-        rate: speech.rate,
-        pitch: speech.pitch,
-      },
-      generation,
-    );
-  }
+  await new Promise<void>((resolve) => {
+    if (utterances.length === 0) {
+      resolve();
+      return;
+    }
+
+    utterances.forEach((utterance, index) => {
+      if (index === utterances.length - 1) {
+        utterance.onend = () => {
+          if (generation === narrationGeneration) resolve();
+        };
+        utterance.onerror = () => resolve();
+      }
+      window.speechSynthesis.speak(utterance);
+    });
+
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  });
 }
 
 export function stopDemoNarration(): void {
