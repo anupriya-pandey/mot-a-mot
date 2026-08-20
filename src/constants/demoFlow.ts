@@ -129,7 +129,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   toolbox: {
     title: 'French Toolbox',
     description:
-      'Your personal vocabulary grows automatically from every check and import — organised by grammar.',
+      'Your personal vocabulary grows automatically from every check and import — organised by grammar, with stretch-word suggestions at the bottom.',
     steps: [
       {
         id: 'toolbox-intro',
@@ -137,8 +137,8 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'toolbox-search',
         caption: 'What your French Toolbox does',
         narration:
-          'Your French Toolbox stores every word you collect from checks and imports, organised by grammar so you can search, export, and manage your vocabulary.',
-        durationMs: 5200,
+          'Your French Toolbox stores every word you collect from checks and imports, organised by grammar so you can search, export, and manage your vocabulary. At the bottom, Stretch your French suggests new words matched to your level.',
+        durationMs: 5600,
       },
       {
         id: 'toolbox-search',
@@ -258,6 +258,35 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         caption: 'Export all vocabulary.',
         narration:
           'Back on the toolbox home, export everything to PDF or Excel with validated forms or N A when a form does not apply.',
+        durationMs: 5000,
+        click: true,
+      },
+      {
+        id: 'toolbox-stretch',
+        view: 'toolbox-main',
+        target: 'toolbox-recommendations',
+        caption: 'Stretch your French at the bottom.',
+        narration:
+          'Scroll to Stretch your French — ten level-matched words across grammatical functions you probably know. Add them or skip; each choice brings a fresher pick.',
+        durationMs: 5600,
+      },
+      {
+        id: 'toolbox-stretch-add',
+        view: 'toolbox-main',
+        target: 'toolbox-recommendation-add',
+        caption: 'Add a stretch word to your toolbox.',
+        narration:
+          'Tap plus to save a word you already know — it joins your toolbox with its meaning and grammatical function.',
+        durationMs: 4800,
+        click: true,
+      },
+      {
+        id: 'toolbox-stretch-skip',
+        view: 'toolbox-main',
+        target: 'toolbox-recommendation-skip',
+        caption: 'Skip what you do not need.',
+        narration:
+          'Tap the cross to dismiss a word — a new suggestion replaces it right away, keeping ten fresh picks visible.',
         durationMs: 5000,
         click: true,
       },

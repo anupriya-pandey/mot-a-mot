@@ -16,6 +16,7 @@ import {
   DEMO_SENTENCE,
   DEMO_TOOLBOX_COUNTS,
   DEMO_TOOLBOX_ENTRIES,
+  DEMO_TOOLBOX_RECOMMENDATIONS,
 } from '../../constants/demoFixtures';
 import type { DemoFlowStep } from '../../constants/demoFlow';
 import type { DemoTabId } from '../../constants/homeMicrocopy';
@@ -157,6 +158,9 @@ function renderToolboxView(step: DemoFlowStep) {
       onSelectCategory={DEMO_NOOP}
       onImport={DEMO_NOOP}
       onDeleteEntry={DEMO_NOOP}
+      isInToolbox={() => false}
+      onAddRecommendation={DEMO_NOOP}
+      demoRecommendations={DEMO_TOOLBOX_RECOMMENDATIONS}
     />
   );
 }
