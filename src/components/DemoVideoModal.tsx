@@ -292,11 +292,19 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
 
   const finishStep = useCallback(
     async (tab: DemoTabId, index: number, runId: number) => {
-      await new Promise((resolve) => window.setTimeout(resolve, STEP_TAIL_MS));
+      const steps = DEMO_FLOWS[tab].steps;
+      const nextIndex = index + 1;
+      const nextStep = steps[nextIndex];
+      const sameScreen =
+        nextStep &&
+        getDemoScreenKey(tab, steps[index]) === getDemoScreenKey(tab, nextStep);
+
+      if (!sameScreen) {
+        await new Promise((resolve) => window.setTimeout(resolve, STEP_TAIL_MS));
+      }
       if (runIdRef.current !== runId) return;
 
-      const nextIndex = index + 1;
-      if (nextIndex < DEMO_FLOWS[tab].steps.length) {
+      if (nextStep) {
         await runStepRef.current(tab, nextIndex, runId);
         return;
       }
@@ -317,7 +325,9 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       const sameScreen = previousScreenKeyRef.current === screenKey;
       previousScreenKeyRef.current = screenKey;
 
-      stopDemoNarration();
+      if (!sameScreen) {
+        stopDemoNarration();
+      }
       setStepIndex(index);
       setShowClick(false);
       startProgressTimer(step);
