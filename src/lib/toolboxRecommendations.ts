@@ -46,6 +46,21 @@ function buildToolboxBlockKeys(entries: VocabularyEntry[]): Set<string> {
   return blocked;
 }
 
+/** Drop dismissed keys for words already saved — they are blocked by the toolbox anyway. */
+export function pruneDismissedRecommendations(
+  dismissed: Set<string>,
+  entries: VocabularyEntry[],
+): Set<string> {
+  const toolboxKeys = buildToolboxBlockKeys(entries);
+  const pruned = new Set<string>();
+  for (const key of dismissed) {
+    const lemma = key.split('|')[0] ?? key;
+    if (toolboxKeys.has(key) || toolboxKeys.has(lemma)) continue;
+    pruned.add(key);
+  }
+  return pruned;
+}
+
 export function inferRecommendationTier(totalCount: number, readinessScore: number): RecommendationTier {
   if (totalCount < 8 || readinessScore < 25) return 1;
   if (totalCount < 25 || readinessScore < 70) return 2;
@@ -108,6 +123,7 @@ function isBlocked(
 interface RankOptions {
   blockDismissed?: boolean;
   tierOffset?: number;
+  ignoreTier?: boolean;
 }
 
 function rankToolboxRecommendationsInternal(
@@ -116,16 +132,16 @@ function rankToolboxRecommendationsInternal(
   totalCount: number,
   readinessScore: number,
   dismissed: Set<string>,
-  excludedKeys: Set<string> = new Set(),
+  slotExcluded: Set<string> = new Set(),
   limit = RECOMMENDATION_SLOT_COUNT,
-  { blockDismissed = true, tierOffset = 1 }: RankOptions = {},
+  { blockDismissed = true, tierOffset = 1, ignoreTier = false }: RankOptions = {},
 ): VocabularyItem[] {
   const tier = inferRecommendationTier(totalCount, readinessScore);
   const toolboxKeys = buildToolboxBlockKeys(entries);
   const blocked = new Set([
     ...toolboxKeys,
     ...(blockDismissed ? dismissed : []),
-    ...excludedKeys,
+    ...slotExcluded,
   ]);
 
   const missingCategories = READINESS_CATEGORY_CHECKLIST.filter(
@@ -133,9 +149,11 @@ function rankToolboxRecommendationsInternal(
   );
   const avgCount = averageCategoryCount(counts);
 
-  const eligible = TOOLBOX_RECOMMENDATION_POOL.filter(
-    (candidate) => !isBlocked(candidate, blocked) && candidate.tier <= tier + tierOffset,
-  );
+  const eligible = TOOLBOX_RECOMMENDATION_POOL.filter((candidate) => {
+    if (isBlocked(candidate, blocked)) return false;
+    if (ignoreTier) return true;
+    return candidate.tier <= tier + tierOffset;
+  });
 
   const scored = eligible
     .map((candidate) => ({
@@ -176,7 +194,7 @@ export function rankToolboxRecommendations(
   totalCount: number,
   readinessScore: number,
   dismissed: Set<string>,
-  excludedKeys: Set<string> = new Set(),
+  slotExcluded: Set<string> = new Set(),
   limit = RECOMMENDATION_SLOT_COUNT,
 ): VocabularyItem[] {
   return rankToolboxRecommendationsInternal(
@@ -185,20 +203,27 @@ export function rankToolboxRecommendations(
     totalCount,
     readinessScore,
     dismissed,
-    excludedKeys,
+    slotExcluded,
     limit,
     { blockDismissed: true, tierOffset: 1 },
   );
 }
 
-/** Fill up to `limit` recommendations, recycling dismissed words only when needed. */
+const FILL_PASSES: RankOptions[] = [
+  { blockDismissed: true, tierOffset: 1 },
+  { blockDismissed: false, tierOffset: 1 },
+  { blockDismissed: false, tierOffset: 3 },
+  { blockDismissed: false, ignoreTier: true },
+];
+
+/** Fill up to `limit` recommendations; recycles skipped words when the pool runs low. */
 export function fillToolboxRecommendations(
   entries: VocabularyEntry[],
   counts: CategoryCounts,
   totalCount: number,
   readinessScore: number,
   dismissed: Set<string>,
-  excludedKeys: Set<string> = new Set(),
+  slotExcluded: Set<string> = new Set(),
   limit = RECOMMENDATION_SLOT_COUNT,
 ): VocabularyItem[] {
   const result: VocabularyItem[] = [];
@@ -214,23 +239,11 @@ export function fillToolboxRecommendations(
     }
   };
 
-  const nextExcluded = () =>
-    new Set([...excludedKeys, ...result.map((item) => recommendationKey(item))]);
+  const nextSlotExcluded = () =>
+    new Set([...slotExcluded, ...result.map((item) => recommendationKey(item))]);
 
-  mergeBatch(
-    rankToolboxRecommendationsInternal(
-      entries,
-      counts,
-      totalCount,
-      readinessScore,
-      dismissed,
-      nextExcluded(),
-      limit,
-      { blockDismissed: true, tierOffset: 1 },
-    ),
-  );
-
-  if (result.length < limit) {
+  for (const pass of FILL_PASSES) {
+    if (result.length >= limit) break;
     mergeBatch(
       rankToolboxRecommendationsInternal(
         entries,
@@ -238,24 +251,9 @@ export function fillToolboxRecommendations(
         totalCount,
         readinessScore,
         dismissed,
-        nextExcluded(),
+        nextSlotExcluded(),
         limit - result.length,
-        { blockDismissed: false, tierOffset: 1 },
-      ),
-    );
-  }
-
-  if (result.length < limit) {
-    mergeBatch(
-      rankToolboxRecommendationsInternal(
-        entries,
-        counts,
-        totalCount,
-        readinessScore,
-        dismissed,
-        nextExcluded(),
-        limit - result.length,
-        { blockDismissed: false, tierOffset: 2 },
+        pass,
       ),
     );
   }
@@ -269,7 +267,7 @@ export function getNextToolboxRecommendation(
   totalCount: number,
   readinessScore: number,
   dismissed: Set<string>,
-  excludedKeys: Set<string>,
+  slotExcluded: Set<string>,
 ): VocabularyItem | null {
   return (
     fillToolboxRecommendations(
@@ -278,7 +276,7 @@ export function getNextToolboxRecommendation(
       totalCount,
       readinessScore,
       dismissed,
-      excludedKeys,
+      slotExcluded,
       1,
     )[0] ?? null
   );
