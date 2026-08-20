@@ -9,9 +9,11 @@ import {
 } from '../constants/microcopy';
 import type { CategoryCounts, PartOfSpeech, VocabularyEntry } from '../types/toolbox';
 import { FrenchToolboxDashboard } from '../components/FrenchToolboxDashboard';
+import { ToolboxStretchWords } from '../components/ToolboxStretchWords';
 import { VocabularyListItem } from '../components/VocabularyListItem';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { exportToolboxToExcel, exportToolboxToPdf } from '../lib/exportToolbox';
+import type { VocabularyItem } from '../types/analysis';
 
 interface ToolboxScreenProps {
   entries: VocabularyEntry[];
@@ -20,6 +22,9 @@ interface ToolboxScreenProps {
   onSelectCategory: (category: PartOfSpeech) => void;
   onImport: () => void;
   onDeleteEntry: (entry: VocabularyEntry) => void;
+  isInToolbox: (lemma: string, partOfSpeech: string) => boolean;
+  onAddRecommendation: (item: VocabularyItem) => void;
+  demoRecommendations?: VocabularyItem[];
 }
 
 function matchesQuery(entry: VocabularyEntry, query: string): boolean {
@@ -39,6 +44,9 @@ export function ToolboxScreen({
   onSelectCategory,
   onImport,
   onDeleteEntry,
+  isInToolbox,
+  onAddRecommendation,
+  demoRecommendations,
 }: ToolboxScreenProps) {
   const [query, setQuery] = useState('');
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -139,15 +147,25 @@ export function ToolboxScreen({
           )}
         </section>
       ) : (
-        <FrenchToolboxDashboard
-          counts={counts}
-          totalCount={totalCount}
-          onSelectCategory={onSelectCategory}
-          description={TOOLBOX_DESCRIPTION}
-          methodPractice={TOOLBOX_METHOD_PRACTICE}
-          methodImport={TOOLBOX_METHOD_IMPORT}
-          emptyMessage={TOOLBOX_EMPTY}
-        />
+        <>
+          <FrenchToolboxDashboard
+            counts={counts}
+            totalCount={totalCount}
+            onSelectCategory={onSelectCategory}
+            description={TOOLBOX_DESCRIPTION}
+            methodPractice={TOOLBOX_METHOD_PRACTICE}
+            methodImport={TOOLBOX_METHOD_IMPORT}
+            emptyMessage={TOOLBOX_EMPTY}
+          />
+          <ToolboxStretchWords
+            entries={entries}
+            counts={counts}
+            totalCount={totalCount}
+            isInToolbox={isInToolbox}
+            onAdd={onAddRecommendation}
+            demoItems={demoRecommendations}
+          />
+        </>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import type { AnalysisResult } from '../types/analysis';
+import type { AnalysisResult, VocabularyItem } from '../types/analysis';
 import type { ImportReviewData } from '../types/import';
 import type {
   PracticeQuestionFeedback,
@@ -207,6 +207,93 @@ export const DEMO_TOOLBOX_ENTRIES: VocabularyEntry[] = [
     surfaces: ['acteur', 'actrice'],
     examples: ['Il est acteur.'],
     nounGenderForms: { masculine: 'acteur', feminine: 'actrice' },
+  },
+];
+
+export const DEMO_TOOLBOX_RECOMMENDATIONS: VocabularyItem[] = [
+  {
+    lemma: 'réserver',
+    surface: 'réserver',
+    meaning: 'to book / reserve',
+    partOfSpeech: 'Verbs',
+    example: 'Je voudrais réserver une table.',
+  },
+  {
+    lemma: 'travail',
+    surface: 'travail',
+    meaning: 'work (noun)',
+    partOfSpeech: 'Nouns',
+    example: 'Mon travail est intéressant.',
+  },
+  {
+    lemma: 'important',
+    surface: 'important',
+    meaning: 'important',
+    partOfSpeech: 'Adjectives',
+    example: 'C\'est une décision importante.',
+  },
+  {
+    lemma: 'souvent',
+    surface: 'souvent',
+    meaning: 'often',
+    partOfSpeech: 'Adverbs',
+    example: 'Je vais souvent au cinéma.',
+  },
+  {
+    lemma: 'nous',
+    surface: 'nous',
+    meaning: 'we',
+    partOfSpeech: 'Pronouns',
+    example: 'Nous partons demain.',
+  },
+  {
+    lemma: 'cette',
+    surface: 'cette',
+    meaning: 'this (feminine)',
+    partOfSpeech: 'Articles / Determiners',
+    example: 'Cette idée me plaît.',
+  },
+  {
+    lemma: 'pendant',
+    surface: 'pendant',
+    meaning: 'during / for',
+    partOfSpeech: 'Prepositions',
+    example: 'Pendant les vacances.',
+  },
+  {
+    lemma: 'parce que',
+    surface: 'parce que',
+    meaning: 'because',
+    partOfSpeech: 'Conjunctions',
+    example: 'Je reste parce que je suis fatigué.',
+  },
+  {
+    lemma: 'ne...pas',
+    surface: 'ne...pas',
+    meaning: 'not (negation frame)',
+    partOfSpeech: 'Negation Particles',
+    example: 'Je ne parle pas anglais.',
+  },
+  {
+    lemma: 'me',
+    surface: 'me',
+    meaning: 'me (reflexive / object)',
+    partOfSpeech: 'Reflexive Pronouns',
+    example: 'Je me repose.',
+  },
+  {
+    lemma: 's\'il vous plaît',
+    surface: 's\'il vous plaît',
+    meaning: 'please (formal)',
+    partOfSpeech: 'Expressions',
+    example: 'Un café, s\'il vous plaît.',
+  },
+  {
+    lemma: 'chez',
+    surface: 'chez',
+    meaning: 'at someone\'s place',
+    partOfSpeech: 'Prepositions',
+    example: 'Je dîne chez mes parents.',
   },
 ];
 

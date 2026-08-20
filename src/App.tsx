@@ -731,6 +731,8 @@ function MotAMotApp() {
           onSelectCategory={handleSelectCategory}
           onImport={handleOpenImport}
           onDeleteEntry={handleDeleteEntry}
+          isInToolbox={toolbox.isInToolbox}
+          onAddRecommendation={handleAddToToolbox}
         />
       </div>
     );
