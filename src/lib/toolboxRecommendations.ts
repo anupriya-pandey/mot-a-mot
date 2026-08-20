@@ -15,6 +15,37 @@ export function recommendationKey(item: Pick<VocabularyItem, 'lemma' | 'partOfSp
   return `${item.lemma.trim().toLowerCase()}|${pos}`;
 }
 
+function normalizeLemma(lemma: string): string {
+  return lemma.trim().toLowerCase();
+}
+
+/** True when the lemma is already saved — matches lemma, surfaces, and POS-normalized keys. */
+export function isRecommendationInToolbox(
+  item: Pick<VocabularyItem, 'lemma' | 'partOfSpeech'>,
+  entries: VocabularyEntry[],
+): boolean {
+  const targetLemma = normalizeLemma(item.lemma);
+  const targetKey = recommendationKey(item);
+
+  return entries.some((entry) => {
+    if (recommendationKey(entry) === targetKey) return true;
+    if (normalizeLemma(entry.lemma) === targetLemma) return true;
+    return entry.surfaces.some((surface) => normalizeLemma(surface) === targetLemma);
+  });
+}
+
+function buildToolboxBlockKeys(entries: VocabularyEntry[]): Set<string> {
+  const blocked = new Set<string>();
+  for (const entry of entries) {
+    blocked.add(recommendationKey(entry));
+    blocked.add(normalizeLemma(entry.lemma));
+    for (const surface of entry.surfaces) {
+      blocked.add(normalizeLemma(surface));
+    }
+  }
+  return blocked;
+}
+
 export function inferRecommendationTier(totalCount: number, readinessScore: number): RecommendationTier {
   if (totalCount < 8 || readinessScore < 25) return 1;
   if (totalCount < 25 || readinessScore < 70) return 2;
@@ -69,7 +100,9 @@ function isBlocked(
   candidate: ToolboxRecommendationCandidate,
   blockedKeys: Set<string>,
 ): boolean {
-  return blockedKeys.has(recommendationKey(candidate));
+  const key = recommendationKey(candidate);
+  if (blockedKeys.has(key)) return true;
+  return blockedKeys.has(normalizeLemma(candidate.lemma));
 }
 
 export function rankToolboxRecommendations(
@@ -82,7 +115,7 @@ export function rankToolboxRecommendations(
   limit = RECOMMENDATION_SLOT_COUNT,
 ): VocabularyItem[] {
   const tier = inferRecommendationTier(totalCount, readinessScore);
-  const toolboxKeys = new Set(entries.map((entry) => recommendationKey(entry)));
+  const toolboxKeys = buildToolboxBlockKeys(entries);
   const blocked = new Set([...toolboxKeys, ...dismissed, ...excludedKeys]);
 
   const missingCategories = READINESS_CATEGORY_CHECKLIST.filter(

@@ -158,7 +158,6 @@ function renderToolboxView(step: DemoFlowStep) {
       onSelectCategory={DEMO_NOOP}
       onImport={DEMO_NOOP}
       onDeleteEntry={DEMO_NOOP}
-      isInToolbox={() => false}
       onAddRecommendation={DEMO_NOOP}
       demoRecommendations={DEMO_TOOLBOX_RECOMMENDATIONS}
     />
