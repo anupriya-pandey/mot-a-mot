@@ -16,6 +16,7 @@ import {
   RECOMMENDATION_SLOT_COUNT,
   fillToolboxRecommendations,
   isRecommendationInToolbox,
+  pruneDismissedRecommendations,
   recommendationKey,
 } from '../lib/toolboxRecommendations';
 import type { VocabularyItem } from '../types/analysis';
@@ -31,45 +32,6 @@ interface ToolboxStretchWordsProps {
   demoItems?: VocabularyItem[];
 }
 
-function maintainVisibleSlots(
-  entries: VocabularyEntry[],
-  counts: CategoryCounts,
-  totalCount: number,
-  readinessScore: number,
-  dismissed: Set<string>,
-  refreshExcluded: Set<string>,
-  current: VocabularyItem[],
-  optimisticBlocked: Set<string> = new Set(),
-): VocabularyItem[] {
-  const kept = current.filter((item) => {
-    const key = recommendationKey(item);
-    return (
-      !optimisticBlocked.has(key) &&
-      !dismissed.has(key) &&
-      !isRecommendationInToolbox(item, entries)
-    );
-  });
-
-  const excluded = new Set([
-    ...refreshExcluded,
-    ...dismissed,
-    ...optimisticBlocked,
-    ...kept.map((item) => recommendationKey(item)),
-  ]);
-
-  const refill = fillToolboxRecommendations(
-    entries,
-    counts,
-    totalCount,
-    readinessScore,
-    dismissed,
-    excluded,
-    RECOMMENDATION_SLOT_COUNT - kept.length,
-  );
-
-  return [...kept, ...refill].slice(0, RECOMMENDATION_SLOT_COUNT);
-}
-
 export function ToolboxStretchWords({
   entries,
   counts,
@@ -82,102 +44,74 @@ export function ToolboxStretchWords({
     [totalCount, counts],
   );
 
-  const [dismissed, setDismissed] = useState<Set<string>>(() =>
-    demoItems ? new Set() : loadDismissedRecommendations(),
-  );
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    if (demoItems) return new Set();
+    return pruneDismissedRecommendations(loadDismissedRecommendations(), entries);
+  });
   const [refreshExcluded, setRefreshExcluded] = useState<Set<string>>(() => new Set());
 
-  const buildInitialList = useCallback(
-    (refreshBlock: Set<string>) =>
-      fillToolboxRecommendations(
+  const buildVisibleList = useCallback(
+    (refreshBlock: Set<string>, slotBlocked: Set<string> = new Set()) => {
+      if (demoItems) {
+        return demoItems
+          .filter((item) => !isRecommendationInToolbox(item, entries))
+          .slice(0, RECOMMENDATION_SLOT_COUNT);
+      }
+
+      return fillToolboxRecommendations(
         entries,
         counts,
         totalCount,
         readiness.score,
         dismissed,
-        refreshBlock,
+        new Set([...refreshBlock, ...slotBlocked]),
         RECOMMENDATION_SLOT_COUNT,
-      ),
-    [counts, dismissed, entries, readiness.score, totalCount],
+      );
+    },
+    [counts, demoItems, dismissed, entries, readiness.score, totalCount],
   );
 
-  const [visible, setVisible] = useState<VocabularyItem[]>(() => {
-    if (demoItems) {
-      return demoItems
-        .filter((item) => !isRecommendationInToolbox(item, entries))
-        .slice(0, RECOMMENDATION_SLOT_COUNT);
-    }
-    return buildInitialList(refreshExcluded);
-  });
+  const [visible, setVisible] = useState<VocabularyItem[]>(() =>
+    buildVisibleList(refreshExcluded),
+  );
 
   useEffect(() => {
-    if (demoItems) {
-      setVisible(
-        demoItems
-          .filter((item) => !isRecommendationInToolbox(item, entries))
-          .slice(0, RECOMMENDATION_SLOT_COUNT),
-      );
-      return;
+    if (!demoItems) {
+      setDismissed((current) => {
+        const pruned = pruneDismissedRecommendations(current, entries);
+        if (pruned.size !== current.size) {
+          saveDismissedRecommendations(pruned);
+        }
+        return pruned;
+      });
     }
+  }, [demoItems, entries]);
 
-    setVisible((current) =>
-      maintainVisibleSlots(
-        entries,
-        counts,
-        totalCount,
-        readiness.score,
-        dismissed,
-        refreshExcluded,
-        current,
-      ),
-    );
-  }, [counts, demoItems, dismissed, entries, readiness.score, refreshExcluded, totalCount]);
+  useEffect(() => {
+    setVisible(buildVisibleList(refreshExcluded));
+  }, [buildVisibleList, refreshExcluded]);
 
   const handleRefresh = useCallback(() => {
     if (demoItems) {
-      setVisible(
-        demoItems
-          .filter((item) => !isRecommendationInToolbox(item, entries))
-          .slice(0, RECOMMENDATION_SLOT_COUNT),
-      );
+      setVisible(buildVisibleList(new Set()));
       return;
     }
 
     const nextRefreshExcluded = new Set(visible.map((item) => recommendationKey(item)));
+    let nextVisible = buildVisibleList(nextRefreshExcluded);
+
+    if (nextVisible.length < RECOMMENDATION_SLOT_COUNT) {
+      nextVisible = buildVisibleList(new Set());
+    }
+
     setRefreshExcluded(nextRefreshExcluded);
-    setVisible(buildInitialList(nextRefreshExcluded));
-  }, [buildInitialList, demoItems, entries, visible]);
+    setVisible(nextVisible);
+  }, [buildVisibleList, demoItems, visible]);
 
   const handleAdd = (item: VocabularyItem) => {
     const key = recommendationKey(item);
     onAdd(item);
-    if (demoItems) {
-      setVisible((current) => {
-        const withoutRemoved = current.filter((candidate) => recommendationKey(candidate) !== key);
-        const usedKeys = new Set(withoutRemoved.map((candidate) => recommendationKey(candidate)));
-        const replacement = demoItems.find(
-          (candidate) =>
-            !usedKeys.has(recommendationKey(candidate)) &&
-            !isRecommendationInToolbox(candidate, entries),
-        );
-        if (!replacement) return withoutRemoved;
-        return [...withoutRemoved, replacement].slice(0, RECOMMENDATION_SLOT_COUNT);
-      });
-      return;
-    }
-
-    setVisible((current) =>
-      maintainVisibleSlots(
-        entries,
-        counts,
-        totalCount,
-        readiness.score,
-        dismissed,
-        refreshExcluded,
-        current.filter((candidate) => recommendationKey(candidate) !== key),
-        new Set([key]),
-      ),
-    );
+    setVisible(buildVisibleList(refreshExcluded, new Set([key])));
   };
 
   const handleDismiss = (item: VocabularyItem) => {
@@ -187,34 +121,7 @@ export function ToolboxStretchWords({
     if (!demoItems) {
       saveDismissedRecommendations(nextDismissed);
     }
-
-    if (demoItems) {
-      setVisible((current) => {
-        const withoutRemoved = current.filter((candidate) => recommendationKey(candidate) !== key);
-        const usedKeys = new Set(withoutRemoved.map((candidate) => recommendationKey(candidate)));
-        const replacement = demoItems.find(
-          (candidate) =>
-            !usedKeys.has(recommendationKey(candidate)) &&
-            !isRecommendationInToolbox(candidate, entries),
-        );
-        if (!replacement) return withoutRemoved;
-        return [...withoutRemoved, replacement].slice(0, RECOMMENDATION_SLOT_COUNT);
-      });
-      return;
-    }
-
-    setVisible((current) =>
-      maintainVisibleSlots(
-        entries,
-        counts,
-        totalCount,
-        readiness.score,
-        nextDismissed,
-        refreshExcluded,
-        current.filter((candidate) => recommendationKey(candidate) !== key),
-        new Set([key]),
-      ),
-    );
+    setVisible(buildVisibleList(refreshExcluded, new Set([key])));
   };
 
   if (visible.length === 0) {
