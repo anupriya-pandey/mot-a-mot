@@ -111,7 +111,7 @@ export function ResultsScreen({
           />
         )}
 
-        <section aria-labelledby="suggested-messages">
+        <section aria-labelledby="suggested-messages" data-demo-target="check-suggestions">
           <SectionHeader icon="💬" title="Suggested Messages" />
           <div className="space-y-l mt-l">
             <SpeakingSuggestion
@@ -134,7 +134,7 @@ export function ResultsScreen({
           explanationsByStyle={result.explanations.writing}
         />
 
-        <section className="space-y-m" aria-labelledby="your-sentence-scores">
+        <section className="space-y-m" aria-labelledby="your-sentence-scores" data-demo-target="check-scores">
           <div>
             <h2 id="your-sentence-scores" className="text-lg font-semibold text-text-primary">
               Your Sentence Scores
@@ -147,11 +147,13 @@ export function ResultsScreen({
           <RatingBar label="Naturalness" value={naturalnessScore} />
         </section>
 
-        <SuggestedToolkitAdditions
-          items={result.suggestedAdditions ?? []}
-          isInToolbox={isInToolbox}
-          onAdd={onAddToToolbox}
-        />
+        <div data-demo-target="check-toolkit">
+          <SuggestedToolkitAdditions
+            items={result.suggestedAdditions ?? []}
+            isInToolbox={isInToolbox}
+            onAdd={onAddToToolbox}
+          />
+        </div>
 
         {mode === 'practice' && practiceReflection && (
           <PracticeReflectionPanel
@@ -163,12 +165,14 @@ export function ResultsScreen({
           />
         )}
 
-        <SecondaryButton onClick={mode === 'practice' && onFooter ? onFooter : onCheckAnother}>
-          <span className="inline-flex items-center justify-center gap-s">
-            {mode === 'practice' ? null : <Sparkles className="h-4 w-4" />}
-            {footerLabel ?? (mode === 'practice' ? 'Next Question →' : 'Check Another Sentence')}
-          </span>
-        </SecondaryButton>
+        <div data-demo-target="check-copy">
+          <SecondaryButton onClick={mode === 'practice' && onFooter ? onFooter : onCheckAnother}>
+            <span className="inline-flex items-center justify-center gap-s">
+              {mode === 'practice' ? null : <Sparkles className="h-4 w-4" />}
+              {footerLabel ?? (mode === 'practice' ? 'Next Question →' : 'Check Another Sentence')}
+            </span>
+          </SecondaryButton>
+        </div>
       </div>
     </div>
   );

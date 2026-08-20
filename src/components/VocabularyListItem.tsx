@@ -96,6 +96,7 @@ export function VocabularyListItem({ entry, onDelete }: VocabularyListItemProps)
                 onClick={() => setConfirmOpen(true)}
                 className="rounded-full p-2 text-text-secondary transition-colors hover:bg-error/10 hover:text-error"
                 aria-label={`Delete ${entry.lemma}`}
+                data-demo-target="toolbox-delete"
               >
                 <Trash2 className="h-4 w-4" />
               </button>

@@ -59,12 +59,13 @@ export function FrenchToolboxDashboard({
           {emptyMessage}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-s sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-s sm:grid-cols-2" data-demo-target="toolbox-categories">
           {categoriesWithEntries.map(([category, count]) => (
             <button
               key={category}
               type="button"
               onClick={() => onSelectCategory(category)}
+              data-demo-target={category === 'Nouns' ? 'toolbox-category-nouns' : undefined}
               className="rounded-card bg-surface p-m text-left shadow-card transition-colors hover:bg-primary-light"
             >
               <span className="font-medium text-text-primary">{category}</span>

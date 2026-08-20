@@ -208,7 +208,7 @@ export function ImportReviewScreen({
         </span>
       </SecondaryButton>
 
-      <section className="mb-l rounded-card bg-surface p-l shadow-card" aria-labelledby="import-summary">
+      <section className="mb-l rounded-card bg-surface p-l shadow-card" aria-labelledby="import-summary" data-demo-target="toolbox-import-summary">
         <h1 id="import-summary" className="text-xl font-semibold text-text-primary">
           We found:
         </h1>
@@ -225,7 +225,7 @@ export function ImportReviewScreen({
       </section>
 
       {review.ready.length > 0 && (
-        <section className="mb-l" aria-labelledby="ready-import">
+        <section className="mb-l" aria-labelledby="ready-import" data-demo-target="toolbox-import-ready">
           <h2 id="ready-import" className="mb-m text-lg font-semibold text-text-primary">
             Ready to Import
           </h2>
@@ -238,7 +238,7 @@ export function ImportReviewScreen({
       )}
 
       {review.alreadyIn.length > 0 && (
-        <section className="mb-l" aria-labelledby="already-in">
+        <section className="mb-l" aria-labelledby="already-in" data-demo-target="toolbox-import-duplicates">
           <button
             type="button"
             id="already-in"
@@ -270,7 +270,7 @@ export function ImportReviewScreen({
       )}
 
       {review.ambiguous.length > 0 && (
-        <section className="mb-l space-y-m" aria-labelledby="ambiguous-import">
+        <section className="mb-l space-y-m" aria-labelledby="ambiguous-import" data-demo-target="toolbox-import-ambiguous">
           <h2 id="ambiguous-import" className="text-lg font-semibold text-text-primary">
             Multiple Meanings
           </h2>
@@ -313,6 +313,7 @@ export function ImportReviewScreen({
           onClick={onConfirm}
           loading={isImporting}
           disabled={!hasAnythingToImport}
+          data-demo-target="toolbox-import-confirm"
         >
           Import to Toolbox
         </PrimaryButton>

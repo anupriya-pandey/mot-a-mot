@@ -33,6 +33,7 @@ function WritingStyleGroup({
   previousLabel,
   changes,
   originalSentence,
+  demoTarget,
 }: {
   style: WritingStyle;
   sentence: string;
@@ -44,12 +45,16 @@ function WritingStyleGroup({
   previousLabel?: string;
   changes: CorrectionChange[];
   originalSentence?: string;
+  demoTarget?: string;
 }) {
   const { copied, error: copyError, copy } = useCopyToClipboard();
   const layerLabel = WRITING_STYLE_LABELS[style];
 
   return (
-    <article className="rounded-card bg-surface p-m shadow-card space-y-m">
+    <article
+      className="rounded-card bg-surface p-m shadow-card space-y-m"
+      data-demo-target={demoTarget}
+    >
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
           {WRITING_STYLE_LAYERS[style]}
@@ -126,6 +131,7 @@ export function WritingSuggestions({ writing, changes, originalSentence }: Writi
             <WritingStyleGroup
               key={style}
               style={style}
+              demoTarget={style === 'simple' ? 'check-writing-foundation' : undefined}
               sentence={item.sentence}
               english={item.english}
               explanation={item.explanation}

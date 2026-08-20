@@ -172,7 +172,7 @@ function StageCard({
       )}
 
       {!comingSoon && unlocked && (
-        <div className="mt-m">
+        <div className="mt-m" data-demo-target="practice-stage-start">
           <PrimaryButton onClick={onSelect}>Start</PrimaryButton>
         </div>
       )}
@@ -209,7 +209,7 @@ export function PracticeLabScreen({
         />
       ) : (
         <section className="space-y-m">
-          <div className="rounded-card border border-primary/20 bg-primary/5 p-m">
+          <div className="rounded-card border border-primary/20 bg-primary/5 p-m" data-demo-target="practice-readiness">
             <p className="text-sm font-medium text-text-secondary">{PRACTICE_READINESS_TITLE}</p>
             <p className="mt-xs text-xl font-semibold text-text-primary">
               {readiness.score}% — {readiness.label}
@@ -221,8 +221,8 @@ export function PracticeLabScreen({
             <h2 className="text-lg font-semibold text-text-primary">{PRACTICE_STAGES_TITLE}</h2>
             <div className="mt-m space-y-m">
               {PRACTICE_STAGES.map((stage) => (
+                <div key={stage.id} data-demo-target={stage.id === 'quick' ? 'practice-stage-start' : undefined}>
                 <StageCard
-                  key={stage.id}
                   emoji={stage.emoji}
                   title={stage.title}
                   exerciseLabel={stage.exerciseLabel}
@@ -233,6 +233,7 @@ export function PracticeLabScreen({
                   unlocked={isStageUnlocked(stage.id, totalEntries, readiness)}
                   onSelect={() => onSelectStage(stage.id)}
                 />
+                </div>
               ))}
             </div>
           </div>

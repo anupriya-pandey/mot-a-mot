@@ -71,6 +71,7 @@ export function ImportToolboxScreen({
         warning={showEmptyError}
         className="font-mono text-sm leading-relaxed"
         aria-describedby={showEmptyError ? 'import-empty-error' : undefined}
+        data-demo-target="toolbox-import-text"
       />
 
       {showEmptyError && (
@@ -86,7 +87,7 @@ export function ImportToolboxScreen({
       )}
 
       <div className="mt-l">
-        <PrimaryButton onClick={handleSubmit} loading={isSubmitting}>
+        <PrimaryButton onClick={handleSubmit} loading={isSubmitting} data-demo-target="toolbox-import-analyze">
           Analyze Import
         </PrimaryButton>
       </div>

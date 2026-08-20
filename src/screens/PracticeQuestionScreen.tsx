@@ -25,6 +25,8 @@ interface PracticeQuestionScreenProps {
   onNext: () => void;
   onEndSession: () => void;
   isChecking: boolean;
+  /** Demo walkthrough only — prefills the answer field */
+  demoPrefillAnswer?: string;
 }
 
 function exerciseTypeLabel(type: PracticePrompt['type']): string {
@@ -59,8 +61,9 @@ export function PracticeQuestionScreen({
   onNext,
   onEndSession,
   isChecking,
+  demoPrefillAnswer,
 }: PracticeQuestionScreenProps) {
-  const [answer, setAnswer] = useState('');
+  const [answer, setAnswer] = useState(demoPrefillAnswer ?? '');
   const [selectedOption, setSelectedOption] = useState('');
   const [matchSelections, setMatchSelections] = useState<Record<string, string>>({});
   const [showEmptyError, setShowEmptyError] = useState(false);
@@ -88,12 +91,12 @@ export function PracticeQuestionScreen({
   })();
 
   useEffect(() => {
-    setAnswer('');
+    setAnswer(demoPrefillAnswer ?? '');
     setSelectedOption('');
     setMatchSelections({});
     setShowEmptyError(false);
     inputRef.current?.focus();
-  }, [prompt.id]);
+  }, [prompt.id, demoPrefillAnswer]);
 
   const handleSubmit = () => {
     if (isMatchFollowing) {
@@ -273,6 +276,7 @@ export function PracticeQuestionScreen({
             }
             rows={isTextProduction ? 4 : 2}
             warning={showEmptyError}
+            data-demo-target="practice-answer-input"
           />
         </div>
       )}
@@ -283,6 +287,7 @@ export function PracticeQuestionScreen({
 
       {feedback && !feedback.grading && (
         <div
+          data-demo-target="practice-feedback"
           className={[
             'mt-l rounded-card border px-m py-m',
             feedback.correct
@@ -330,7 +335,7 @@ export function PracticeQuestionScreen({
             {questionNumber >= totalQuestions ? 'Finish Session →' : 'Next Question →'}
           </PrimaryButton>
         ) : (
-          <PrimaryButton onClick={handleSubmit} loading={isChecking}>
+          <PrimaryButton onClick={handleSubmit} loading={isChecking} data-demo-target="practice-submit">
             {isTextProduction ? 'Submit' : 'Submit'}
           </PrimaryButton>
         )}

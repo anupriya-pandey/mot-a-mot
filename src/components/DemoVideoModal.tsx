@@ -19,6 +19,14 @@ interface DemoOverlay {
   cursor: { left: number; top: number };
 }
 
+/** Pronounce Mot-à-Mot as "mo ah mo" instead of spelling letters in TTS */
+function prepareNarration(text: string): string {
+  return text
+    .replace(/Mot-à-Mot/g, 'Mo ah mo')
+    .replace(/Mot à Mot/g, 'Mo ah mo')
+    .replace(/\bN A\b/g, 'N/A');
+}
+
 function speakText(text: string): Promise<void> {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
@@ -27,7 +35,7 @@ function speakText(text: string): Promise<void> {
     }
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(prepareNarration(text));
     utterance.lang = 'en-US';
     utterance.rate = 0.95;
     utterance.onend = () => resolve();
@@ -86,53 +94,61 @@ function DemoCursor({
   );
 }
 
-function useDemoOverlay(containerRef: React.RefObject<HTMLDivElement | null>, step?: DemoFlowStep) {
+function useDemoOverlay(
+  stageRef: React.RefObject<HTMLDivElement | null>,
+  scrollRef: React.RefObject<HTMLDivElement | null>,
+  step?: DemoFlowStep,
+) {
   const [overlay, setOverlay] = useState<DemoOverlay | null>(null);
 
   useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container || !step?.target) {
+    const stage = stageRef.current;
+    if (!stage || !step?.target) {
       setOverlay(null);
       return;
     }
 
     const measure = () => {
-      const currentContainer = containerRef.current;
-      if (!currentContainer) return;
+      const currentStage = stageRef.current;
+      if (!currentStage) return;
 
-      const target = currentContainer.querySelector(`[data-demo-target="${step.target}"]`);
+      const target = currentStage.querySelector(`[data-demo-target="${step.target}"]`);
       if (!(target instanceof HTMLElement)) {
         setOverlay(null);
         return;
       }
 
-      const containerRect = currentContainer.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
+      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
 
-      setOverlay({
-        highlight: {
-          left: targetRect.left - containerRect.left - 2,
-          top: targetRect.top - containerRect.top - 2,
-          width: targetRect.width + 4,
-          height: targetRect.height + 4,
-        },
-        cursor: {
-          left: targetRect.left - containerRect.left + targetRect.width * 0.72,
-          top: targetRect.top - containerRect.top + targetRect.height * 0.58,
-        },
-      });
+      window.setTimeout(() => {
+        const stageRect = currentStage.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+
+        setOverlay({
+          highlight: {
+            left: targetRect.left - stageRect.left - 2,
+            top: targetRect.top - stageRect.top - 2,
+            width: targetRect.width + 4,
+            height: targetRect.height + 4,
+          },
+          cursor: {
+            left: targetRect.left - stageRect.left + targetRect.width * 0.72,
+            top: targetRect.top - stageRect.top + targetRect.height * 0.58,
+          },
+        });
+      }, 280);
     };
 
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(container);
+    observer.observe(stage);
     window.addEventListener('resize', measure);
 
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [containerRef, step?.target, step?.id]);
+  }, [stageRef, scrollRef, step?.target, step?.id, step?.view]);
 
   return overlay;
 }
@@ -144,10 +160,11 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
   const [showClick, setShowClick] = useState(false);
   const runIdRef = useRef(0);
   const stageRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const flow = selectedTab ? DEMO_FLOWS[selectedTab] : null;
   const currentStep = flow?.steps[stepIndex];
-  const overlay = useDemoOverlay(stageRef, currentStep);
+  const overlay = useDemoOverlay(stageRef, scrollRef, currentStep);
 
   const handleClose = useCallback(() => {
     runIdRef.current += 1;
@@ -162,7 +179,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
     setStepIndex(index);
     setShowClick(false);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 500));
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
     if (runIdRef.current !== runId) return;
 
     if (step.click) {
@@ -292,7 +309,13 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
 
             <div className="overflow-hidden rounded-card border border-border bg-[#111827] shadow-card">
               <div ref={stageRef} className="relative aspect-video w-full overflow-hidden">
-                <DemoMockScreen tab={selectedTab} stepId={currentStep?.id ?? ''} />
+                {currentStep && selectedTab && (
+                  <DemoMockScreen
+                    tab={selectedTab}
+                    step={currentStep}
+                    scrollRef={scrollRef}
+                  />
+                )}
                 {overlay && currentStep && (
                   <DemoCursor overlay={overlay} showClick={showClick} />
                 )}

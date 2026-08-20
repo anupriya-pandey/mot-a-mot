@@ -35,12 +35,13 @@ export function HistoryScreen({ entries, onSelectEntry }: HistoryScreenProps) {
           {HISTORY_EMPTY}
         </p>
       ) : (
-        <ul className="space-y-s">
-          {entries.map((entry) => (
+        <ul className="space-y-s" data-demo-target="history-list">
+          {entries.map((entry, index) => (
             <li key={entry.id}>
               <button
                 type="button"
                 onClick={() => onSelectEntry(entry)}
+                data-demo-target={index === 0 ? 'history-entry' : undefined}
                 className="flex w-full items-center gap-m rounded-card bg-surface p-l text-left shadow-card transition-colors hover:bg-primary-light"
               >
                 <div className="min-w-0 flex-1">

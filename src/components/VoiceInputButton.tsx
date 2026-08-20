@@ -4,9 +4,10 @@ interface VoiceInputButtonProps {
   isListening: boolean;
   isSupported: boolean;
   onClick: () => void;
+  'data-demo-target'?: string;
 }
 
-export function VoiceInputButton({ isListening, isSupported, onClick }: VoiceInputButtonProps) {
+export function VoiceInputButton({ isListening, isSupported, onClick, 'data-demo-target': demoTarget }: VoiceInputButtonProps) {
   const Icon = !isSupported ? MicOff : isListening ? Loader2 : Mic;
 
   return (
@@ -14,6 +15,7 @@ export function VoiceInputButton({ isListening, isSupported, onClick }: VoiceInp
       type="button"
       onClick={onClick}
       disabled={!isSupported}
+      data-demo-target={demoTarget}
       aria-label={isListening ? 'Stop listening' : 'Start voice input'}
       className={[
         'absolute bottom-3 right-3 rounded-full p-2 transition-colors duration-interaction',

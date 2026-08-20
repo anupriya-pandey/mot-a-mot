@@ -70,11 +70,12 @@ export function ToolboxScreen({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search entries…"
           aria-label="Search toolbox entries"
+          data-demo-target="toolbox-search"
           className="w-full rounded-input border border-border bg-surface py-3 pl-xxl pr-m text-base text-text-primary placeholder:text-text-secondary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
 
-      <SecondaryButton onClick={onImport} className="mb-s">
+      <SecondaryButton onClick={onImport} className="mb-s" data-demo-target="toolbox-import">
         Import to Toolbox
       </SecondaryButton>
 
@@ -83,6 +84,7 @@ export function ToolboxScreen({
           onClick={() => setExportMenuOpen((open) => !open)}
           className="w-full"
           disabled={entries.length === 0}
+          data-demo-target="toolbox-export-all"
         >
           <span className="inline-flex items-center justify-center gap-s">
             <Download className="h-4 w-4" aria-hidden />

@@ -90,6 +90,7 @@ export function LandingScreen({
             <TextInput
               ref={inputRef}
               id="french-input"
+              data-demo-target="check-input"
               value={sentence}
               onChange={(event) => handleChange(event.target.value)}
               onKeyDown={(event) => {
@@ -105,6 +106,7 @@ export function LandingScreen({
               }
             />
             <VoiceInputButton
+              data-demo-target="check-voice"
               isListening={isListening || isRequestingPermission}
               isSupported={isSupported}
               onClick={handleVoiceClick}
@@ -143,7 +145,7 @@ export function LandingScreen({
             </div>
           )}
 
-          <PrimaryButton onClick={handleSubmit} loading={isSubmitting}>
+          <PrimaryButton onClick={handleSubmit} loading={isSubmitting} data-demo-target="check-submit">
             Check My French
           </PrimaryButton>
         </div>

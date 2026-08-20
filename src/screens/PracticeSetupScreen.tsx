@@ -52,7 +52,7 @@ export function PracticeSetupScreen({
       <p className="mt-xs text-sm text-text-secondary">{stageTitle}</p>
       <p className="mt-m text-base leading-relaxed text-text-secondary">{PRACTICE_SETUP_SUBTITLE}</p>
 
-      <div className="mt-l flex flex-wrap gap-s">
+      <div className="mt-l flex flex-wrap gap-s" data-demo-target="practice-setup">
         {FILTER_OPTIONS.map((option) => {
           const count =
             option.value === 'all'
@@ -91,7 +91,7 @@ export function PracticeSetupScreen({
       )}
 
       <div className="mt-xl">
-        <PrimaryButton onClick={() => onStart(focusCategory)} loading={isStarting}>
+        <PrimaryButton onClick={() => onStart(focusCategory)} loading={isStarting} data-demo-target="practice-begin-session">
           Begin Session
         </PrimaryButton>
       </div>

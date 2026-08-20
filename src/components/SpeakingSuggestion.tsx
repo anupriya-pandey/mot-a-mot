@@ -20,7 +20,7 @@ export function SpeakingSuggestion({
   return (
     <div className="space-y-m">
       <SuggestedMessageCard sentence={sentence} english={english} />
-      <div className="rounded-card bg-surface p-m shadow-card">
+      <div className="rounded-card bg-surface p-m shadow-card" data-demo-target="check-changes-carousel">
         <StyleChangesCarousel
           changes={getChangesForSpeaking(changes)}
           styleLabel={EVERYDAY_FRENCH_SUBTITLE}

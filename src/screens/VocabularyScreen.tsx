@@ -42,6 +42,7 @@ export function VocabularyScreen({ category, entries, onBack, onDeleteEntry }: V
           onClick={() => setExportMenuOpen((open) => !open)}
           className="w-full"
           disabled={entries.length === 0}
+          data-demo-target="toolbox-export-category"
         >
           <span className="inline-flex items-center justify-center gap-s">
             <Download className="h-4 w-4" aria-hidden />
@@ -80,12 +81,13 @@ export function VocabularyScreen({ category, entries, onBack, onDeleteEntry }: V
         </p>
       ) : (
         <div className="space-y-m">
-          {entries.map((entry) => (
+          {entries.map((entry, index) => (
+            <div key={`${entry.lemma}-${entry.meaning}-${entry.partOfSpeech}`} data-demo-target={index === 0 ? 'toolbox-card-forms' : undefined}>
             <VocabularyListItem
-              key={`${entry.lemma}-${entry.meaning}-${entry.partOfSpeech}`}
               entry={entry}
               onDelete={onDeleteEntry}
             />
+            </div>
           ))}
         </div>
       )}

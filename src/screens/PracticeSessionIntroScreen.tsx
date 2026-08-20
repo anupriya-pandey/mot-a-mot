@@ -49,7 +49,9 @@ export function PracticeSessionIntroScreen({
         <p className="mt-m text-sm leading-relaxed text-text-secondary">{introCopy}</p>
 
         <div className="mt-xl">
-          <PrimaryButton onClick={onStart}>Start</PrimaryButton>
+          <PrimaryButton onClick={onStart} data-demo-target="practice-session-start">
+            Start
+          </PrimaryButton>
         </div>
       </section>
     </div>
