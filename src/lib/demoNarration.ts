@@ -155,8 +155,8 @@ function buildSegmentSpeech(
     text: segment.text.trim(),
     lang: 'en-US',
     voice: englishVoice,
-    rate: 1.18,
-    pitch: 1.28,
+    rate: 1.22,
+    pitch: 1.26,
   };
 }
 
