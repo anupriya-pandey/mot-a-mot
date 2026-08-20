@@ -154,7 +154,22 @@ export function gradePracticeAnswer(userAnswer: string, prompt: PracticePrompt):
   if (prompt.type === 'match_following') {
     return gradeMatchFollowing(userAnswer, prompt);
   }
-  if (prompt.type === 'fill_blank') {
+  if (prompt.type === 'find_errors_multi' || prompt.multiSelect) {
+    const expected = prompt.correctAnswer
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .sort()
+      .join(',');
+    const actual = userAnswer
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .sort()
+      .join(',');
+    return expected.length > 0 && expected === actual;
+  }
+  if (prompt.type === 'fill_blank' || prompt.type === 'adjective_transform') {
     return getAcceptedFillAnswers(prompt).some((answer) => answersMatch(userAnswer, answer));
   }
   return answersMatch(userAnswer, prompt.correctAnswer);
@@ -282,7 +297,14 @@ export function getCorrectAnswerDisplay(prompt: PracticePrompt): string {
     }
   }
 
-  if (prompt.type === 'fill_blank') {
+  if (prompt.type === 'find_errors_multi' && prompt.options) {
+    const ids = prompt.correctAnswer.split(',').map((id) => id.trim());
+    return ids
+      .map((id) => prompt.options?.find((option) => option.id === id)?.text ?? id)
+      .join(' · ');
+  }
+
+  if (prompt.type === 'fill_blank' || prompt.type === 'adjective_transform') {
     const uniqueAnswers = [...new Set(getAcceptedFillAnswers(prompt))];
     if (uniqueAnswers.length > 1) {
       return uniqueAnswers.join(' or ');

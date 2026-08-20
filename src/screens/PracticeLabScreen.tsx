@@ -227,7 +227,7 @@ export function PracticeLabScreen({
                   key={stage.id}
                   data-demo-target={
                     stage.id === 'quick'
-                      ? 'practice-stage-spot-match'
+                      ? 'practice-stage-french-skills'
                       : stage.id === 'sentence'
                         ? 'practice-stage-write'
                         : undefined
@@ -244,7 +244,7 @@ export function PracticeLabScreen({
                     unlocked={isStageUnlocked(stage.id, totalEntries, readiness)}
                     onSelect={() => onSelectStage(stage.id)}
                     startDemoTarget={
-                      stage.id === 'quick' ? 'practice-stage-spot-match-start' : undefined
+                      stage.id === 'quick' ? 'practice-stage-french-skills-start' : undefined
                     }
                   />
                 </div>

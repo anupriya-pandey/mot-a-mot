@@ -29,7 +29,11 @@ export const PRACTICE_COMING_SOON = 'Coming soon';
 export const PRACTICE_SETUP_TITLE = 'Focus your session';
 
 export const PRACTICE_SETUP_SUBTITLE =
-  'Choose a grammatical area to emphasize. Questions will spread across verb forms and adjective agreements.';
+  'Choose a grammatical area to emphasise and how many questions you want to tackle.';
+
+export const PRACTICE_LENGTH_TITLE = 'How many questions?';
+
+export const PRACTICE_LENGTH_OPTIONS = [5, 10, 15, 20, 25, 30] as const;
 
 export const PRACTICE_FOCUS_ALL = 'All categories';
 
@@ -46,7 +50,7 @@ export const PRACTICE_SUMMARY_CORRECT = 'Correct answers';
 export const PRACTICE_SUMMARY_FULL_CREDIT = 'Full credit (1.0)';
 
 export const PRACTICE_SUMMARY_ENDED_EARLY =
-  'You ended the session early — unanswered questions count as 0 toward your score out of 10.';
+  'You ended the session early — unanswered questions count as 0 toward your score.';
 
 export const PRACTICE_SUMMARY_SCORE = 'Session score';
 
@@ -56,7 +60,7 @@ export const PRACTICE_SUMMARY_SCORE_NOTE =
 export const PRACTICE_END_SESSION = 'End session';
 
 export const PRACTICE_END_SESSION_NOTE =
-  'Your score will be out of 10 based on the questions you completed.';
+  'Your score is based on the questions you completed in this session.';
 
 export const PRACTICE_WRITING_YOUR_ANSWER = 'Your answer';
 
@@ -99,7 +103,7 @@ export const PRACTICE_STAGE_LOCKED =
   'Keep growing your toolbox to unlock this mode.';
 
 export const PRACTICE_QUICK_INTRO =
-  'Five Spot & Match exercises — fill-in-the-blank, matching, match-the-following, error spotting, and multiple choice. Instant feedback after each question.';
+  'French Skills tests what you\'ve built — gender, conjugation, meaning, grammar, expressions, fill-in-the-blank, matching, and find-the-errors. Instant feedback after each question.';
 
 export const PRACTICE_SENTENCE_INTRO =
   'Ten Write in French exercises — translation (English→French, scored 0 or 1), French Q&A, and building cohesive sentences with toolbox words.';

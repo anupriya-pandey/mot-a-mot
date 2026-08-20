@@ -52,6 +52,7 @@ import type { ImportApplyResult, ImportReviewData } from './types/import';
 import type {
   PracticeFocusFilter,
   PracticeQuestionResult,
+  PracticeSessionLength,
   PracticeSessionPlan,
   PracticeSessionSummary,
   PracticeStageId,
@@ -401,7 +402,7 @@ function MotAMotApp() {
   }, [resetPractice]);
 
   const handleStartPracticeSession = useCallback(
-    async (focusCategory: PracticeFocusFilter) => {
+    async (focusCategory: PracticeFocusFilter, questionCount?: PracticeSessionLength) => {
       if (!selectedPracticeStage) return;
 
       setPracticeError(null);
@@ -413,6 +414,7 @@ function MotAMotApp() {
         const session = await createPracticeSession(toolbox.entries, {
           stage: selectedPracticeStage,
           focusCategory,
+          questionCount: selectedPracticeStage === 'quick' ? questionCount ?? 10 : undefined,
           completedQuestionIds: getCompletedQuestionIds(),
         });
         setPracticeSession(session);
@@ -627,7 +629,9 @@ function MotAMotApp() {
           stageTitle={stageMeta?.title ?? 'Practice'}
           categoryCounts={toolbox.counts}
           onBack={handleBackFromPracticeSetup}
-          onStart={(focusCategory) => void handleStartPracticeSession(focusCategory)}
+          onStart={(focusCategory, questionCount) =>
+            void handleStartPracticeSession(focusCategory, questionCount)
+          }
           isStarting={isStartingPractice}
           error={practiceError}
         />

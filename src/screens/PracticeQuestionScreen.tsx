@@ -33,14 +33,30 @@ function exerciseTypeLabel(type: PracticePrompt['type']): string {
   switch (type) {
     case 'fill_blank':
       return 'Fill in the blank';
+    case 'adjective_transform':
+      return 'Adjective form';
     case 'match_meaning':
-      return 'Match the meaning';
+    case 'mcq_meaning':
+      return 'Word meaning';
     case 'match_following':
-      return 'Match the following';
+      return 'Matching';
     case 'find_error':
       return 'Find the error';
+    case 'find_errors_multi':
+      return 'Find every error';
     case 'multiple_choice':
-      return 'Multiple choice';
+    case 'mcq_conjugation':
+      return 'Conjugation';
+    case 'mcq_verb_meaning':
+      return 'Verb meaning';
+    case 'mcq_pronoun':
+      return 'Subject pronoun';
+    case 'mcq_grammar':
+      return 'Grammar';
+    case 'mcq_expression':
+      return 'Expression';
+    case 'noun_gender':
+      return 'Noun gender';
     case 'translation':
       return 'Translation';
     case 'question_answer':
@@ -51,6 +67,19 @@ function exerciseTypeLabel(type: PracticePrompt['type']): string {
       return 'Practice';
   }
 }
+
+const CHOICE_EXERCISE_TYPES = new Set<PracticePrompt['type']>([
+  'multiple_choice',
+  'match_meaning',
+  'find_error',
+  'noun_gender',
+  'mcq_conjugation',
+  'mcq_verb_meaning',
+  'mcq_pronoun',
+  'mcq_meaning',
+  'mcq_grammar',
+  'mcq_expression',
+]);
 
 export function PracticeQuestionScreen({
   prompt,
@@ -65,14 +94,13 @@ export function PracticeQuestionScreen({
 }: PracticeQuestionScreenProps) {
   const [answer, setAnswer] = useState(demoPrefillAnswer ?? '');
   const [selectedOption, setSelectedOption] = useState('');
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [matchSelections, setMatchSelections] = useState<Record<string, string>>({});
   const [showEmptyError, setShowEmptyError] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const isChoiceType =
-    prompt.type === 'multiple_choice' ||
-    prompt.type === 'match_meaning' ||
-    prompt.type === 'find_error';
+  const isChoiceType = CHOICE_EXERCISE_TYPES.has(prompt.type);
+  const isMultiSelect = prompt.type === 'find_errors_multi' || Boolean(prompt.multiSelect);
   const isMatchFollowing = prompt.type === 'match_following';
   const isTextProduction =
     prompt.type === 'translation' ||
@@ -93,6 +121,7 @@ export function PracticeQuestionScreen({
   useEffect(() => {
     setAnswer(demoPrefillAnswer ?? '');
     setSelectedOption('');
+    setSelectedOptions([]);
     setMatchSelections({});
     setShowEmptyError(false);
     inputRef.current?.focus();
@@ -108,6 +137,16 @@ export function PracticeQuestionScreen({
       }
       setShowEmptyError(false);
       onSubmit(JSON.stringify(matchSelections));
+      return;
+    }
+
+    if (isMultiSelect) {
+      if (selectedOptions.length === 0) {
+        setShowEmptyError(true);
+        return;
+      }
+      setShowEmptyError(false);
+      onSubmit(selectedOptions.sort().join(','));
       return;
     }
 
@@ -204,6 +243,47 @@ export function PracticeQuestionScreen({
         </p>
       )}
 
+      {prompt.flawedPassage && (
+        <div className="mt-m space-y-s rounded-lg border border-warning/30 bg-warning/5 px-m py-s text-lg text-text-primary">
+          {prompt.flawedPassage.split('\n').map((line) => (
+            <p key={line}>{sanitizeFrenchDisplayText(line)}</p>
+          ))}
+        </div>
+      )}
+
+      {!feedback && isMultiSelect && choiceOptions.length > 0 && (
+        <fieldset className="mt-l space-y-s">
+          <legend className="sr-only">Select every error</legend>
+          {choiceOptions.map((option) => (
+            <label
+              key={option.id}
+              className={[
+                'flex cursor-pointer items-start gap-m rounded-card border px-m py-s',
+                selectedOptions.includes(option.id)
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-surface',
+              ].join(' ')}
+            >
+              <input
+                type="checkbox"
+                value={option.id}
+                checked={selectedOptions.includes(option.id)}
+                onChange={() => {
+                  setSelectedOptions((current) =>
+                    current.includes(option.id)
+                      ? current.filter((id) => id !== option.id)
+                      : [...current, option.id],
+                  );
+                  setShowEmptyError(false);
+                }}
+                className="mt-1"
+              />
+              <span className="text-base text-text-primary">{option.text}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+
       {!feedback && isMatchFollowing && prompt.matchRows && (
         <div className="mt-l space-y-m">
           {prompt.matchRows.map((row) => (
@@ -232,7 +312,7 @@ export function PracticeQuestionScreen({
         </div>
       )}
 
-      {!feedback && isChoiceType && choiceOptions.length > 0 && (
+      {!feedback && isChoiceType && !isMultiSelect && choiceOptions.length > 0 && (
         <fieldset className="mt-l space-y-s">
           <legend className="sr-only">Choose an answer</legend>
           {choiceOptions.map((option) => (
@@ -262,7 +342,7 @@ export function PracticeQuestionScreen({
         </fieldset>
       )}
 
-      {!feedback && !isChoiceType && !isMatchFollowing && (
+      {!feedback && !isChoiceType && !isMultiSelect && !isMatchFollowing && (
         <div className="mt-l">
           <TextInput
             ref={inputRef}
