@@ -1,8 +1,9 @@
-import { Plus, X } from 'lucide-react';
+import { Plus, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   TOOLBOX_GROW_BODY,
   TOOLBOX_GROW_EMPTY,
+  TOOLBOX_GROW_REFRESH,
   TOOLBOX_GROW_TAGLINE,
   TOOLBOX_GROW_TITLE,
 } from '../constants/microcopy';
@@ -13,9 +14,9 @@ import {
 } from '../lib/toolboxRecommendationStorage';
 import {
   RECOMMENDATION_SLOT_COUNT,
+  fillToolboxRecommendations,
   getNextToolboxRecommendation,
   isRecommendationInToolbox,
-  rankToolboxRecommendations,
   recommendationKey,
 } from '../lib/toolboxRecommendations';
 import type { VocabularyItem } from '../types/analysis';
@@ -31,39 +32,51 @@ interface ToolboxStretchWordsProps {
   demoItems?: VocabularyItem[];
 }
 
-function refillVisible(
-  current: VocabularyItem[],
+function buildRecommendationList(
   entries: VocabularyEntry[],
   counts: CategoryCounts,
   totalCount: number,
   readinessScore: number,
   dismissed: Set<string>,
+  sessionExcluded: Set<string>,
 ): VocabularyItem[] {
-  const excluded = new Set<string>([
-    ...dismissed,
-    ...current.map((item) => recommendationKey(item)),
-  ]);
-
-  const kept = current.filter(
-    (item) => !dismissed.has(recommendationKey(item)) && !isRecommendationInToolbox(item, entries),
+  return fillToolboxRecommendations(
+    entries,
+    counts,
+    totalCount,
+    readinessScore,
+    dismissed,
+    sessionExcluded,
+    RECOMMENDATION_SLOT_COUNT,
   );
+}
 
-  const next = [...kept];
-  while (next.length < RECOMMENDATION_SLOT_COUNT) {
-    const candidate = getNextToolboxRecommendation(
-      entries,
-      counts,
-      totalCount,
-      readinessScore,
-      dismissed,
-      new Set([...excluded, ...next.map((item) => recommendationKey(item))]),
-    );
-    if (!candidate) break;
-    next.push(candidate);
-    excluded.add(recommendationKey(candidate));
-  }
-
-  return next.slice(0, RECOMMENDATION_SLOT_COUNT);
+function replaceSlot(
+  current: VocabularyItem[],
+  removedKey: string,
+  entries: VocabularyEntry[],
+  counts: CategoryCounts,
+  totalCount: number,
+  readinessScore: number,
+  dismissed: Set<string>,
+  sessionExcluded: Set<string>,
+): VocabularyItem[] {
+  const withoutRemoved = current.filter((item) => recommendationKey(item) !== removedKey);
+  const excluded = new Set([
+    ...sessionExcluded,
+    ...dismissed,
+    ...withoutRemoved.map((item) => recommendationKey(item)),
+  ]);
+  const candidate = getNextToolboxRecommendation(
+    entries,
+    counts,
+    totalCount,
+    readinessScore,
+    dismissed,
+    excluded,
+  );
+  if (!candidate) return withoutRemoved;
+  return [...withoutRemoved, candidate].slice(0, RECOMMENDATION_SLOT_COUNT);
 }
 
 export function ToolboxStretchWords({
@@ -81,6 +94,7 @@ export function ToolboxStretchWords({
   const [dismissed, setDismissed] = useState<Set<string>>(() =>
     demoItems ? new Set() : loadDismissedRecommendations(),
   );
+  const [sessionExcluded, setSessionExcluded] = useState<Set<string>>(() => new Set());
 
   const [visible, setVisible] = useState<VocabularyItem[]>(() => {
     if (demoItems) {
@@ -88,12 +102,13 @@ export function ToolboxStretchWords({
         .filter((item) => !isRecommendationInToolbox(item, entries))
         .slice(0, RECOMMENDATION_SLOT_COUNT);
     }
-    return rankToolboxRecommendations(
+    return buildRecommendationList(
       entries,
       counts,
       totalCount,
       readiness.score,
       dismissed,
+      sessionExcluded,
     );
   });
 
@@ -107,17 +122,59 @@ export function ToolboxStretchWords({
       return;
     }
 
-    setVisible((current) =>
-      refillVisible(current, entries, counts, totalCount, readiness.score, dismissed),
-    );
-  }, [counts, demoItems, dismissed, entries, readiness.score, totalCount]);
+    setVisible((current) => {
+      const kept = current.filter(
+        (item) =>
+          !dismissed.has(recommendationKey(item)) && !isRecommendationInToolbox(item, entries),
+      );
+      if (kept.length >= RECOMMENDATION_SLOT_COUNT) {
+        return kept.slice(0, RECOMMENDATION_SLOT_COUNT);
+      }
+      const excluded = new Set([
+        ...sessionExcluded,
+        ...dismissed,
+        ...kept.map((item) => recommendationKey(item)),
+      ]);
+      const refill = fillToolboxRecommendations(
+        entries,
+        counts,
+        totalCount,
+        readiness.score,
+        dismissed,
+        excluded,
+        RECOMMENDATION_SLOT_COUNT - kept.length,
+      );
+      return [...kept, ...refill].slice(0, RECOMMENDATION_SLOT_COUNT);
+    });
+  }, [counts, demoItems, dismissed, entries, readiness.score, sessionExcluded, totalCount]);
 
-  const displayed = visible.filter(
-    (item) =>
-      !dismissed.has(recommendationKey(item)) && !isRecommendationInToolbox(item, entries),
-  );
+  const handleRefresh = useCallback(() => {
+    if (demoItems) {
+      setVisible(
+        demoItems
+          .filter((item) => !isRecommendationInToolbox(item, entries))
+          .slice(0, RECOMMENDATION_SLOT_COUNT),
+      );
+      return;
+    }
 
-  const replaceSlot = useCallback(
+    setSessionExcluded((previous) => {
+      const nextExcluded = new Set([...previous, ...visible.map((item) => recommendationKey(item))]);
+      setVisible(
+        buildRecommendationList(
+          entries,
+          counts,
+          totalCount,
+          readiness.score,
+          dismissed,
+          nextExcluded,
+        ),
+      );
+      return nextExcluded;
+    });
+  }, [counts, demoItems, dismissed, entries, readiness.score, totalCount, visible]);
+
+  const handleReplace = useCallback(
     (removedKey: string, nextDismissed: Set<string>) => {
       if (demoItems) {
         setVisible((current) => {
@@ -134,30 +191,25 @@ export function ToolboxStretchWords({
         return;
       }
 
-      setVisible((current) => {
-        const withoutRemoved = current.filter((item) => recommendationKey(item) !== removedKey);
-        const excluded = new Set([
-          ...nextDismissed,
-          ...withoutRemoved.map((item) => recommendationKey(item)),
-        ]);
-        const candidate = getNextToolboxRecommendation(
+      setVisible((current) =>
+        replaceSlot(
+          current,
+          removedKey,
           entries,
           counts,
           totalCount,
           readiness.score,
           nextDismissed,
-          excluded,
-        );
-        if (!candidate) return withoutRemoved;
-        return [...withoutRemoved, candidate].slice(0, RECOMMENDATION_SLOT_COUNT);
-      });
+          sessionExcluded,
+        ),
+      );
     },
-    [counts, demoItems, entries, readiness.score, totalCount],
+    [counts, demoItems, entries, readiness.score, sessionExcluded, totalCount],
   );
 
   const handleAdd = (item: VocabularyItem) => {
     onAdd(item);
-    replaceSlot(recommendationKey(item), dismissed);
+    handleReplace(recommendationKey(item), dismissed);
   };
 
   const handleDismiss = (item: VocabularyItem) => {
@@ -167,10 +219,10 @@ export function ToolboxStretchWords({
     if (!demoItems) {
       saveDismissedRecommendations(nextDismissed);
     }
-    replaceSlot(key, nextDismissed);
+    handleReplace(key, nextDismissed);
   };
 
-  if (displayed.length === 0) {
+  if (visible.length === 0) {
     return (
       <section
         className="mt-l rounded-card bg-surface p-l shadow-card"
@@ -191,13 +243,29 @@ export function ToolboxStretchWords({
       aria-labelledby="toolbox-grow"
       data-demo-target="toolbox-recommendations"
     >
-      <h2 id="toolbox-grow" className="text-lg font-semibold text-text-primary">
-        {TOOLBOX_GROW_TITLE}
-      </h2>
-      <p className="mt-xs text-sm text-text-primary">{TOOLBOX_GROW_TAGLINE}</p>
-      <p className="mt-xs text-sm text-text-secondary">{TOOLBOX_GROW_BODY}</p>
+      <div className="flex flex-wrap items-start justify-between gap-s">
+        <div>
+          <h2 id="toolbox-grow" className="text-lg font-semibold text-text-primary">
+            {TOOLBOX_GROW_TITLE}
+          </h2>
+          <p className="mt-xs text-sm text-text-primary">{TOOLBOX_GROW_TAGLINE}</p>
+          <p className="mt-xs text-sm text-text-secondary">{TOOLBOX_GROW_BODY}</p>
+        </div>
+        {!demoItems && (
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-xs rounded-button border border-border px-m py-xs text-sm font-medium text-text-secondary transition-colors hover:bg-background hover:text-text-primary"
+            aria-label={TOOLBOX_GROW_REFRESH}
+            data-demo-target="toolbox-recommendation-refresh"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden />
+            {TOOLBOX_GROW_REFRESH}
+          </button>
+        )}
+      </div>
       <ul className="mt-m space-y-s">
-        {displayed.map((item, index) => {
+        {visible.map((item, index) => {
           const key = recommendationKey(item);
           const isDemoHighlight = Boolean(demoItems) && index === 0;
 

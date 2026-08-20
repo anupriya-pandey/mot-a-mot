@@ -43,6 +43,7 @@ export const TOOLBOX_GROW_TITLE = '🌱 Grow Your Toolbox';
 export const TOOLBOX_GROW_TAGLINE = 'Discover French that fits what you already know.';
 export const TOOLBOX_GROW_BODY =
   'Based on your current vocabulary, here are 10 words worth adding next.';
+export const TOOLBOX_GROW_REFRESH = 'Refresh suggestions';
 export const TOOLBOX_GROW_EMPTY =
   'You\'ve reviewed every word we had for now. Keep checking sentences and importing notes — new picks will appear as your toolbox grows.';
 
