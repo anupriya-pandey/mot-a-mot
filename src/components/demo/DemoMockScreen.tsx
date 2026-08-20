@@ -20,6 +20,7 @@ import {
 import type { DemoFlowStep } from '../../constants/demoFlow';
 import type { DemoTabId } from '../../constants/homeMicrocopy';
 import { IMPORT_LOADING_MESSAGES } from '../../constants/importMicrocopy';
+import { PRACTICE_STAGES } from '../../constants/practiceStages';
 import { HistoryScreen } from '../../screens/HistoryScreen';
 import { ImportReviewScreen } from '../../screens/ImportReviewScreen';
 import { ImportSuccessScreen } from '../../screens/ImportSuccessScreen';
@@ -167,11 +168,13 @@ function renderToolboxView(step: DemoFlowStep) {
 }
 
 function renderPracticeView(step: DemoFlowStep) {
+  const spotAndMatchStage = PRACTICE_STAGES.find((stage) => stage.id === 'quick');
+
   if (step.view === 'practice-setup') {
     return (
       <PracticeSetupScreen
         stageId="quick"
-        stageTitle="Quick drills"
+        stageTitle={spotAndMatchStage?.title ?? 'Spot & Match'}
         categoryCounts={DEMO_TOOLBOX_COUNTS}
         onBack={DEMO_NOOP}
         onStart={DEMO_NOOP}
@@ -301,8 +304,10 @@ export function DemoMockScreen({ tab, step, scrollRef, lockScroll = false }: Dem
   }, [tab, step]);
 
   return (
-    <DemoScaledViewport scrollRef={scrollRef} lockScroll={lockScroll}>
-      <DemoChrome tab={tab}>{content}</DemoChrome>
+    <DemoScaledViewport scrollRef={scrollRef} lockScroll={lockScroll} viewKey={step.view}>
+      <div key={step.view} className="demo-view-enter">
+        <DemoChrome tab={tab}>{content}</DemoChrome>
+      </div>
     </DemoScaledViewport>
   );
 }

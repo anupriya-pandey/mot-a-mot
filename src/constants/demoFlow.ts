@@ -12,13 +12,25 @@ export interface DemoFlowStep {
 
 export interface DemoFlow {
   title: string;
+  description: string;
   steps: DemoFlowStep[];
 }
 
 export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   check: {
     title: 'Check my French',
+    description:
+      'Type or speak a sentence and get clear corrections, ratings, and explanations in seconds.',
     steps: [
+      {
+        id: 'check-intro',
+        view: 'check-landing-filled',
+        target: 'check-input',
+        caption: 'What Check my French does',
+        narration:
+          'Check my French lets you type or speak a sentence and get clear corrections, ratings, and explanations in seconds.',
+        durationMs: 4800,
+      },
       {
         id: 'check-type',
         view: 'check-landing-typing',
@@ -106,9 +118,9 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         id: 'check-copy',
         view: 'check-results',
         target: 'check-copy',
-        caption: 'Copy and send with confidence.',
+        caption: 'Check another sentence.',
         narration:
-          'When you are ready, copy the version you want and paste it into your messaging app.',
+          'Done with this correction? Tap Check Another Sentence to go back and try a new French sentence.',
         durationMs: 4600,
         click: true,
       },
@@ -116,7 +128,18 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   },
   toolbox: {
     title: 'French Toolbox',
+    description:
+      'Your personal vocabulary grows automatically from every check and import — organised by grammar.',
     steps: [
+      {
+        id: 'toolbox-intro',
+        view: 'toolbox-main',
+        target: 'toolbox-search',
+        caption: 'What your French Toolbox does',
+        narration:
+          'Your French Toolbox stores every word you collect from checks and imports, organised by grammar so you can search, export, and manage your vocabulary.',
+        durationMs: 5200,
+      },
       {
         id: 'toolbox-search',
         view: 'toolbox-main',
@@ -271,7 +294,18 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   },
   practice: {
     title: 'Practice Lab',
+    description:
+      'Short Spot and Match exercises built from your own words so you reinforce what you actually use.',
     steps: [
+      {
+        id: 'practice-intro-tab',
+        view: 'practice-ready',
+        target: 'practice-readiness',
+        caption: 'What Practice Lab does',
+        narration:
+          'Practice Lab turns your toolbox into short Spot and Match exercises built from your own words, so you reinforce what you actually use.',
+        durationMs: 5200,
+      },
       {
         id: 'practice-ready',
         view: 'practice-ready',
@@ -285,9 +319,9 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         id: 'practice-start-stage',
         view: 'practice-ready',
         target: 'practice-stage-start',
-        caption: 'Choose Quick drills.',
+        caption: 'Choose Spot and Match.',
         narration:
-          'Pick a practice stage like Quick drills and tap Start.',
+          'Pick Spot and Match and tap Start to begin fill-in-the-blank and matching drills from your toolbox.',
         durationMs: 4600,
         click: true,
       },
@@ -371,6 +405,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   },
   history: {
     title: 'History',
+    description: 'Revisit past checks anytime and track how your French is improving.',
     steps: [
       {
         id: 'history-list',

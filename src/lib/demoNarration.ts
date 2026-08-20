@@ -5,6 +5,8 @@ export type NarrationSegment =
   | { kind: 'fr'; text: string }
   | { kind: 'brand' };
 
+let narrationGeneration = 0;
+
 function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
@@ -94,71 +96,103 @@ export function parseDemoNarration(text: string): NarrationSegment[] {
   return segments.length > 0 ? segments : [{ kind: 'en', text }];
 }
 
-function buildUtterance(
+function speakUtterance(
+  text: string,
+  options: {
+    lang: string;
+    voice?: SpeechSynthesisVoice;
+    rate?: number;
+    pitch?: number;
+  },
+  generation: number,
+): Promise<void> {
+  return new Promise((resolve) => {
+    if (!('speechSynthesis' in window) || !text.trim() || generation !== narrationGeneration) {
+      resolve();
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text.trim());
+    utterance.lang = options.lang;
+    utterance.rate = options.rate ?? 1.05;
+    utterance.pitch = options.pitch ?? 1.12;
+    utterance.volume = 1;
+    if (options.voice) utterance.voice = options.voice;
+
+    utterance.onend = () => resolve();
+    utterance.onerror = () => resolve();
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
+function buildSegmentSpeech(
   segment: NarrationSegment,
   englishVoice?: SpeechSynthesisVoice,
   frenchVoice?: SpeechSynthesisVoice,
-): SpeechSynthesisUtterance | null {
+): { text: string; lang: string; voice?: SpeechSynthesisVoice; rate: number; pitch: number } | null {
   if (segment.kind === 'brand') {
-    const utterance = new SpeechSynthesisUtterance('Mohahmoh');
-    utterance.lang = 'en-US';
-    utterance.rate = 0.98;
-    utterance.pitch = 1.24;
-    utterance.volume = 1;
-    if (englishVoice) utterance.voice = englishVoice;
-    return utterance;
+    return {
+      text: 'Mo ah Mo',
+      lang: 'en-US',
+      voice: englishVoice,
+      rate: 0.94,
+      pitch: 1.22,
+    };
   }
 
   if (segment.kind === 'fr') {
-    const utterance = new SpeechSynthesisUtterance(segment.text.trim());
-    utterance.lang = 'fr-FR';
-    utterance.rate = 1.02;
-    utterance.pitch = 1.08;
-    utterance.volume = 1;
-    if (frenchVoice) utterance.voice = frenchVoice;
-    return utterance;
+    return {
+      text: segment.text.trim(),
+      lang: 'fr-FR',
+      voice: frenchVoice,
+      rate: 1.04,
+      pitch: 1.08,
+    };
   }
 
-  const utterance = new SpeechSynthesisUtterance(segment.text.trim());
-  utterance.lang = 'en-US';
-  utterance.rate = 1.18;
-  utterance.pitch = 1.28;
-  utterance.volume = 1;
-  if (englishVoice) utterance.voice = englishVoice;
-  return utterance;
+  return {
+    text: segment.text.trim(),
+    lang: 'en-US',
+    voice: englishVoice,
+    rate: 1.18,
+    pitch: 1.28,
+  };
 }
 
 export async function speakDemoNarration(text: string): Promise<void> {
   if (!('speechSynthesis' in window)) return;
 
+  const generation = narrationGeneration;
   window.speechSynthesis.cancel();
+
   const voices = await waitForVoices();
+  if (generation !== narrationGeneration) return;
+
   const englishVoice = pickFriendlyEnglishVoice(voices);
   const frenchVoice = pickFrenchVoice(voices);
   const segments = parseDemoNarration(text);
-  const utterances = segments
-    .map((segment) => buildUtterance(segment, englishVoice, frenchVoice))
-    .filter((utterance): utterance is SpeechSynthesisUtterance => utterance !== null);
 
-  if (utterances.length === 0) return;
+  for (const segment of segments) {
+    if (generation !== narrationGeneration) return;
 
-  await new Promise<void>((resolve) => {
-    if (utterances.length === 0) {
-      resolve();
-      return;
-    }
+    const speech = buildSegmentSpeech(segment, englishVoice, frenchVoice);
+    if (!speech || !speech.text) continue;
 
-    utterances.forEach((utterance, index) => {
-      if (index === utterances.length - 1) {
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
-      }
-      window.speechSynthesis.speak(utterance);
-    });
-  });
+    await speakUtterance(
+      speech.text,
+      {
+        lang: speech.lang,
+        voice: speech.voice,
+        rate: speech.rate,
+        pitch: speech.pitch,
+      },
+      generation,
+    );
+  }
 }
 
 export function stopDemoNarration(): void {
+  narrationGeneration += 1;
   window.speechSynthesis?.cancel();
 }
 
