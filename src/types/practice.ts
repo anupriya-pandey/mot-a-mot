@@ -14,6 +14,7 @@ export type PracticeExerciseType =
   | 'mcq_conjugation'
   | 'mcq_verb_meaning'
   | 'mcq_pronoun'
+  | 'mcq_determiner'
   | 'mcq_meaning'
   | 'mcq_grammar'
   | 'mcq_expression'

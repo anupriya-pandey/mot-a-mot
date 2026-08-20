@@ -51,6 +51,8 @@ function exerciseTypeLabel(type: PracticePrompt['type']): string {
       return 'Verb meaning';
     case 'mcq_pronoun':
       return 'Subject pronoun';
+    case 'mcq_determiner':
+      return 'Determiner';
     case 'mcq_grammar':
       return 'Grammar';
     case 'mcq_expression':
@@ -76,6 +78,7 @@ const CHOICE_EXERCISE_TYPES = new Set<PracticePrompt['type']>([
   'mcq_conjugation',
   'mcq_verb_meaning',
   'mcq_pronoun',
+  'mcq_determiner',
   'mcq_meaning',
   'mcq_grammar',
   'mcq_expression',
