@@ -32,17 +32,27 @@ function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
 }
 
 function pickFriendlyEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
-  return (
-    voices.find(
-      (voice) =>
-        voice.lang.startsWith('en') &&
-        /samantha|google.*english.*female|zira|jenny|aria|enhanced|premium|natural|female/i.test(
-          voice.name,
-        ),
-    ) ||
-    voices.find((voice) => voice.lang === 'en-US') ||
-    voices.find((voice) => voice.lang.startsWith('en'))
-  );
+  const ranked = voices
+    .filter((voice) => voice.lang.startsWith('en'))
+    .sort((a, b) => scoreEnglishVoice(b) - scoreEnglishVoice(a));
+
+  return ranked[0] || voices.find((voice) => voice.lang.startsWith('en'));
+}
+
+function scoreEnglishVoice(voice: SpeechSynthesisVoice): number {
+  let score = 0;
+  const name = voice.name.toLowerCase();
+
+  if (/samantha|karen|moira|tessa|fiona|veena|zira|jenny|aria|susan|victoria|google.*english.*female|microsoft.*zira|microsoft.*jenny|natural|enhanced|premium|neural|expressive|friendly|warm/i.test(name)) {
+    score += 40;
+  }
+  if (/female|woman/i.test(name)) score += 12;
+  if (/enhanced|premium|natural|neural|expressive|hd|wavenet/i.test(name)) score += 20;
+  if (voice.lang === 'en-US') score += 8;
+  if (voice.default) score += 4;
+  if (/compact|low quality|espeak|robot|fred|bad/i.test(name)) score -= 30;
+
+  return score;
 }
 
 function normalizeNarrationInput(text: string): string {
@@ -51,6 +61,7 @@ function normalizeNarrationInput(text: string): string {
     .replace(/Mot à Mot/gi, '\u0000BRAND\u0000')
     .replace(/Mo ah mo/gi, '\u0000BRAND\u0000')
     .replace(/Mo-Ah-Mo/gi, '\u0000BRAND\u0000')
+    .replace(/Mohahmoh/gi, '\u0000BRAND\u0000')
     .replace(/«([^»]+)»/g, (_, french: string) => `\u0000FR:${french.trim()}\u0000`)
     .replace(/\{\{fr:([^}]+)\}\}/g, (_, french: string) => `\u0000FR:${french.trim()}\u0000`)
     .replace(/\bN A\b/g, 'N/A');
@@ -64,8 +75,8 @@ export function parseDemoNarration(text: string): NarrationSegment[] {
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(normalized)) !== null) {
-    const before = normalized.slice(lastIndex, match.index).trim();
-    if (before) segments.push({ kind: 'en', text: before });
+    const before = normalized.slice(lastIndex, match.index);
+    if (before.trim()) segments.push({ kind: 'en', text: before });
 
     if (match[0] === '\u0000BRAND\u0000') {
       segments.push({ kind: 'brand' });
@@ -77,54 +88,44 @@ export function parseDemoNarration(text: string): NarrationSegment[] {
     lastIndex = match.index + match[0].length;
   }
 
-  const tail = normalized.slice(lastIndex).trim();
-  if (tail) segments.push({ kind: 'en', text: tail });
+  const tail = normalized.slice(lastIndex);
+  if (tail.trim()) segments.push({ kind: 'en', text: tail });
 
   return segments.length > 0 ? segments : [{ kind: 'en', text }];
 }
 
-function speakUtterance(
-  text: string,
-  options: {
-    lang: string;
-    voice?: SpeechSynthesisVoice;
-    rate?: number;
-    pitch?: number;
-  },
-): Promise<void> {
-  return new Promise((resolve) => {
-    if (!('speechSynthesis' in window) || !text.trim()) {
-      resolve();
-      return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(text.trim());
-    utterance.lang = options.lang;
-    utterance.rate = options.rate ?? 1.05;
-    utterance.pitch = options.pitch ?? 1.12;
-    if (options.voice) utterance.voice = options.voice;
-    utterance.onend = () => resolve();
-    utterance.onerror = () => resolve();
-    window.speechSynthesis.speak(utterance);
-  });
-}
-
-async function speakBrandName(englishVoice?: SpeechSynthesisVoice): Promise<void> {
-  const syllables = [
-    { text: 'Mo', rate: 0.95, pitch: 1.2 },
-    { text: 'Ah', rate: 0.88, pitch: 1.22 },
-    { text: 'Mo', rate: 0.95, pitch: 1.2 },
-  ];
-
-  for (const syllable of syllables) {
-    await speakUtterance(syllable.text, {
-      lang: 'en-US',
-      voice: englishVoice,
-      rate: syllable.rate,
-      pitch: syllable.pitch,
-    });
-    await new Promise((resolve) => window.setTimeout(resolve, 90));
+function buildUtterance(
+  segment: NarrationSegment,
+  englishVoice?: SpeechSynthesisVoice,
+  frenchVoice?: SpeechSynthesisVoice,
+): SpeechSynthesisUtterance | null {
+  if (segment.kind === 'brand') {
+    const utterance = new SpeechSynthesisUtterance('Mohahmoh');
+    utterance.lang = 'en-US';
+    utterance.rate = 0.98;
+    utterance.pitch = 1.24;
+    utterance.volume = 1;
+    if (englishVoice) utterance.voice = englishVoice;
+    return utterance;
   }
+
+  if (segment.kind === 'fr') {
+    const utterance = new SpeechSynthesisUtterance(segment.text.trim());
+    utterance.lang = 'fr-FR';
+    utterance.rate = 1.02;
+    utterance.pitch = 1.08;
+    utterance.volume = 1;
+    if (frenchVoice) utterance.voice = frenchVoice;
+    return utterance;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(segment.text.trim());
+  utterance.lang = 'en-US';
+  utterance.rate = 1.18;
+  utterance.pitch = 1.28;
+  utterance.volume = 1;
+  if (englishVoice) utterance.voice = englishVoice;
+  return utterance;
 }
 
 export async function speakDemoNarration(text: string): Promise<void> {
@@ -135,30 +136,26 @@ export async function speakDemoNarration(text: string): Promise<void> {
   const englishVoice = pickFriendlyEnglishVoice(voices);
   const frenchVoice = pickFrenchVoice(voices);
   const segments = parseDemoNarration(text);
+  const utterances = segments
+    .map((segment) => buildUtterance(segment, englishVoice, frenchVoice))
+    .filter((utterance): utterance is SpeechSynthesisUtterance => utterance !== null);
 
-  for (const segment of segments) {
-    if (segment.kind === 'brand') {
-      await speakBrandName(englishVoice);
-      continue;
+  if (utterances.length === 0) return;
+
+  await new Promise<void>((resolve) => {
+    if (utterances.length === 0) {
+      resolve();
+      return;
     }
 
-    if (segment.kind === 'fr') {
-      await speakUtterance(segment.text, {
-        lang: 'fr-FR',
-        voice: frenchVoice,
-        rate: 0.9,
-        pitch: 1.05,
-      });
-      continue;
-    }
-
-    await speakUtterance(segment.text, {
-      lang: 'en-US',
-      voice: englishVoice,
-      rate: 1.1,
-      pitch: 1.16,
+    utterances.forEach((utterance, index) => {
+      if (index === utterances.length - 1) {
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+      }
+      window.speechSynthesis.speak(utterance);
     });
-  }
+  });
 }
 
 export function stopDemoNarration(): void {
