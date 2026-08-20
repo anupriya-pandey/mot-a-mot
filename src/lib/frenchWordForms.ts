@@ -74,16 +74,25 @@ function tokenizeFrenchText(text: string): string[] {
     .filter(Boolean);
 }
 
-export function sentenceUsesTargetWord(sentence: string, targetWord: string): boolean {
-  const forms = getTargetWordSurfaceForms(targetWord);
-  if (forms.length === 0) return false;
+export function sentenceUsesTargetWord(sentence: string, targetWord: string, extraForms: string[] = []): boolean {
+  const forms = new Set([
+    ...getTargetWordSurfaceForms(targetWord),
+    ...extraForms.map((form) => normalizeLemma(form)),
+  ]);
+  if (forms.size === 0) return false;
 
   const tokens = new Set(tokenizeFrenchText(sentence));
   const lower = sentence.toLowerCase().normalize('NFC');
 
-  return forms.some((form) => tokens.has(form) || lower.includes(form));
+  return [...forms].some((form) => tokens.has(form) || lower.includes(form));
 }
 
-export function detectWordsUsed(sentence: string, targetWords: string[]): string[] {
-  return targetWords.filter((word) => sentenceUsesTargetWord(sentence, word));
+export function detectWordsUsed(
+  sentence: string,
+  targetWords: string[],
+  surfaceFormsByLemma?: Record<string, string[]>,
+): string[] {
+  return targetWords.filter((word) =>
+    sentenceUsesTargetWord(sentence, word, surfaceFormsByLemma?.[word.toLowerCase()] ?? []),
+  );
 }

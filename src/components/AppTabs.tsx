@@ -1,4 +1,4 @@
-import { Briefcase, FlaskConical, History, PenLine } from 'lucide-react';
+import { Briefcase, FlaskConical, History, Home, PenLine } from 'lucide-react';
 import type { AppTab } from '../types/history';
 
 interface AppTabsProps {
@@ -7,6 +7,7 @@ interface AppTabsProps {
 }
 
 const TABS: { id: AppTab; label: string; icon: typeof PenLine }[] = [
+  { id: 'home', label: 'Home', icon: Home },
   { id: 'check', label: 'Check', icon: PenLine },
   { id: 'toolbox', label: 'Toolbox', icon: Briefcase },
   { id: 'practice', label: 'Practice', icon: FlaskConical },

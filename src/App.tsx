@@ -29,6 +29,7 @@ import { HistoryScreen } from './screens/HistoryScreen';
 import { ImportReviewScreen, collectSelectedImportItems } from './screens/ImportReviewScreen';
 import { ImportSuccessScreen } from './screens/ImportSuccessScreen';
 import { ImportToolboxScreen } from './screens/ImportToolboxScreen';
+import { HomeScreen } from './screens/HomeScreen';
 import { LandingScreen } from './screens/LandingScreen';
 import { LoadingScreen } from './screens/LoadingScreen';
 import { PracticeLabScreen } from './screens/PracticeLabScreen';
@@ -56,7 +57,7 @@ import type {
   PracticeStageId,
   PracticeQuestionFeedback,
 } from './types/practice';
-import type { PartOfSpeech } from './types/toolbox';
+import type { PartOfSpeech, VocabularyEntry } from './types/toolbox';
 
 type LoadingMode = 'analyze' | 'import' | 'practice-generate' | 'practice-check';
 
@@ -71,8 +72,8 @@ export default function App() {
 }
 
 function MotAMotApp() {
-  const [screen, setScreen] = useState<AppScreen>('landing');
-  const [activeTab, setActiveTab] = useState<AppTab>('check');
+  const [screen, setScreen] = useState<AppScreen>('home');
+  const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [sentence, setSentence] = useState('');
   const [displaySentence, setDisplaySentence] = useState('');
   const [sentenceLanguage, setSentenceLanguage] = useState<SentenceLanguage>('french');
@@ -247,6 +248,13 @@ function MotAMotApp() {
     setScreen('toolbox');
   }, []);
 
+  const handleDeleteEntry = useCallback(
+    (entry: VocabularyEntry) => {
+      toolbox.removeEntry(entry.lemma, entry.partOfSpeech);
+    },
+    [toolbox],
+  );
+
   const handleTabChange = useCallback(
     (tab: AppTab) => {
       setActiveTab(tab);
@@ -256,6 +264,11 @@ function MotAMotApp() {
 
       if (tab !== 'practice' && isPracticeFlow) {
         resetPractice();
+      }
+
+      if (tab === 'home') {
+        setScreen('home');
+        return;
       }
 
       if (tab === 'history') {
@@ -281,9 +294,11 @@ function MotAMotApp() {
         return;
       }
 
-      setScreen(result && activeTab === 'check' ? 'results' : 'landing');
+      if (tab === 'check') {
+        setScreen(result ? 'results' : 'landing');
+      }
     },
-    [activeTab, isPracticeFlow, practiceSession, resetPractice, result, screen],
+    [isPracticeFlow, practiceSession, resetPractice, result, screen],
   );
 
   const handleOpenHistoryEntry = useCallback((entry: SearchHistoryEntry) => {
@@ -595,6 +610,7 @@ function MotAMotApp() {
   }
 
   const showTabs =
+    screen === 'home' ||
     screen === 'landing' ||
     screen === 'results' ||
     screen === 'history' ||
@@ -669,6 +685,7 @@ function MotAMotApp() {
           category={vocabularyCategory}
           entries={toolbox.getByCategory(vocabularyCategory)}
           onBack={handleBackFromVocabulary}
+          onDeleteEntry={handleDeleteEntry}
         />
       </div>
     );
@@ -713,6 +730,7 @@ function MotAMotApp() {
           totalCount={toolbox.totalCount}
           onSelectCategory={handleSelectCategory}
           onImport={handleOpenImport}
+          onDeleteEntry={handleDeleteEntry}
         />
       </div>
     );
@@ -732,6 +750,20 @@ function MotAMotApp() {
           }}
           onGoToImport={handleOpenImport}
           error={practiceError}
+        />
+      </div>
+    );
+  }
+
+  if (screen === 'home') {
+    return (
+      <div className="min-h-screen">
+        <AppHeader active={activeTab} onChange={handleTabChange} />
+        <HomeScreen
+          onTryCheck={() => {
+            setActiveTab('check');
+            setScreen('landing');
+          }}
         />
       </div>
     );

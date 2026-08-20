@@ -23,6 +23,13 @@ export interface VocabularyEntry {
   surfaces: string[];
   examples: string[];
   adjectiveForms?: AdjectiveForms;
+  /** Masculine/feminine noun pair on one card (e.g. acteur / actrice) */
+  nounGenderForms?: NounGenderForms;
+}
+
+export interface NounGenderForms {
+  masculine: string;
+  feminine?: string;
 }
 
 export type CategoryCounts = Record<PartOfSpeech, number>;

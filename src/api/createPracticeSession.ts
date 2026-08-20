@@ -3,6 +3,7 @@ import type {
   PracticeSessionPlan,
 } from '../types/practice';
 import type { VocabularyEntry } from '../types/toolbox';
+import { getAllSurfaceForms } from '../lib/vocabForms';
 
 export async function createPracticeSession(
   toolboxEntries: VocabularyEntry[],
@@ -19,8 +20,9 @@ export async function createPracticeSession(
           lemma: entry.lemma,
           meaning: entry.meaning,
           partOfSpeech: entry.partOfSpeech,
-          surfaces: entry.surfaces,
+          surfaces: getAllSurfaceForms(entry),
           adjectiveForms: entry.adjectiveForms,
+          nounGenderForms: entry.nounGenderForms,
         })),
         stage: options.stage,
         focusCategory: options.focusCategory,

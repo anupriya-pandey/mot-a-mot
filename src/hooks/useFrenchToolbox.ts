@@ -8,6 +8,7 @@ import {
   isVocabularyInToolbox,
   loadToolbox,
   normalizePartOfSpeech,
+  removeVocabularyEntry,
 } from '../lib/toolboxStorage';
 import { DATA_SYNCED_EVENT } from '../lib/storageKeys';
 import type { VocabularyItem } from '../types/analysis';
@@ -69,6 +70,15 @@ export function useFrenchToolbox() {
     [refresh],
   );
 
+  const removeEntry = useCallback(
+    (lemma: string, partOfSpeech: PartOfSpeech) => {
+      const removed = removeVocabularyEntry(lemma, partOfSpeech);
+      if (removed) refresh();
+      return removed;
+    },
+    [refresh],
+  );
+
   return {
     entries,
     counts,
@@ -78,6 +88,7 @@ export function useFrenchToolbox() {
     applyImport,
     isInToolbox,
     getByCategory,
+    removeEntry,
     refresh,
   };
 }

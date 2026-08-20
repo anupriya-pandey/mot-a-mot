@@ -8,6 +8,11 @@ import {
 import { STORAGE_KEYS } from './storageKeys';
 import { notifyUserDataChanged } from './syncNotifier';
 import { safeGetItem, safeSetJson } from './safeStorage';
+import {
+  enrichVocabularyEntry,
+  mergeGenderNounPairs,
+  inferAdjectiveForms,
+} from './vocabForms';
 
 const STORAGE_KEY = STORAGE_KEYS.toolbox;
 
@@ -120,7 +125,15 @@ function consolidateEntries(entries: VocabularyEntry[]): VocabularyEntry[] {
     existing.adjectiveForms = mergeAdjectiveForms(existing.adjectiveForms, entry.adjectiveForms);
   }
 
-  return [...map.values()].sort((a, b) => a.lemma.localeCompare(b.lemma, 'fr'));
+  return [...map.values()]
+    .map((entry) => enrichVocabularyEntry(entry))
+    .sort((a, b) => a.lemma.localeCompare(b.lemma, 'fr'));
+}
+
+function finalizeToolbox(entries: VocabularyEntry[]): VocabularyEntry[] {
+  return mergeGenderNounPairs(entries.map((entry) => enrichVocabularyEntry(entry))).sort((a, b) =>
+    a.lemma.localeCompare(b.lemma, 'fr'),
+  );
 }
 
 export function normalizePartOfSpeech(value: string): PartOfSpeech | null {
@@ -162,7 +175,7 @@ export function loadToolbox(): VocabularyEntry[] {
             ),
             adjectiveForms: item.adjectiveForms as AdjectiveForms | undefined,
           }));
-          const consolidated = consolidateEntries(migrated.filter((e) => e.lemma && e.meaning));
+          const consolidated = finalizeToolbox(migrated.filter((e) => e.lemma && e.meaning));
           saveToolbox(consolidated);
           return consolidated;
         }
@@ -172,14 +185,14 @@ export function loadToolbox(): VocabularyEntry[] {
 
     const parsed = JSON.parse(raw) as VocabularyEntry[];
     if (!Array.isArray(parsed)) return [];
-    return consolidateEntries(parsed);
+    return finalizeToolbox(consolidateEntries(parsed));
   } catch {
     return [];
   }
 }
 
 function saveToolbox(entries: VocabularyEntry[]): void {
-  safeSetJson(STORAGE_KEY, consolidateEntries(entries));
+  safeSetJson(STORAGE_KEY, finalizeToolbox(consolidateEntries(entries)));
   notifyUserDataChanged();
 }
 
@@ -187,7 +200,16 @@ export function mergeToolboxSnapshots(
   local: VocabularyEntry[],
   remote: VocabularyEntry[],
 ): VocabularyEntry[] {
-  return consolidateEntries([...local, ...remote]);
+  return finalizeToolbox(consolidateEntries([...local, ...remote]));
+}
+
+export function removeVocabularyEntry(lemma: string, partOfSpeech: PartOfSpeech): boolean {
+  const key = entryKey({ lemma, partOfSpeech });
+  const existing = consolidateEntries(loadToolbox());
+  const next = existing.filter((entry) => entryKey(entry) !== key);
+  if (next.length === existing.length) return false;
+  saveToolbox(next);
+  return true;
 }
 
 export function isVocabularyInToolbox(lemma: string, partOfSpeech: PartOfSpeech): boolean {
@@ -248,14 +270,15 @@ export function addVocabulary(items: VocabularyItem[]): number {
       continue;
     }
 
-    const entry: VocabularyEntry = {
+    const entry: VocabularyEntry = enrichVocabularyEntry({
       lemma,
       meaning,
       partOfSpeech,
       surfaces: incomingSurfaces,
       examples: incomingExamples,
-      adjectiveForms: item.adjectiveForms,
-    };
+      adjectiveForms:
+        partOfSpeech === 'Adjectives' ? inferAdjectiveForms(lemma, item.adjectiveForms) : item.adjectiveForms,
+    });
 
     indexByKey.set(key, existing.length);
     existing.push(entry);

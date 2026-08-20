@@ -8,3 +8,6 @@ agent-tools
 .vercel
 Mot-aMot key.txt
 *key.txt
+
+.vercel
+.env*

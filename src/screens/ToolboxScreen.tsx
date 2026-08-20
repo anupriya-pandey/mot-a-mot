@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
   TOOLBOX_DESCRIPTION,
@@ -11,6 +11,7 @@ import type { CategoryCounts, PartOfSpeech, VocabularyEntry } from '../types/too
 import { FrenchToolboxDashboard } from '../components/FrenchToolboxDashboard';
 import { VocabularyListItem } from '../components/VocabularyListItem';
 import { SecondaryButton } from '../components/SecondaryButton';
+import { exportToolboxToExcel, exportToolboxToPdf } from '../lib/exportToolbox';
 
 interface ToolboxScreenProps {
   entries: VocabularyEntry[];
@@ -18,6 +19,7 @@ interface ToolboxScreenProps {
   totalCount: number;
   onSelectCategory: (category: PartOfSpeech) => void;
   onImport: () => void;
+  onDeleteEntry: (entry: VocabularyEntry) => void;
 }
 
 function matchesQuery(entry: VocabularyEntry, query: string): boolean {
@@ -36,8 +38,10 @@ export function ToolboxScreen({
   totalCount,
   onSelectCategory,
   onImport,
+  onDeleteEntry,
 }: ToolboxScreenProps) {
   const [query, setQuery] = useState('');
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const trimmedQuery = query.trim();
   const isSearching = trimmedQuery.length > 0;
 
@@ -70,9 +74,46 @@ export function ToolboxScreen({
         />
       </div>
 
-      <SecondaryButton onClick={onImport} className="mb-m">
+      <SecondaryButton onClick={onImport} className="mb-s">
         Import to Toolbox
       </SecondaryButton>
+
+      <div className="relative mb-m">
+        <SecondaryButton
+          onClick={() => setExportMenuOpen((open) => !open)}
+          className="w-full"
+          disabled={entries.length === 0}
+        >
+          <span className="inline-flex items-center justify-center gap-s">
+            <Download className="h-4 w-4" aria-hidden />
+            Export all vocabulary
+          </span>
+        </SecondaryButton>
+        {exportMenuOpen && entries.length > 0 && (
+          <div className="absolute left-0 right-0 z-10 mt-s rounded-card border border-border bg-surface p-s shadow-card">
+            <button
+              type="button"
+              className="block w-full rounded-button px-m py-2 text-left text-sm hover:bg-primary-light"
+              onClick={() => {
+                exportToolboxToExcel(entries);
+                setExportMenuOpen(false);
+              }}
+            >
+              Download Excel (.xlsx)
+            </button>
+            <button
+              type="button"
+              className="mt-xs block w-full rounded-button px-m py-2 text-left text-sm hover:bg-primary-light"
+              onClick={() => {
+                exportToolboxToPdf(entries);
+                setExportMenuOpen(false);
+              }}
+            >
+              Download PDF
+            </button>
+          </div>
+        )}
+      </div>
 
       {isSearching ? (
         <section aria-labelledby="search-results">
@@ -89,6 +130,7 @@ export function ToolboxScreen({
                 <VocabularyListItem
                   key={`${entry.lemma}-${entry.partOfSpeech}-${entry.meaning}`}
                   entry={entry}
+                  onDelete={onDeleteEntry}
                 />
               ))}
             </div>

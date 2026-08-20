@@ -89,6 +89,7 @@ export interface AnalyzeRequest {
 }
 
 export type AppScreen =
+  | 'home'
   | 'landing'
   | 'loading'
   | 'results'

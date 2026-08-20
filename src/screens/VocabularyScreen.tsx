@@ -9,9 +9,10 @@ interface VocabularyScreenProps {
   category: PartOfSpeech;
   entries: VocabularyEntry[];
   onBack: () => void;
+  onDeleteEntry: (entry: VocabularyEntry) => void;
 }
 
-export function VocabularyScreen({ category, entries, onBack }: VocabularyScreenProps) {
+export function VocabularyScreen({ category, entries, onBack, onDeleteEntry }: VocabularyScreenProps) {
   const guide = GRAMMAR_GUIDES[category];
 
   return (
@@ -40,7 +41,11 @@ export function VocabularyScreen({ category, entries, onBack }: VocabularyScreen
       ) : (
         <div className="space-y-m">
           {entries.map((entry) => (
-            <VocabularyListItem key={`${entry.lemma}-${entry.meaning}-${entry.partOfSpeech}`} entry={entry} />
+            <VocabularyListItem
+              key={`${entry.lemma}-${entry.meaning}-${entry.partOfSpeech}`}
+              entry={entry}
+              onDelete={onDeleteEntry}
+            />
           ))}
         </div>
       )}
