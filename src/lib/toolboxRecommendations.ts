@@ -135,33 +135,18 @@ export function rankToolboxRecommendations(
     .sort((a, b) => b.score - a.score || a.candidate.lemma.localeCompare(b.candidate.lemma, 'fr'));
 
   const picked: ToolboxRecommendationCandidate[] = [];
-  const usedCategories = new Set<PartOfSpeech>();
   const usedKeys = new Set<string>();
 
   for (const missing of missingCategories) {
+    if (picked.length >= limit) break;
     const match = scored.find(
       ({ candidate }) =>
         candidate.partOfSpeech === missing && !usedKeys.has(recommendationKey(candidate)),
     );
     if (match) {
       picked.push(match.candidate);
-      usedCategories.add(match.candidate.partOfSpeech);
       usedKeys.add(recommendationKey(match.candidate));
     }
-  }
-
-  for (const { candidate } of scored) {
-    if (picked.length >= limit) break;
-    const key = recommendationKey(candidate);
-    if (usedKeys.has(key)) continue;
-
-    if (usedCategories.has(candidate.partOfSpeech) && picked.length < limit - 2) {
-      continue;
-    }
-
-    picked.push(candidate);
-    usedCategories.add(candidate.partOfSpeech);
-    usedKeys.add(key);
   }
 
   for (const { candidate } of scored) {
@@ -173,6 +158,27 @@ export function rankToolboxRecommendations(
   }
 
   return picked.slice(0, limit).map(toVocabularyItem);
+}
+
+/** Fill exactly `limit` recommendations when the pool allows. */
+export function fillToolboxRecommendations(
+  entries: VocabularyEntry[],
+  counts: CategoryCounts,
+  totalCount: number,
+  readinessScore: number,
+  dismissed: Set<string>,
+  excludedKeys: Set<string> = new Set(),
+  limit = RECOMMENDATION_SLOT_COUNT,
+): VocabularyItem[] {
+  return rankToolboxRecommendations(
+    entries,
+    counts,
+    totalCount,
+    readinessScore,
+    dismissed,
+    excludedKeys,
+    limit,
+  );
 }
 
 export function getNextToolboxRecommendation(

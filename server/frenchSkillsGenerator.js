@@ -39,6 +39,13 @@ const IRREGULAR_TU = {
   manger: 'manges', boire: 'bois',
 };
 
+const LINKING_VERBS = new Set(['être', 'etre', 'sembler', 'devenir', 'rester', 'paraître', 'paraitre']);
+const MOTION_VERBS = new Set(['aller', 'venir', 'partir', 'arriver']);
+const LOCATION_VERBS = new Set(['habiter', 'travailler', 'dormir', 'vivre']);
+const SPEAKING_VERBS = new Set(['parler', 'dire', 'répondre', 'repondre']);
+
+const LINKING_COMPLEMENTS = ['content', 'fatigué', 'fatigue', 'prêt', 'pret', 'heureux', 'malade'];
+
 const FEMININE_NOUNS = new Set([
   'maison', 'femme', 'table', 'voiture', 'école', 'ecole', 'porte', 'fenêtre', 'fenetre',
   'musée', 'musee', 'nation', 'question', 'réponse', 'reponse', 'sœur', 'soeur',
@@ -135,12 +142,144 @@ function conjugateTu(lemma) {
   return null;
 }
 
+function getVerbProfile(lemma) {
+  const v = normalizeLemma(lemma);
+  if (LINKING_VERBS.has(v)) return 'linking';
+  if (MOTION_VERBS.has(v)) return 'motion';
+  if (LOCATION_VERBS.has(v)) return 'location';
+  if (SPEAKING_VERBS.has(v)) return 'speaking';
+  return 'transitive';
+}
+
+function pickToolboxNoun(pool, excludeLemma) {
+  const nouns = pool.filter(
+    (entry) => entry.partOfSpeech === 'Nouns' && normalizeLemma(entry.lemma) !== excludeLemma,
+  );
+  if (nouns.length === 0) return null;
+  return nouns[Math.floor(Math.random() * nouns.length)];
+}
+
+function nounPhrase(entry) {
+  if (!entry) return null;
+  const noun = entry.lemma.trim();
+  const feminine = isFeminineNoun(entry);
+  return `${feminine ? 'une' : 'un'} ${noun}`;
+}
+
+function jeFrameForVerb(entry, pool) {
+  const je = conjugateJe(entry.lemma);
+  if (!je) return null;
+  const profile = getVerbProfile(entry.lemma);
+  const vowelStart = /^[aeiouhâêîôùûéèëïü]/i.test(je);
+  const prefix = vowelStart ? "J'" : 'Je ';
+
+  if (profile === 'linking') {
+    const complement = LINKING_COMPLEMENTS.find((word) =>
+      pool.some((item) => normalizeLemma(item.lemma) === normalizeLemma(word)),
+    ) ?? 'content';
+    return `${prefix}___ ${complement}.`;
+  }
+  if (profile === 'motion') return `${prefix}___ au marché demain.`;
+  if (profile === 'location') return `${vowelStart ? "J'___ près de la gare." : 'Je ___ près de la gare.'}`;
+  if (profile === 'speaking') return `${prefix}___ français en classe.`;
+
+  const object = pickToolboxNoun(pool, normalizeLemma(entry.lemma));
+  const phrase = nounPhrase(object) ?? 'une pizza';
+  return `${prefix}___ ${phrase}.`;
+}
+
+function nousFrameForVerb(entry, pool) {
+  const profile = getVerbProfile(entry.lemma);
+  if (profile === 'linking') {
+    const complement = LINKING_COMPLEMENTS[0];
+    return `Nous ___ ${complement}.`;
+  }
+  if (profile === 'motion') return 'Ce soir, nous ___ au restaurant.';
+  if (profile === 'location') return 'Nous ___ dans une grande ville.';
+  if (profile === 'speaking') return 'En classe, nous ___ français.';
+
+  const object = pickToolboxNoun(pool, normalizeLemma(entry.lemma));
+  const phrase = nounPhrase(object) ?? 'une pizza';
+  return `Ce soir, nous ___ ${phrase}.`;
+}
+
+function spellingVariants(form) {
+  if (!form) return [];
+  const variants = [];
+  if (form.endsWith('eons')) variants.push(form.replace('eons', 'ons'));
+  if (form.endsWith('eons')) variants.push(form.replace('geons', 'gons'));
+  if (form.endsWith('issons')) variants.push(form.replace('issons', 'isons'));
+  if (form.endsWith('ez') && form.length > 3) variants.push(`${form.slice(0, -2)}e`);
+  if (form.endsWith('es') && form.length > 3) variants.push(form.slice(0, -1));
+  if (form.includes('ç')) variants.push(form.replace('ç', 'c'));
+  return variants.filter((variant) => variant && variant !== form);
+}
+
+function conjugationDistractors(lemma, correct, person) {
+  const stem = normalizeLemma(lemma);
+  const pool = [
+    conjugateJe(lemma),
+    conjugateTu(lemma),
+    conjugateNous(lemma),
+    `${stem.slice(0, -2)}ez`,
+    stem.endsWith('ger') ? `${stem.slice(0, -1)}ons` : `${stem.slice(0, -2)}ons`,
+    stem.endsWith('ger') ? `${stem.slice(0, -1)}e` : `${stem.slice(0, -2)}e`,
+    lemma,
+    ...spellingVariants(correct),
+  ].filter(Boolean);
+
+  if (person === 'nous') {
+    pool.push(conjugateTu(lemma), conjugateJe(lemma));
+  }
+
+  return [...new Set(pool)].filter((value) => value !== correct);
+}
+
+function meaningDistractors(entry, pool, correctJe) {
+  const otherVerbs = shuffle(
+    pool.filter((item) => item.partOfSpeech === 'Verbs' && item.lemma !== entry.lemma),
+  );
+  const forms = otherVerbs
+    .map((verb) => conjugateJe(verb.lemma))
+    .filter(Boolean)
+    .slice(0, 4);
+  return [...forms, ...spellingVariants(correctJe)].filter((form) => form !== correctJe);
+}
+
 function buildMcqOptions(correctText, distractors) {
-  const texts = shuffle([correctText, ...distractors.filter((d) => d && d !== correctText)]).slice(0, 4);
-  while (texts.length < 4) texts.push(`—${texts.length}`);
+  const unique = [...new Set([correctText, ...distractors.filter((d) => d && d !== correctText)])];
+  if (unique.length < 4) return null;
+  const texts = shuffle(unique).slice(0, 4);
   const options = texts.map((text, i) => ({ id: String.fromCharCode(97 + i), text }));
   const correct = options.find((o) => o.text === correctText);
-  return { options, correctAnswer: correct?.id ?? 'a' };
+  if (!correct) return null;
+  return { options, correctAnswer: correct.id };
+}
+
+function validatePrompt(prompt) {
+  if (!prompt?.type || !prompt?.correctAnswer) return false;
+  if (prompt.options) {
+    const texts = prompt.options.map((option) => option.text);
+    if (texts.length !== 4) return false;
+    if (new Set(texts).size !== texts.length) return false;
+    if (texts.some((text) => /^—/.test(text))) return false;
+    if (!prompt.options.some((option) => option.id === prompt.correctAnswer)) return false;
+  }
+  if (prompt.sentenceWithBlank && !prompt.sentenceWithBlank.includes('___')) return false;
+  if (prompt.type === 'fill_blank' && !String(prompt.correctAnswer ?? '').trim()) return false;
+  if (prompt.type === 'mcq_verb_meaning' && LINKING_VERBS.has(normalizeLemma(prompt.targetWords?.[0] ?? ''))) {
+    if (/une|un|du|de la|pizza|pain|chat|livre/i.test(prompt.sentenceWithBlank ?? '')) return false;
+  }
+  if (prompt.type === 'mcq_conjugation' || prompt.type === 'mcq_verb_meaning') {
+    const target = normalizeLemma(prompt.targetWords?.[0] ?? '');
+    const profile = getVerbProfile(target);
+    const sentence = prompt.sentenceWithBlank ?? '';
+    if (profile === 'linking' && /une|un |du |de la /i.test(sentence)) return false;
+    if (profile === 'transitive' && /(?:je|j') ___ (?:content|fatigu|prêt|pret|heureux|malade)/i.test(sentence)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function basePrompt(partial, index) {
@@ -158,6 +297,7 @@ function fingerprint(prompt) {
 
 function canAdd(prompt, prompts, completed, usedPrints) {
   if (!prompt) return false;
+  if (!validatePrompt(prompt)) return false;
   if (completed.has(prompt.id)) return false;
   if (prompts.some((p) => p.id === prompt.id)) return false;
   const fp = fingerprint(prompt);
@@ -171,7 +311,9 @@ function buildNounGender(entry, pool, index) {
   const feminine = isFeminineNoun(entry);
   const correct = feminine ? 'une' : 'un';
   const distractors = feminine ? ['un', 'des', 'le'] : ['une', 'des', 'la'];
-  const { options, correctAnswer } = buildMcqOptions(correct, distractors);
+  const built = buildMcqOptions(correct, distractors);
+  if (!built) return null;
+  const { options, correctAnswer } = built;
   return basePrompt({
     id: `fs-gender-${normalizeLemma(noun)}-${index}`,
     type: 'noun_gender',
@@ -195,13 +337,12 @@ function buildMcqConjugation(entry, pool, index) {
   const nous = conjugateNous(entry.lemma);
   if (!nous || nous.length < 2) return null;
   const stem = normalizeLemma(entry.lemma);
-  const distractors = [
-    stem.endsWith('ger') ? `${stem.slice(0, -1)}ons` : `${stem.slice(0, -2)}ons`,
-    conjugateTu(entry.lemma),
-    `${stem.slice(0, -2)}ez`,
-    entry.lemma,
-  ].filter(Boolean);
-  const { options, correctAnswer } = buildMcqOptions(nous, distractors);
+  const distractors = conjugationDistractors(entry.lemma, nous, 'nous');
+  const built = buildMcqOptions(nous, distractors);
+  if (!built) return null;
+  const { options, correctAnswer } = built;
+  const sentenceWithBlank = nousFrameForVerb(entry, pool);
+  if (!sentenceWithBlank) return null;
   return basePrompt({
     id: `fs-conj-${stem}-${index}`,
     type: 'mcq_conjugation',
@@ -210,7 +351,7 @@ function buildMcqConjugation(entry, pool, index) {
     targetWords: [entry.lemma],
     focusCategory: 'Verbs',
     formFocus: 'present-nous',
-    sentenceWithBlank: 'Nous ___ une pizza ce soir.',
+    sentenceWithBlank,
     englishPrompt: primaryMeaning(entry),
     options,
     correctAnswer,
@@ -222,25 +363,22 @@ function buildMcqVerbMeaning(entry, pool, index) {
   if (entry.partOfSpeech !== 'Verbs') return null;
   const je = conjugateJe(entry.lemma);
   if (!je) return null;
-  const verbs = shuffle(pool.filter((e) => e.partOfSpeech === 'Verbs' && e.lemma !== entry.lemma)).slice(0, 3);
-  if (verbs.length < 3) return null;
-  const options = shuffle([
-    { id: 'a', text: je },
-    ...verbs.map((v, i) => ({ id: String.fromCharCode(98 + i), text: conjugateJe(v.lemma) })).filter((o) => o.text),
-  ]).slice(0, 4);
-  if (options.length < 4) return null;
-  const correct = options.find((o) => o.text === je);
+  const sentenceWithBlank = jeFrameForVerb(entry, pool);
+  if (!sentenceWithBlank) return null;
+  const built = buildMcqOptions(je, meaningDistractors(entry, pool, je));
+  if (!built) return null;
+  const { options, correctAnswer } = built;
   return basePrompt({
     id: `fs-vmean-${normalizeLemma(entry.lemma)}-${index}`,
     type: 'mcq_verb_meaning',
     title: 'Verb meaning',
-    instruction: 'Pick the verb that matches the meaning in context.',
+    instruction: 'Pick the verb form that matches the meaning in context.',
     targetWords: [entry.lemma],
     focusCategory: 'Verbs',
-    sentenceWithBlank: 'Je ___ une pizza.',
+    sentenceWithBlank,
     englishPrompt: primaryMeaning(entry),
     options,
-    correctAnswer: correct?.id ?? 'a',
+    correctAnswer,
     explanation: `« ${entry.lemma} » means ${primaryMeaning(entry)} — here « ${je} ».`,
   }, index);
 }
@@ -265,7 +403,9 @@ function buildMcqPronoun(entry, pool, index) {
   } else {
     return null;
   }
-  const { options, correctAnswer } = buildMcqOptions(correct, ['Je', 'Nous', 'Tu', 'Ils'].filter((p) => p !== correct));
+  const built = buildMcqOptions(correct, ['Je', 'Nous', 'Tu', 'Ils'].filter((p) => p !== correct));
+  if (!built) return null;
+  const { options, correctAnswer } = built;
   return basePrompt({
     id: `fs-pron-${lemma}-${index}`,
     type: 'mcq_pronoun',
@@ -287,7 +427,9 @@ function buildMcqMeaning(entry, pool, index) {
     .filter((m) => m && m.toLowerCase() !== correct.toLowerCase())
     .slice(0, 3);
   if (distractors.length < 3) return null;
-  const { options, correctAnswer } = buildMcqOptions(correct, distractors);
+  const built = buildMcqOptions(correct, distractors);
+  if (!built) return null;
+  const { options, correctAnswer } = built;
   return basePrompt({
     id: `fs-mean-${normalizeLemma(entry.lemma)}-${index}`,
     type: 'mcq_meaning',
@@ -306,7 +448,9 @@ function buildMcqGrammar(entry, pool, index) {
   const lemma = normalizeLemma(entry.lemma);
   const bank = GRAMMAR_MCQ_BANK.find((t) => t.matchLemma(lemma) || t.matchLemma(primaryMeaning(entry).toLowerCase()));
   if (!bank) return null;
-  const { options, correctAnswer } = buildMcqOptions(bank.correct, bank.options.filter((o) => o !== bank.correct));
+  const built = buildMcqOptions(bank.correct, bank.options.filter((o) => o !== bank.correct));
+  if (!built) return null;
+  const { options, correctAnswer } = built;
   return basePrompt({
     id: `fs-gram-${bank.id}-${index}`,
     type: 'mcq_grammar',
@@ -326,7 +470,9 @@ function buildMcqExpression(entry, pool, index) {
   const expr = entry.lemma.trim();
   const meaning = primaryMeaning(entry);
   if (expr.toLowerCase().includes('besoin')) {
-    const { options, correctAnswer } = buildMcqOptions('ai besoin de', ['suis besoin de', 'fais besoin de', 'ai besoin à']);
+    const built = buildMcqOptions('ai besoin de', ['suis besoin de', 'fais besoin de', 'ai besoin à']);
+    if (!built) return null;
+    const { options, correctAnswer } = built;
     return basePrompt({
       id: `fs-expr-${normalizeLemma(expr)}-${index}`,
       type: 'mcq_expression',
@@ -376,7 +522,8 @@ function buildFillBlank(entry, pool, index) {
   if (entry.partOfSpeech === 'Verbs') {
     const je = conjugateJe(entry.lemma);
     if (!je) return null;
-    const frame = /^[aeiouhâêîôùûéèëïü]/i.test(je) ? "Chaque matin, j'___ au travail." : 'Chaque matin, je ___ au travail.';
+    const sentenceWithBlank = jeFrameForVerb(entry, pool);
+    if (!sentenceWithBlank) return null;
     return basePrompt({
       id: `fs-fill-v-${normalizeLemma(entry.lemma)}-${index}`,
       type: 'fill_blank',
@@ -384,13 +531,18 @@ function buildFillBlank(entry, pool, index) {
       instruction: 'Type the missing French word.',
       targetWords: [entry.lemma],
       focusCategory: 'Verbs',
-      sentenceWithBlank: frame,
+      sentenceWithBlank,
       englishPrompt: primaryMeaning(entry),
       correctAnswer: je,
       explanation: `Present tense of « ${entry.lemma} » with je: « ${je} ».`,
     }, index);
   }
   if (entry.partOfSpeech === 'Nouns') {
+    const noun = entry.lemma.trim();
+    const feminine = isFeminineNoun(entry);
+    const sentenceWithBlank = feminine
+      ? `Cette ___ est importante pour moi.`
+      : `Ce ___ est important pour moi.`;
     return basePrompt({
       id: `fs-fill-n-${normalizeLemma(entry.lemma)}-${index}`,
       type: 'fill_blank',
@@ -398,10 +550,10 @@ function buildFillBlank(entry, pool, index) {
       instruction: 'Type the missing French word.',
       targetWords: [entry.lemma],
       focusCategory: 'Nouns',
-      sentenceWithBlank: 'Je prends le ___ pour aller à Paris.',
+      sentenceWithBlank,
       englishPrompt: primaryMeaning(entry),
-      correctAnswer: entry.lemma,
-      explanation: `The missing word is « ${entry.lemma} » (${primaryMeaning(entry)}).`,
+      correctAnswer: noun,
+      explanation: `The missing word is « ${noun} » (${primaryMeaning(entry)}).`,
     }, index);
   }
   return null;
