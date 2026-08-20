@@ -1,8 +1,9 @@
 import {
-  TOOLBOX_RECOMMENDATION_POOL,
+  TOOLBOX_DYNAMIC_LEXICON,
+  isFeaturedRecommendation,
   type RecommendationTier,
   type ToolboxRecommendationCandidate,
-} from '../constants/toolboxRecommendationPool';
+} from '../constants/toolboxLexicon';
 import { READINESS_CATEGORY_CHECKLIST } from './practiceReadiness';
 import { normalizePartOfSpeech } from './toolboxStorage';
 import type { VocabularyItem } from '../types/analysis';
@@ -83,12 +84,53 @@ function averageCategoryCount(counts: CategoryCounts): number {
   return values.reduce((sum, count) => sum + count, 0) / values.length;
 }
 
+function toolboxLemmaSet(entries: VocabularyEntry[]): Set<string> {
+  const lemmas = new Set<string>();
+  for (const entry of entries) {
+    lemmas.add(normalizeLemma(entry.lemma));
+    for (const surface of entry.surfaces) {
+      lemmas.add(normalizeLemma(surface));
+    }
+  }
+  return lemmas;
+}
+
+/** Boost words that sit one tier above the learner or share a category with sparse toolbox coverage. */
+function dynamicAffinityScore(
+  candidate: ToolboxRecommendationCandidate,
+  entries: VocabularyEntry[],
+  counts: CategoryCounts,
+  tier: RecommendationTier,
+): number {
+  let score = 0;
+  const toolboxLemmas = toolboxLemmaSet(entries);
+
+  if (candidate.tier === tier + 1) score += 18;
+  if (candidate.tier === tier) score += 8;
+
+  if (isFeaturedRecommendation(candidate)) score += 25;
+
+  const categoryPeers = entries.filter((entry) => entry.partOfSpeech === candidate.partOfSpeech);
+  if (categoryPeers.length > 0 && categoryPeers.length <= 3) score += 14;
+
+  for (const lemma of toolboxLemmas) {
+    if (lemma.length < 4) continue;
+    if (normalizeLemma(candidate.lemma).startsWith(lemma.slice(0, 4))) score += 6;
+    if (lemma.startsWith(normalizeLemma(candidate.lemma).slice(0, 4))) score += 6;
+  }
+
+  if ((counts[candidate.partOfSpeech] ?? 0) === 0) score += 20;
+
+  return score;
+}
+
 function scoreCandidate(
   candidate: ToolboxRecommendationCandidate,
   counts: CategoryCounts,
   tier: RecommendationTier,
   missingCategories: PartOfSpeech[],
   avgCount: number,
+  entries: VocabularyEntry[],
 ): number {
   let score = 0;
   const category = candidate.partOfSpeech;
@@ -107,6 +149,8 @@ function scoreCandidate(
   else score -= 30;
 
   if (READINESS_CATEGORY_CHECKLIST.includes(category)) score += 12;
+
+  score += dynamicAffinityScore(candidate, entries, counts, tier);
 
   return score;
 }
@@ -149,7 +193,7 @@ function rankToolboxRecommendationsInternal(
   );
   const avgCount = averageCategoryCount(counts);
 
-  const eligible = TOOLBOX_RECOMMENDATION_POOL.filter((candidate) => {
+  const eligible = TOOLBOX_DYNAMIC_LEXICON.filter((candidate) => {
     if (isBlocked(candidate, blocked)) return false;
     if (ignoreTier) return true;
     return candidate.tier <= tier + tierOffset;
@@ -158,7 +202,7 @@ function rankToolboxRecommendationsInternal(
   const scored = eligible
     .map((candidate) => ({
       candidate,
-      score: scoreCandidate(candidate, counts, tier, missingCategories, avgCount),
+      score: scoreCandidate(candidate, counts, tier, missingCategories, avgCount, entries),
     }))
     .sort((a, b) => b.score - a.score || a.candidate.lemma.localeCompare(b.candidate.lemma, 'fr'));
 
@@ -216,7 +260,7 @@ const FILL_PASSES: RankOptions[] = [
   { blockDismissed: false, ignoreTier: true },
 ];
 
-/** Fill up to `limit` recommendations; recycles skipped words when the pool runs low. */
+/** Dynamically curate up to `limit` words from the lexicon for this toolbox snapshot. */
 export function fillToolboxRecommendations(
   entries: VocabularyEntry[],
   counts: CategoryCounts,
@@ -280,4 +324,14 @@ export function getNextToolboxRecommendation(
       1,
     )[0] ?? null
   );
+}
+
+export function countAvailableRecommendations(
+  entries: VocabularyEntry[],
+  dismissed: Set<string>,
+  slotExcluded: Set<string> = new Set(),
+): number {
+  const toolboxKeys = buildToolboxBlockKeys(entries);
+  const blocked = new Set([...toolboxKeys, ...dismissed, ...slotExcluded]);
+  return TOOLBOX_DYNAMIC_LEXICON.filter((candidate) => !isBlocked(candidate, blocked)).length;
 }
