@@ -44,7 +44,8 @@ const POS_ALIASES: Record<string, PartOfSpeech> = {
 };
 
 function entryKey(entry: Pick<VocabularyEntry, 'lemma' | 'partOfSpeech'>): string {
-  return `${entry.lemma.trim().toLowerCase()}|${entry.partOfSpeech}`;
+  const pos = normalizePartOfSpeech(String(entry.partOfSpeech)) ?? entry.partOfSpeech;
+  return `${entry.lemma.trim().toLowerCase()}|${pos}`;
 }
 
 function uniqueStrings(values: string[]): string[] {

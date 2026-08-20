@@ -22,7 +22,6 @@ interface ToolboxScreenProps {
   onSelectCategory: (category: PartOfSpeech) => void;
   onImport: () => void;
   onDeleteEntry: (entry: VocabularyEntry) => void;
-  isInToolbox: (lemma: string, partOfSpeech: string) => boolean;
   onAddRecommendation: (item: VocabularyItem) => void;
   demoRecommendations?: VocabularyItem[];
 }
@@ -44,7 +43,6 @@ export function ToolboxScreen({
   onSelectCategory,
   onImport,
   onDeleteEntry,
-  isInToolbox,
   onAddRecommendation,
   demoRecommendations,
 }: ToolboxScreenProps) {
@@ -161,7 +159,6 @@ export function ToolboxScreen({
             entries={entries}
             counts={counts}
             totalCount={totalCount}
-            isInToolbox={isInToolbox}
             onAdd={onAddRecommendation}
             demoItems={demoRecommendations}
           />

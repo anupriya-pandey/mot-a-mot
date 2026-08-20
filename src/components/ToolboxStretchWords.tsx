@@ -14,6 +14,7 @@ import {
 import {
   RECOMMENDATION_SLOT_COUNT,
   getNextToolboxRecommendation,
+  isRecommendationInToolbox,
   rankToolboxRecommendations,
   recommendationKey,
 } from '../lib/toolboxRecommendations';
@@ -25,7 +26,6 @@ interface ToolboxStretchWordsProps {
   entries: VocabularyEntry[];
   counts: CategoryCounts;
   totalCount: number;
-  isInToolbox: (lemma: string, partOfSpeech: string) => boolean;
   onAdd: (item: VocabularyItem) => void;
   /** Fixed list for demo playback — skips persisted dismiss state. */
   demoItems?: VocabularyItem[];
@@ -44,10 +44,9 @@ function refillVisible(
     ...current.map((item) => recommendationKey(item)),
   ]);
 
-  const kept = current.filter((item) => {
-    const key = recommendationKey(item);
-    return !dismissed.has(key) && !entries.some((entry) => recommendationKey(entry) === key);
-  });
+  const kept = current.filter(
+    (item) => !dismissed.has(recommendationKey(item)) && !isRecommendationInToolbox(item, entries),
+  );
 
   const next = [...kept];
   while (next.length < RECOMMENDATION_SLOT_COUNT) {
@@ -71,7 +70,6 @@ export function ToolboxStretchWords({
   entries,
   counts,
   totalCount,
-  isInToolbox,
   onAdd,
   demoItems,
 }: ToolboxStretchWordsProps) {
@@ -85,7 +83,11 @@ export function ToolboxStretchWords({
   );
 
   const [visible, setVisible] = useState<VocabularyItem[]>(() => {
-    if (demoItems) return demoItems.slice(0, RECOMMENDATION_SLOT_COUNT);
+    if (demoItems) {
+      return demoItems
+        .filter((item) => !isRecommendationInToolbox(item, entries))
+        .slice(0, RECOMMENDATION_SLOT_COUNT);
+    }
     return rankToolboxRecommendations(
       entries,
       counts,
@@ -97,7 +99,11 @@ export function ToolboxStretchWords({
 
   useEffect(() => {
     if (demoItems) {
-      setVisible(demoItems.slice(0, RECOMMENDATION_SLOT_COUNT));
+      setVisible(
+        demoItems
+          .filter((item) => !isRecommendationInToolbox(item, entries))
+          .slice(0, RECOMMENDATION_SLOT_COUNT),
+      );
       return;
     }
 
@@ -107,7 +113,8 @@ export function ToolboxStretchWords({
   }, [counts, demoItems, dismissed, entries, readiness.score, totalCount]);
 
   const displayed = visible.filter(
-    (item) => !isInToolbox(item.lemma, item.partOfSpeech) && !dismissed.has(recommendationKey(item)),
+    (item) =>
+      !dismissed.has(recommendationKey(item)) && !isRecommendationInToolbox(item, entries),
   );
 
   const replaceSlot = useCallback(
@@ -116,7 +123,11 @@ export function ToolboxStretchWords({
         setVisible((current) => {
           const withoutRemoved = current.filter((item) => recommendationKey(item) !== removedKey);
           const usedKeys = new Set(withoutRemoved.map((item) => recommendationKey(item)));
-          const replacement = demoItems.find((item) => !usedKeys.has(recommendationKey(item)));
+          const replacement = demoItems.find(
+            (item) =>
+              !usedKeys.has(recommendationKey(item)) &&
+              !isRecommendationInToolbox(item, entries),
+          );
           if (!replacement) return withoutRemoved;
           return [...withoutRemoved, replacement].slice(0, RECOMMENDATION_SLOT_COUNT);
         });
