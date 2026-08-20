@@ -19,6 +19,7 @@ import {
 } from '../../constants/demoFixtures';
 import type { DemoFlowStep } from '../../constants/demoFlow';
 import type { DemoTabId } from '../../constants/homeMicrocopy';
+import { getDemoScreenKey } from '../../lib/demoPlayback';
 import { IMPORT_LOADING_MESSAGES } from '../../constants/importMicrocopy';
 import { PRACTICE_STAGES } from '../../constants/practiceStages';
 import { HistoryScreen } from '../../screens/HistoryScreen';
@@ -76,18 +77,14 @@ function renderCheckView(step: DemoFlowStep) {
   }
 
   const sentence =
-    step.view === 'check-landing-typing'
-      ? 'Je peux pas venir auj|'
-      : step.view === 'check-landing-filled'
-        ? DEMO_SENTENCE
-        : '';
+    step.id === 'check-type' ? 'Je peux pas venir auj|' : DEMO_SENTENCE;
 
   return (
     <LandingScreen
       sentence={sentence}
       onSentenceChange={DEMO_NOOP}
       onSubmit={DEMO_NOOP}
-      isSubmitting={step.view === 'check-loading'}
+      isSubmitting={false}
     />
   );
 }
@@ -304,7 +301,11 @@ export function DemoMockScreen({ tab, step, scrollRef, lockScroll = false }: Dem
   }, [tab, step]);
 
   return (
-    <DemoScaledViewport scrollRef={scrollRef} lockScroll={lockScroll} viewKey={step.view}>
+    <DemoScaledViewport
+      scrollRef={scrollRef}
+      lockScroll={lockScroll}
+      screenKey={getDemoScreenKey(tab, step)}
+    >
       <DemoChrome tab={tab}>{content}</DemoChrome>
     </DemoScaledViewport>
   );

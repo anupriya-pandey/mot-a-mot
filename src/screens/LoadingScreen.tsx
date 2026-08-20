@@ -16,7 +16,7 @@ export function LoadingScreen({ messages }: { messages?: readonly string[] }) {
   }, [activeMessages]);
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-content px-m py-xl">
+    <div className="mx-auto min-h-screen w-full max-w-content px-m py-xl" data-demo-target="check-loading">
       <header className="mb-xxl text-center">
         <AppLogo size="md" />
       </header>
