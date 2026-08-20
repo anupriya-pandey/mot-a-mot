@@ -356,9 +356,9 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         id: 'practice-start-stage',
         view: 'practice-ready',
         target: 'practice-stage-french-skills-start',
-        caption: 'Launch French Skills.',
+        caption: 'Launch Quick Drills.',
         narration:
-          'Tap Start on French Skills to test what you\'ve built — choose how many questions and which categories to focus on.',
+          'Tap Start on Quick Drills to test what you\'ve built — choose how many questions and which categories to focus on.',
         durationMs: 4800,
         click: true,
       },

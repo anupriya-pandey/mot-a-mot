@@ -15,7 +15,7 @@ export const PRACTICE_STAGES: PracticeStageDefinition[] = [
   {
     id: 'quick',
     emoji: '🎯',
-    title: 'French Skills',
+    title: 'Quick Drills',
     exerciseLabel:
       'Gender · Conjugation · Meaning · Grammar · Expressions · Fill-in · Matching · Find the errors',
     description: 'Test what you\'ve built in your French Toolbox — varied drills grounded in your vocabulary.',

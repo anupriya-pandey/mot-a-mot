@@ -976,7 +976,7 @@ export function generateFrenchSkillsSession({ entries, questionCount, completedQ
   let sessionNotice;
   if (generatedCount === 0) {
     sessionNotice =
-      'Your toolbox does not yet contain enough material for French Skills. Add more vocabulary via Grow Your Toolbox, checks, or imports.';
+      'Your toolbox does not yet contain enough material for Quick Drills. Add more vocabulary via Grow Your Toolbox, checks, or imports.';
   } else if (generatedCount < requestedCount) {
     sessionNotice = `We could only build ${generatedCount} valid question${generatedCount === 1 ? '' : 's'} from your toolbox (you asked for ${requestedCount}). Add more vocabulary to unlock longer sessions.`;
   }
