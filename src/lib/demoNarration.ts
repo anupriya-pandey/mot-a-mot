@@ -133,11 +133,11 @@ function buildSegmentSpeech(
 ): { text: string; lang: string; voice?: SpeechSynthesisVoice; rate: number; pitch: number } | null {
   if (segment.kind === 'brand') {
     return {
-      text: 'moamo',
-      lang: 'en-US',
-      voice: englishVoice,
-      rate: 0.96,
-      pitch: 1.18,
+      text: 'Mot à mot',
+      lang: 'fr-FR',
+      voice: frenchVoice,
+      rate: 0.94,
+      pitch: 1.04,
     };
   }
 

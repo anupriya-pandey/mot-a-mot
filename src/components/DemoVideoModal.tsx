@@ -14,7 +14,7 @@ import {
   speakDemoNarration,
   stopDemoNarration,
 } from '../lib/demoNarration';
-import { waitForDemoStepReady } from '../lib/demoPlayback';
+import { estimateScreenChangeMs, getDemoScreenKey, waitForDemoStepReady } from '../lib/demoPlayback';
 
 interface DemoVideoModalProps {
   onClose: () => void;
@@ -26,12 +26,13 @@ interface DemoOverlay {
 }
 
 const STEP_CLICK_MS = 350;
-const STEP_POST_NARRATION_MS = 200;
-const VIEW_SETTLE_MS = 280;
-const STEP_PAUSE_MS = 120;
+const STEP_POST_NARRATION_MS = 150;
+const SCREEN_CHANGE_MS = estimateScreenChangeMs();
+const STEP_PAUSE_MS = 60;
+const CURSOR_TRANSITION_MS = 650;
 
 function getStepTimelineMs(step: DemoFlowStep): number {
-  return VIEW_SETTLE_MS + (step.click ? STEP_CLICK_MS : 0) + step.durationMs + STEP_POST_NARRATION_MS;
+  return SCREEN_CHANGE_MS + (step.click ? STEP_CLICK_MS : 0) + step.durationMs + STEP_POST_NARRATION_MS;
 }
 
 function DemoCursor({
@@ -44,21 +45,23 @@ function DemoCursor({
   return (
     <>
       <div
-        className="pointer-events-none absolute rounded border-2 border-primary bg-primary/10 transition-all duration-500 ease-out"
+        className="pointer-events-none absolute rounded border-2 border-primary bg-primary/10 transition-all ease-out"
         style={{
           left: overlay.highlight.left,
           top: overlay.highlight.top,
           width: overlay.highlight.width,
           height: overlay.highlight.height,
+          transitionDuration: `${CURSOR_TRANSITION_MS}ms`,
         }}
       />
 
       <div
-        className="pointer-events-none absolute z-20 transition-all duration-500 ease-out"
+        className="pointer-events-none absolute z-20 transition-all ease-out"
         style={{
           left: overlay.cursor.left,
           top: overlay.cursor.top,
           transform: 'translate(-4px, -2px)',
+          transitionDuration: `${CURSOR_TRANSITION_MS}ms`,
         }}
       >
         {showClick && (
@@ -220,13 +223,15 @@ function useDemoOverlay(
   stageRef: React.RefObject<HTMLDivElement | null>,
   scrollRef: React.RefObject<HTMLDivElement | null>,
   step?: DemoFlowStep,
+  screenKey?: string | null,
 ) {
   const [overlay, setOverlay] = useState<DemoOverlay | null>(null);
 
   useLayoutEffect(() => {
+    setOverlay(null);
+
     const stage = stageRef.current;
     if (!stage || !step?.target) {
-      setOverlay(null);
       return;
     }
 
@@ -247,22 +252,24 @@ function useDemoOverlay(
       target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
 
       requestAnimationFrame(() => {
-        if (cancelled) return;
+        requestAnimationFrame(() => {
+          if (cancelled) return;
 
-        const stageRect = currentStage.getBoundingClientRect();
-        const targetRect = target.getBoundingClientRect();
+          const stageRect = currentStage.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
 
-        setOverlay({
-          highlight: {
-            left: targetRect.left - stageRect.left - 2,
-            top: targetRect.top - stageRect.top - 2,
-            width: targetRect.width + 4,
-            height: targetRect.height + 4,
-          },
-          cursor: {
-            left: targetRect.left - stageRect.left + targetRect.width * 0.72,
-            top: targetRect.top - stageRect.top + targetRect.height * 0.58,
-          },
+          setOverlay({
+            highlight: {
+              left: targetRect.left - stageRect.left - 2,
+              top: targetRect.top - stageRect.top - 2,
+              width: targetRect.width + 4,
+              height: targetRect.height + 4,
+            },
+            cursor: {
+              left: targetRect.left - stageRect.left + targetRect.width * 0.72,
+              top: targetRect.top - stageRect.top + targetRect.height * 0.58,
+            },
+          });
         });
       });
     };
@@ -271,12 +278,15 @@ function useDemoOverlay(
 
     const handleResize = () => measure();
     window.addEventListener('resize', handleResize);
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(stage);
 
     return () => {
       cancelled = true;
       window.removeEventListener('resize', handleResize);
+      observer.disconnect();
     };
-  }, [stageRef, scrollRef, step?.target, step?.id, step?.view]);
+  }, [stageRef, scrollRef, step?.target, step?.id, screenKey]);
 
   return overlay;
 }
@@ -288,7 +298,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
   const [showClick, setShowClick] = useState(false);
   const [stepElapsedMs, setStepElapsedMs] = useState(0);
   const runIdRef = useRef(0);
-  const previousViewRef = useRef<string | null>(null);
+  const previousScreenKeyRef = useRef<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const progressTimerRef = useRef<number | null>(null);
@@ -296,7 +306,9 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
 
   const flow = selectedTab ? DEMO_FLOWS[selectedTab] : null;
   const currentStep = flow?.steps[stepIndex];
-  const overlay = useDemoOverlay(stageRef, scrollRef, currentStep);
+  const currentScreenKey =
+    selectedTab && currentStep ? getDemoScreenKey(selectedTab, currentStep) : null;
+  const overlay = useDemoOverlay(stageRef, scrollRef, currentStep, currentScreenKey);
 
   const clearProgressTimer = useCallback(() => {
     if (progressTimerRef.current !== null) {
@@ -332,8 +344,9 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       const step = DEMO_FLOWS[tab].steps[index];
       if (!step) return;
 
-      const viewChanged = previousViewRef.current !== step.view;
-      previousViewRef.current = step.view;
+      const screenKey = getDemoScreenKey(tab, step);
+      const screenChanged = previousScreenKeyRef.current !== screenKey;
+      previousScreenKeyRef.current = screenKey;
 
       stopDemoNarration();
       setStepIndex(index);
@@ -345,7 +358,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       if (runIdRef.current !== runId) return;
 
       await new Promise((resolve) =>
-        window.setTimeout(resolve, viewChanged ? VIEW_SETTLE_MS : STEP_PAUSE_MS),
+        window.setTimeout(resolve, screenChanged ? SCREEN_CHANGE_MS : STEP_PAUSE_MS),
       );
       if (runIdRef.current !== runId) return;
 
@@ -361,7 +374,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
 
       const elapsed = performance.now() - stepStartedAtRef.current;
       const targetElapsed =
-        (viewChanged ? VIEW_SETTLE_MS : STEP_PAUSE_MS) +
+        (screenChanged ? SCREEN_CHANGE_MS : STEP_PAUSE_MS) +
         (step.click ? STEP_CLICK_MS : 0) +
         step.durationMs;
       const remaining = targetElapsed - elapsed;
@@ -381,7 +394,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       }
 
       clearProgressTimer();
-      previousViewRef.current = null;
+      previousScreenKeyRef.current = null;
       setPlaying(false);
     },
     [clearProgressTimer, stageRef, startProgressTimer],
@@ -393,7 +406,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
       const runId = runIdRef.current;
       stopDemoNarration();
       setStepIndex(fromIndex);
-      previousViewRef.current = null;
+      previousScreenKeyRef.current = null;
       setPlaying(true);
       void runStep(tab, fromIndex, runId);
     },
@@ -514,7 +527,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
                   setSelectedTab(null);
                   setStepIndex(0);
                   setStepElapsedMs(0);
-                  previousViewRef.current = null;
+                  previousScreenKeyRef.current = null;
                 }}
                 className="text-xs font-medium text-primary hover:text-primary-hover"
               >

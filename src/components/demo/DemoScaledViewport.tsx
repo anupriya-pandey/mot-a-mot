@@ -6,17 +6,18 @@ interface DemoScaledViewportProps {
   children: ReactNode;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   lockScroll?: boolean;
-  viewKey?: string;
+  screenKey?: string;
 }
 
 export function DemoScaledViewport({
   children,
   scrollRef,
   lockScroll = false,
-  viewKey,
+  screenKey,
 }: DemoScaledViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.5);
+  const [scale, setScale] = useState(1);
+  const [scaleReady, setScaleReady] = useState(false);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -25,6 +26,7 @@ export function DemoScaledViewport({
     const updateScale = () => {
       const width = container.clientWidth;
       setScale(Math.min(1, width / DEMO_CONTENT_WIDTH));
+      setScaleReady(true);
     };
 
     updateScale();
@@ -37,7 +39,7 @@ export function DemoScaledViewport({
     if (scrollRef?.current) {
       scrollRef.current.scrollTop = 0;
     }
-  }, [scrollRef, viewKey]);
+  }, [scrollRef, screenKey]);
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
@@ -47,6 +49,7 @@ export function DemoScaledViewport({
         style={{ overflow: lockScroll ? 'hidden' : 'auto' }}
       >
         <div
+          data-demo-scale-ready={scaleReady ? 'true' : undefined}
           className="origin-top-left"
           style={{
             width: DEMO_CONTENT_WIDTH,

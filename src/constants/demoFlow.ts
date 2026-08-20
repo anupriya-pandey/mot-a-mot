@@ -24,7 +24,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
     steps: [
       {
         id: 'check-intro',
-        view: 'check-landing-filled',
+        view: 'check-landing',
         target: 'check-input',
         caption: 'What Check my French does',
         narration:
@@ -33,16 +33,16 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
       },
       {
         id: 'check-type',
-        view: 'check-landing-typing',
+        view: 'check-landing',
         target: 'check-input',
         caption: 'Type what you want to say in French.',
         narration:
-          'On the Check tab, type the French sentence you want to send. Here the learner writes: «Je peux pas venir aujourd\u2019hui».',
+          'Type the French sentence you want to send. Here the learner writes: «Je peux pas venir aujourd\u2019hui».',
         durationMs: 5200,
       },
       {
         id: 'check-voice',
-        view: 'check-landing-filled',
+        view: 'check-landing',
         target: 'check-voice',
         caption: 'Or tap the microphone to speak.',
         narration:
@@ -52,7 +52,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
       },
       {
         id: 'check-submit',
-        view: 'check-landing-filled',
+        view: 'check-landing',
         target: 'check-submit',
         caption: 'Tap Check My French.',
         narration:
@@ -63,7 +63,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
       {
         id: 'check-loading',
         view: 'check-loading',
-        target: 'check-input',
+        target: 'check-loading',
         caption: 'Mot-à-Mot analyses your sentence.',
         narration:
           'While you wait, Mot-à-Mot checks grammar, naturalness, and the most natural way to say what you mean.',
@@ -294,8 +294,7 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
   },
   practice: {
     title: 'Practice Lab',
-    description:
-      'Several exercise types built from your toolbox — in this walkthrough we try Spot and Match.',
+    description: 'Personalised exercises built from the French in your toolbox.',
     steps: [
       {
         id: 'practice-intro-tab',
@@ -303,8 +302,8 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-readiness',
         caption: 'What Practice Lab does',
         narration:
-          'Practice Lab turns your toolbox into personalised exercises. Spot and Match, Write in French, and more ways to practise are all built from the French you have collected.',
-        durationMs: 5400,
+          'Practice Lab turns your toolbox into short exercises — fill-in-the-blank, writing prompts, and more — so you reuse the French you actually collected.',
+        durationMs: 5200,
       },
       {
         id: 'practice-ready',
@@ -321,16 +320,16 @@ export const DEMO_FLOWS: Record<DemoTabId, DemoFlow> = {
         target: 'practice-stages',
         caption: 'Several ways to practice.',
         narration:
-          'Under Ways to Practice you will see several exercise types — Spot and Match, Write in French, and more on the way. This demo walks through Spot and Match.',
-        durationMs: 5600,
+          'Under Ways to Practice, browse the exercise types available to you and pick one to begin.',
+        durationMs: 5000,
       },
       {
         id: 'practice-start-stage',
         view: 'practice-ready',
         target: 'practice-stage-spot-match-start',
-        caption: 'Start Spot and Match.',
+        caption: 'Launch an exercise.',
         narration:
-          'Choose Spot and Match from the list and tap Start to begin fill-in-the-blank and matching drills from your toolbox.',
+          'Tap Start on Spot and Match to launch fill-in-the-blank and matching drills from your toolbox.',
         durationMs: 4600,
         click: true,
       },
