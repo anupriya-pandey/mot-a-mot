@@ -1,3 +1,4 @@
+import { deriveExpressionMeaning } from './phraseMeaning';
 import { normalizePartOfSpeech } from './toolboxStorage';
 import type { VocabularyItem } from '../types/analysis';
 import type {
@@ -129,8 +130,8 @@ function buildRelatedEntries(
     const candidate = createRelatedCandidate({
       lemma: trimmed,
       surface: trimmed,
-      meaning: `Common expression related to “${existing.lemma}”`,
-      partOfSpeech: 'Expression',
+      meaning: deriveExpressionMeaning(trimmed, existingToolbox, existing),
+      partOfSpeech: 'Expressions',
       example: findExampleForPhrase(incoming.examples ?? [], trimmed) || incoming.example || trimmed,
       examples: incoming.examples ?? [],
       surfaces: [trimmed],
@@ -154,7 +155,7 @@ function buildRelatedEntries(
       lemma,
       surface: incoming.surface || existing.lemma,
       meaning,
-      partOfSpeech: 'Expression',
+      partOfSpeech: 'Expressions',
       example,
       examples: example ? [example] : [],
       surfaces: [existing.lemma],
@@ -175,8 +176,8 @@ function buildRelatedEntries(
     const candidate = createRelatedCandidate({
       lemma: trimmed,
       surface: trimmed,
-      meaning: `Example phrase related to “${existing.lemma}”`,
-      partOfSpeech: 'Expression',
+      meaning: deriveExpressionMeaning(trimmed, existingToolbox, existing),
+      partOfSpeech: 'Expressions',
       example: trimmed,
       examples: [trimmed],
       surfaces: [trimmed],
