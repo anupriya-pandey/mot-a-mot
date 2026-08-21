@@ -13,7 +13,7 @@ export function ImportSuccessScreen({ result, onDone }: ImportSuccessScreenProps
       <div className="rounded-card bg-surface p-xl text-center shadow-card">
         <h1 className="text-2xl font-semibold text-text-primary">{IMPORT_SUCCESS_TITLE}</h1>
 
-        <ul className="mt-l space-y-s text-left text-base text-text-primary">
+        <ul className="mt-l space-y-s text-center text-base text-text-primary md:text-left">
           {result.added > 0 && <li>+{result.added} new entries</li>}
           {result.added === 0 && (
             <li>No new entries were added — everything was already in your toolbox.</li>

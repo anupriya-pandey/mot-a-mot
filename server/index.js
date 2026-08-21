@@ -6,6 +6,7 @@ import { submitFeedback } from './feedbackService.js';
 import { importToolboxText } from './importService.js';
 import { generatePracticeSession } from './practiceService.js';
 import { gradePracticeExercise } from './practiceGradeService.js';
+import { synthesizeSpeech, getTtsStatus } from './ttsService.js';
 import {
   getProgressStorageStatus,
   getSavedProgress,
@@ -80,6 +81,25 @@ app.post('/api/practice-session', async (req, res) => {
   }
 });
 
+app.post('/api/speak', async (req, res) => {
+  try {
+    const result = await synthesizeSpeech(req.body);
+
+    if (result.status !== 200) {
+      return res.status(result.status).json(result.body);
+    }
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.status(200).send(result.buffer);
+  } catch (error) {
+    console.error('POST /api/speak failed:', error);
+    return res.status(500).json({
+      message: "We couldn't generate speech right now. Please try again.",
+    });
+  }
+});
+
 app.post('/api/feedback', async (req, res) => {
   try {
     const result = await submitFeedback(req.body);
@@ -146,12 +166,16 @@ app.get('/', (_req, res) => {
       practiceGrade: 'POST /api/practice-grade',
       feedback: 'POST /api/feedback',
       progress: 'GET/PUT /api/progress',
+      speak: 'POST /api/speak',
     },
   });
 });
 
 app.get('/api/health', (_req, res) => {
-  res.json(getHealthStatus());
+  res.json({
+    ...getHealthStatus(),
+    tts: getTtsStatus(),
+  });
 });
 
 app.listen(port, () => {

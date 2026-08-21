@@ -496,7 +496,7 @@ export function DemoVideoModal({ onClose }: DemoVideoModalProps) {
                 key={tab.id}
                 type="button"
                 onClick={() => handleSelectTab(tab.id)}
-                className="rounded-card border border-border bg-background p-m text-left transition-colors hover:border-primary hover:bg-primary-light"
+                className="rounded-card border border-border bg-background p-m text-center transition-colors hover:border-primary hover:bg-primary-light md:text-left"
               >
                 <span className="font-medium text-text-primary">{tab.label}</span>
                 <p className="mt-xs text-xs text-text-secondary">Auto-play walkthrough</p>

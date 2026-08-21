@@ -48,7 +48,7 @@ export function PronunciationButton({
       aria-pressed={isSpeaking}
       title={
         disabled
-          ? 'Pronunciation not supported in this browser'
+          ? 'Pronunciation unavailable'
           : isSpeaking
             ? 'Stop'
             : 'Hear in French'

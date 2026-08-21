@@ -1,11 +1,14 @@
+import { playTtsAudio, stopTtsAudio } from './ttsAudio';
+
 const FRENCH_LANG = 'fr-FR';
 
 export function isFrenchSpeechSupported(): boolean {
-  return typeof window !== 'undefined' && 'speechSynthesis' in window;
+  if (typeof window === 'undefined') return false;
+  return typeof Audio !== 'undefined' || 'speechSynthesis' in window;
 }
 
 function getVoices(): SpeechSynthesisVoice[] {
-  if (!isFrenchSpeechSupported()) return [];
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
   return window.speechSynthesis.getVoices();
 }
 
@@ -17,12 +20,15 @@ export function pickFrenchVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesis
   );
 }
 
-export function speakFrench(
+function speakFrenchWithBrowser(
   text: string,
   onStart?: () => void,
   onEnd?: () => void,
 ): void {
-  if (!isFrenchSpeechSupported() || !text.trim()) return;
+  if (!('speechSynthesis' in window)) {
+    onEnd?.();
+    return;
+  }
 
   window.speechSynthesis.cancel();
 
@@ -51,8 +57,23 @@ export function speakFrench(
   window.speechSynthesis.speak(utterance);
 }
 
+export function speakFrench(
+  text: string,
+  onStart?: () => void,
+  onEnd?: () => void,
+): void {
+  if (!text.trim()) return;
+
+  void playTtsAudio(text, 'fr', onStart, onEnd).then((played) => {
+    if (!played) {
+      speakFrenchWithBrowser(text, onStart, onEnd);
+    }
+  });
+}
+
 export function stopFrenchSpeech(): void {
-  if (isFrenchSpeechSupported()) {
+  stopTtsAudio();
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
 }
