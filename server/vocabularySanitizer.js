@@ -60,6 +60,12 @@ export function normalizePartOfSpeechLabel(value) {
   return null;
 }
 
+const VALID_NEGATION_FRAME_LEMMA = /^ne\.\.\.[a-zàâäéèêëïîôùûüçœæ'-]+$/i;
+
+function isValidNegationFrameLemma(lemma) {
+  return VALID_NEGATION_FRAME_LEMMA.test(String(lemma ?? '').trim());
+}
+
 export function isInvalidItem(item) {
   const lemma = String(item?.lemma ?? '').trim();
   const meaning = String(item?.meaning ?? '').trim();
@@ -68,7 +74,7 @@ export function isInvalidItem(item) {
   const pos = normalizePartOfSpeechLabel(item?.partOfSpeech) ?? '';
 
   if (!lemma || !meaning) return true;
-  if (lemma.includes('...')) return true;
+  if (lemma.includes('...') && !isValidNegationFrameLemma(lemma)) return true;
   if (/^ne\s+.+\s+pas$/i.test(lemma)) return true;
 
   if (pos === 'Verb') {

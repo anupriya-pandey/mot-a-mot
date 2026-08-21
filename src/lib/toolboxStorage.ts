@@ -16,6 +16,13 @@ import {
 
 const STORAGE_KEY = STORAGE_KEYS.toolbox;
 
+/** Valid French negation frames shown in Grow recommendations (e.g. ne...pas). */
+const VALID_NEGATION_FRAME_LEMMA = /^ne\.\.\.[a-zàâäéèêëïîôùûüçœæ'-]+$/i;
+
+function isValidNegationFrameLemma(lemma: string): boolean {
+  return VALID_NEGATION_FRAME_LEMMA.test(lemma.trim());
+}
+
 const POS_ALIASES: Record<string, PartOfSpeech> = {
   noun: 'Nouns',
   nouns: 'Nouns',
@@ -107,7 +114,7 @@ function mergeAdjectiveForms(
 
 function isInvalidStoredEntry(entry: VocabularyEntry): boolean {
   const lemma = entry.lemma.toLowerCase();
-  if (lemma.includes('...')) return true;
+  if (lemma.includes('...') && !isValidNegationFrameLemma(entry.lemma)) return true;
   if (/^ne\s+.+\s+pas$/.test(lemma)) return true;
   if (entry.partOfSpeech === 'Verbs' && /\bpas\b/.test(lemma)) return true;
   if (entry.partOfSpeech === 'Verbs' && /^(do not|don't|cannot|can't)\b/i.test(entry.meaning)) {

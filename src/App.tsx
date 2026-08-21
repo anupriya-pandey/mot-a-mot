@@ -317,7 +317,7 @@ function MotAMotApp() {
 
   const handleAddToToolbox = useCallback(
     (item: VocabularyItem) => {
-      toolbox.addSingleItem(item);
+      return toolbox.addSingleItem(item);
     },
     [toolbox],
   );
