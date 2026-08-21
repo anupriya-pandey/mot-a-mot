@@ -22,7 +22,7 @@ interface ToolboxScreenProps {
   onSelectCategory: (category: PartOfSpeech) => void;
   onImport: () => void;
   onDeleteEntry: (entry: VocabularyEntry) => void;
-  onAddRecommendation: (item: VocabularyItem) => void;
+  onAddRecommendation: (item: VocabularyItem) => boolean | void;
   demoRecommendations?: VocabularyItem[];
 }
 

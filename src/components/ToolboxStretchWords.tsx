@@ -27,7 +27,7 @@ interface ToolboxStretchWordsProps {
   entries: VocabularyEntry[];
   counts: CategoryCounts;
   totalCount: number;
-  onAdd: (item: VocabularyItem) => void;
+  onAdd: (item: VocabularyItem) => boolean | void;
   /** Fixed list for demo playback — skips persisted dismiss state. */
   demoItems?: VocabularyItem[];
 }
@@ -110,7 +110,8 @@ export function ToolboxStretchWords({
 
   const handleAdd = (item: VocabularyItem) => {
     const key = recommendationKey(item);
-    onAdd(item);
+    const added = onAdd(item);
+    if (added === false) return;
     setVisible(buildVisibleList(refreshExcluded, new Set([key])));
   };
 
