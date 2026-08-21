@@ -3,6 +3,14 @@
  * Prioritises one defensible answer, toolbox grounding, and validation before display.
  */
 
+import {
+  buildPhraseMeaningDistractors,
+  isPhraseLikeEnglish,
+  isPhraseLemma,
+  isVagueMeaning,
+  resolveMeaningForQuiz,
+} from './phraseMeaning.js';
+
 const ALLOWED_COUNTS = [5, 10, 15, 20, 25, 30];
 
 const FRENCH_SKILLS_TYPES = [
@@ -180,10 +188,12 @@ function isLikelyEnglishLemma(lemma) {
 }
 
 function isValidExpressionMeaning(entry) {
+  const meaning = primaryMeaning(entry);
+  if (isVagueMeaning(meaning)) return false;
+
   if (entry.partOfSpeech !== 'Expressions') return true;
 
   const lemma = String(entry.lemma ?? '').trim();
-  const meaning = primaryMeaning(entry);
   const lemmaWords = lemma.split(/\s+/).filter(Boolean);
   const meaningWords = meaning.split(/\s+/).filter(Boolean);
 
@@ -458,22 +468,8 @@ function buildMcqOptions(correctText, distractors) {
   return { options, correctAnswer: correct.id };
 }
 
-function buildMeaningDistractors(entry, pool) {
-  const correct = primaryMeaning(entry);
-  const used = new Set([correct.toLowerCase()]);
-  const distractors = [];
-
-  for (const candidate of shuffle(pool)) {
-    if (candidate.lemma === entry.lemma) continue;
-    const meaning = primaryMeaning(candidate);
-    const key = meaning.toLowerCase();
-    if (!meaning || used.has(key)) continue;
-    used.add(key);
-    distractors.push(meaning);
-    if (distractors.length >= 3) break;
-  }
-
-  return distractors;
+function buildMeaningDistractors(entry, pool, correctMeaning) {
+  return buildPhraseMeaningDistractors(entry, pool, correctMeaning);
 }
 
 function isValidMatchFollowing(prompt) {
@@ -503,6 +499,8 @@ function validatePrompt(prompt) {
     const correctOption = prompt.options?.find((option) => option.id === prompt.correctAnswer);
     if (!target || !correctOption?.text) return false;
     if (correctOption.text.toLowerCase() === target.toLowerCase()) return false;
+    if (isVagueMeaning(correctOption.text)) return false;
+    if (isPhraseLemma(target) && !isPhraseLikeEnglish(correctOption.text)) return false;
   }
   if (prompt.options) {
     const texts = prompt.options.map((option) => option.text);
@@ -835,18 +833,21 @@ function buildMcqMeaning(entry, pool, index) {
   if (entry.partOfSpeech === 'Verbs') return null;
   if (!isValidExpressionMeaning(entry)) return null;
 
-  const correct = primaryMeaning(entry);
-  if (!correct) return null;
+  const correct = resolveMeaningForQuiz(entry, pool);
+  if (!correct || isVagueMeaning(correct)) return null;
 
-  const distractors = buildMeaningDistractors(entry, pool);
+  const distractors = buildMeaningDistractors(entry, pool, correct);
   const built = buildMcqOptions(correct, distractors);
   if (!built) return null;
   const { options, correctAnswer } = built;
+  const isPhrase = isPhraseLemma(entry.lemma);
   return basePrompt({
     id: `fs-mean-${normalizeLemma(entry.lemma)}-${index}`,
     type: 'mcq_meaning',
-    title: 'Word meaning',
-    instruction: `What does « ${entry.lemma} » mean?`,
+    title: isPhrase ? 'Phrase meaning' : 'Word meaning',
+    instruction: isPhrase
+      ? `What does this French sentence mean?`
+      : `What does « ${entry.lemma} » mean?`,
     targetWords: [entry.lemma],
     focusCategory: entry.partOfSpeech,
     frenchPrompt: entry.lemma,
