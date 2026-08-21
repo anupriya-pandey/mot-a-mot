@@ -120,13 +120,96 @@ function normalizeLemma(lemma) {
 }
 
 function primaryMeaning(entry) {
-  return String(entry.meaning ?? '').split(/[/;]/)[0].trim();
+  return String(entry.meaning ?? '')
+    .split(/[;,/]|(\s+or\s+)/i)[0]
+    .trim();
+}
+
+function looksLikeFrench(text, targetWords = []) {
+  if (!text || typeof text !== 'string') return false;
+  const value = text.trim();
+  if (!value) return false;
+
+  const lower = value.toLowerCase();
+  if (targetWords.some((word) => word.trim() && lower.includes(word.trim().toLowerCase()))) {
+    return true;
+  }
+  if (/[àâäéèêëïîôùûüçœæ]/.test(value)) return true;
+  if (/l'|d'|j'|n'|m'|t'|s'|c'|qu'|aujourd'hui/i.test(value)) return true;
+  if (
+    /\b(hier|demain|bonjour|merci|oui|non|chez|avec|sans|pour|dans|sur|sous|maison|chat|chien|aller|être|avoir|faire|très|bien|mal|toujours|jamais|souvent|maintenant)\b/i.test(
+      value,
+    )
+  ) {
+    return true;
+  }
+  if (/\b\w+(tion|sion|ment|eux|euse|eur|ette|eau|aux|oire|ique|age)\b/i.test(value)) return true;
+  return /\b(je|tu|il|elle|on|nous|vous|ils|elles|le|la|les|un|une|des|du|de|au|aux|est|suis|es|sommes|êtes|sont|ai|as|a|avons|avez|ont)\b/i.test(
+    value,
+  );
+}
+
+function looksLikeProperNoun(entry) {
+  const lemma = String(entry.lemma ?? '').trim();
+  const meaning = primaryMeaning(entry);
+  if (!lemma) return true;
+
+  if (/^(name|proper noun|person|first name|given name)/i.test(meaning)) return true;
+
+  if (meaning.toLowerCase() === lemma.toLowerCase()) {
+    if (/^[A-Z][a-zA-Z'-]+$/.test(lemma) && !looksLikeFrench(lemma, [lemma])) {
+      return true;
+    }
+  }
+
+  if (/^[A-Z][a-z]+$/.test(lemma) && !/[àâäéèêëïîôùûüçœæ]/.test(lemma)) {
+    if (!looksLikeFrench(lemma, []) && !looksLikeFrench(meaning, [])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isLikelyEnglishLemma(lemma) {
+  const value = String(lemma ?? '').trim();
+  if (!value) return true;
+  if (looksLikeFrench(value, [])) return false;
+  if (/\s/.test(value)) return false;
+  return /^[a-z][a-z'-]*$/i.test(value);
+}
+
+function isValidExpressionMeaning(entry) {
+  if (entry.partOfSpeech !== 'Expressions') return true;
+
+  const lemma = String(entry.lemma ?? '').trim();
+  const meaning = primaryMeaning(entry);
+  const lemmaWords = lemma.split(/\s+/).filter(Boolean);
+  const meaningWords = meaning.split(/\s+/).filter(Boolean);
+
+  if (lemmaWords.length <= 1) return true;
+
+  if (meaningWords.length < 2 && meaning.length < 10) return false;
+
+  const fragmentPatterns = [
+    /^you\b/i,
+    /^to\s+[a-z]+$/i,
+    /^\(?you\b/i,
+    /^(at the|in the|on the)\b/i,
+  ];
+  if (fragmentPatterns.some((pattern) => pattern.test(meaning)) && lemmaWords.length >= 2) {
+    return false;
+  }
+
+  return true;
 }
 
 function isEligible(entry) {
   if (!entry?.lemma?.trim() || !entry?.meaning?.trim()) return false;
-  const lemma = entry.lemma.trim();
-  if (/^[A-Z][a-z]+$/.test(lemma) && !/[àâäéèêëïîôùûüç]/.test(lemma)) return false;
+  if (looksLikeProperNoun(entry)) return false;
+  if (isLikelyEnglishLemma(entry.lemma)) return false;
+  if (!looksLikeFrench(entry.lemma, [])) return false;
+  if (!isValidExpressionMeaning(entry)) return false;
   return true;
 }
 
@@ -353,17 +436,74 @@ function meaningDistractors(entry, pool, correctJe) {
 }
 
 function buildMcqOptions(correctText, distractors) {
-  const unique = [...new Set([correctText, ...distractors.filter((d) => d && d !== correctText)])];
-  if (unique.length < 4) return null;
-  const texts = shuffle(unique).slice(0, 4);
+  const used = new Set([correctText.toLowerCase()]);
+  const picked = [];
+
+  for (const distractor of shuffle(distractors)) {
+    const text = String(distractor ?? '').trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (used.has(key)) continue;
+    used.add(key);
+    picked.push(text);
+    if (picked.length >= 3) break;
+  }
+
+  if (picked.length < 3) return null;
+
+  const texts = shuffle([correctText, ...picked]);
   const options = texts.map((text, i) => ({ id: String.fromCharCode(97 + i), text }));
-  const correct = options.find((o) => o.text === correctText);
+  const correct = options.find((option) => option.text === correctText);
   if (!correct) return null;
   return { options, correctAnswer: correct.id };
 }
 
+function buildMeaningDistractors(entry, pool) {
+  const correct = primaryMeaning(entry);
+  const used = new Set([correct.toLowerCase()]);
+  const distractors = [];
+
+  for (const candidate of shuffle(pool)) {
+    if (candidate.lemma === entry.lemma) continue;
+    const meaning = primaryMeaning(candidate);
+    const key = meaning.toLowerCase();
+    if (!meaning || used.has(key)) continue;
+    used.add(key);
+    distractors.push(meaning);
+    if (distractors.length >= 3) break;
+  }
+
+  return distractors;
+}
+
+function isValidMatchFollowing(prompt) {
+  if (prompt.type !== 'match_following') return true;
+  if (!Array.isArray(prompt.matchRows) || prompt.matchRows.length < 2) return false;
+  if (!prompt.options || prompt.options.length < prompt.matchRows.length) return false;
+
+  try {
+    const map = JSON.parse(prompt.correctAnswer);
+    return prompt.matchRows.every((row) => {
+      if (!row.id || !row.french || !map[row.id]) return false;
+      const option = prompt.options.find((item) => item.id === map[row.id]);
+      if (!option?.text) return false;
+      const entry = { lemma: row.french, meaning: option.text };
+      return primaryMeaning(entry).toLowerCase() === option.text.toLowerCase();
+    });
+  } catch {
+    return false;
+  }
+}
+
 function validatePrompt(prompt) {
   if (!prompt?.type || !prompt?.correctAnswer) return false;
+  if (!isValidMatchFollowing(prompt)) return false;
+  if (prompt.type === 'mcq_meaning' || prompt.type === 'match_meaning') {
+    const target = prompt.targetWords?.[0];
+    const correctOption = prompt.options?.find((option) => option.id === prompt.correctAnswer);
+    if (!target || !correctOption?.text) return false;
+    if (correctOption.text.toLowerCase() === target.toLowerCase()) return false;
+  }
   if (prompt.options) {
     const texts = prompt.options.map((option) => option.text);
     if (texts.length !== 4) return false;
@@ -692,12 +832,13 @@ function buildMcqDeterminer(entry, pool, index) {
 }
 
 function buildMcqMeaning(entry, pool, index) {
+  if (entry.partOfSpeech === 'Verbs') return null;
+  if (!isValidExpressionMeaning(entry)) return null;
+
   const correct = primaryMeaning(entry);
-  const distractors = shuffle(pool.filter((e) => e.lemma !== entry.lemma))
-    .map((e) => primaryMeaning(e))
-    .filter((m) => m && m.toLowerCase() !== correct.toLowerCase())
-    .slice(0, 3);
-  if (distractors.length < 3) return null;
+  if (!correct) return null;
+
+  const distractors = buildMeaningDistractors(entry, pool);
   const built = buildMcqOptions(correct, distractors);
   if (!built) return null;
   const { options, correctAnswer } = built;
@@ -849,17 +990,37 @@ function buildAdjectiveTransform(entry, pool, index) {
 }
 
 function buildMatchFollowing(pool, index) {
-  const rows = shuffle(pool.filter(isEligible)).slice(0, Math.min(4, pool.length));
-  if (rows.length < 3) return null;
-  const matchRows = rows.map((e, i) => ({ id: `r${i + 1}`, french: e.lemma }));
-  const options = shuffle(rows.map((e, i) => ({ id: `o${i + 1}`, text: primaryMeaning(e) })));
-  const correctMap = Object.fromEntries(matchRows.map((row, i) => [row.id, options[i].id]));
+  const eligible = pool.filter(isEligible);
+  const selected = [];
+  const usedMeanings = new Set();
+
+  for (const entry of shuffle(eligible)) {
+    const meaningKey = primaryMeaning(entry).toLowerCase();
+    if (!meaningKey || usedMeanings.has(meaningKey)) continue;
+    usedMeanings.add(meaningKey);
+    selected.push(entry);
+    if (selected.length >= Math.min(4, eligible.length)) break;
+  }
+
+  if (selected.length < 3) return null;
+
+  const pairs = selected.map((entry, i) => ({
+    rowId: `r${i + 1}`,
+    french: entry.lemma,
+    optionId: `o${i + 1}`,
+    meaning: primaryMeaning(entry),
+  }));
+
+  const matchRows = pairs.map((pair) => ({ id: pair.rowId, french: pair.french }));
+  const options = shuffle(pairs.map((pair) => ({ id: pair.optionId, text: pair.meaning })));
+  const correctMap = Object.fromEntries(pairs.map((pair) => [pair.rowId, pair.optionId]));
+
   return basePrompt({
     id: `fs-match-${index}`,
     type: 'match_following',
     title: 'Matching',
     instruction: 'Match each French word to its English meaning.',
-    targetWords: rows.map((r) => r.lemma),
+    targetWords: pairs.map((pair) => pair.french),
     matchRows,
     options,
     correctAnswer: JSON.stringify(correctMap),
