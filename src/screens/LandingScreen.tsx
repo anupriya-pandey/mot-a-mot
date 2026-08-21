@@ -55,6 +55,7 @@ export function LandingScreen({
   };
 
   const trimmed = sentence.trim();
+  const inputValue = isListening && interimTranscript ? interimTranscript : sentence;
 
   const handleSubmit = () => {
     if (!trimmed) {
@@ -91,7 +92,7 @@ export function LandingScreen({
               ref={inputRef}
               id="french-input"
               data-demo-target="check-input"
-              value={sentence}
+              value={inputValue}
               onChange={(event) => handleChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
@@ -117,10 +118,8 @@ export function LandingScreen({
             <p className="mb-m text-sm font-medium text-primary">{ERRORS.voiceMicRequesting}</p>
           )}
 
-          {isListening && (
-            <p className="mb-m text-sm font-medium text-primary">
-              {interimTranscript ? `"${interimTranscript}"` : VOICE_LISTENING}
-            </p>
+          {isListening && !interimTranscript && (
+            <p className="mb-m text-sm font-medium text-primary">{VOICE_LISTENING}</p>
           )}
 
           {isSupported && !error && !isRequestingPermission && !isListening && permissionState !== 'denied' && (
