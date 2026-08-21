@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ERRORS } from '../constants/microcopy';
 import { playListeningStartSound, prepareListeningSound } from '../lib/listeningSound';
+import { mergeSpeechResults } from '../lib/speechTranscriptMerge';
 
 type SpeechRecognitionCtor = new () => SpeechRecognition;
 type MicPermissionState = PermissionState | 'unsupported' | 'unknown';
@@ -10,51 +11,6 @@ type MicAccessResult =
 
 const LISTEN_TIMEOUT_MS = 12000;
 const SILENCE_AUTO_STOP_MS = 2000;
-
-function normalizeSpeechPiece(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
-function combineFinalAndInterim(finalText: string, interimText: string): string {
-  const finalPart = normalizeSpeechPiece(finalText);
-  const interimPart = normalizeSpeechPiece(interimText);
-
-  if (!interimPart) return finalPart;
-  if (!finalPart) return interimPart;
-
-  const finalLower = finalPart.toLowerCase();
-  const interimLower = interimPart.toLowerCase();
-
-  if (interimLower.startsWith(finalLower)) return interimPart;
-  if (finalLower.endsWith(interimLower)) return finalPart;
-
-  return `${finalPart} ${interimPart}`.trim();
-}
-
-function buildTranscriptFromResults(results: SpeechRecognitionResultList): {
-  finalText: string;
-  interimText: string;
-} {
-  const finalParts: string[] = [];
-  let interimText = '';
-
-  for (let index = 0; index < results.length; index += 1) {
-    const result = results[index];
-    const piece = normalizeSpeechPiece(result[0]?.transcript ?? '');
-    if (!piece) continue;
-
-    if (result.isFinal) {
-      finalParts.push(piece);
-    } else {
-      interimText = piece;
-    }
-  }
-
-  return {
-    finalText: finalParts.join(' ').trim(),
-    interimText,
-  };
-}
 
 function getSpeechRecognition(): SpeechRecognitionCtor | null {
   const win = window as Window & {
@@ -163,8 +119,8 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
   const gotResultRef = useRef(false);
   const userStoppedRef = useRef(false);
   const isRetryingRef = useRef(false);
-  const sessionFinalRef = useRef('');
-  const sessionInterimRef = useRef('');
+  const sessionTranscriptRef = useRef('');
+  const hasCommittedRef = useRef(false);
   const silenceTimeoutRef = useRef<number | null>(null);
 
   onTranscriptRef.current = onTranscript;
@@ -214,8 +170,8 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
       const SpeechRecognitionClass = getSpeechRecognition();
       if (!SpeechRecognitionClass) return;
 
-      sessionFinalRef.current = '';
-      sessionInterimRef.current = '';
+      sessionTranscriptRef.current = '';
+      hasCommittedRef.current = false;
 
       const recognition = new SpeechRecognitionClass();
       recognition.lang = 'fr-FR';
@@ -236,19 +192,16 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
       };
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const { finalText, interimText } = buildTranscriptFromResults(event.results);
+        const transcript = mergeSpeechResults(event.results);
+        sessionTranscriptRef.current = transcript;
 
-        sessionFinalRef.current = finalText;
-        sessionInterimRef.current = interimText;
-
-        const preview = combineFinalAndInterim(finalText, interimText);
-        if (preview) {
-          setInterimTranscript(preview);
+        if (transcript) {
+          setInterimTranscript(transcript);
           setError(null);
         }
 
         clearSilenceTimeout();
-        if (preview.trim()) {
+        if (transcript) {
           silenceTimeoutRef.current = window.setTimeout(() => {
             userStoppedRef.current = true;
             recognition.stop();
@@ -295,12 +248,11 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
         releaseMicrophone();
 
         if (isRetryingRef.current) return;
+        if (hasCommittedRef.current) return;
 
-        const committed = combineFinalAndInterim(
-          sessionFinalRef.current,
-          sessionInterimRef.current,
-        ).trim();
+        const committed = sessionTranscriptRef.current.trim();
         if (committed) {
+          hasCommittedRef.current = true;
           gotResultRef.current = true;
           setError(null);
           onTranscriptRef.current(committed);
@@ -338,6 +290,7 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
     gotResultRef.current = false;
     userStoppedRef.current = false;
     isRetryingRef.current = false;
+    hasCommittedRef.current = false;
 
     if (permissionState === 'denied') {
       setError(ERRORS.voiceMicDeniedReset);
@@ -372,4 +325,4 @@ export function useSpeechRecognition(onTranscript: (text: string) => void) {
     start,
     stop,
   };
-};
+}
