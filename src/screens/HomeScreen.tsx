@@ -61,7 +61,7 @@ export function HomeScreen({ onTryCheck }: HomeScreenProps) {
               key={feature.title}
               className="rounded-card bg-surface p-l shadow-card"
             >
-              <div className="mb-xs flex items-center gap-s">
+              <div className="mb-xs flex items-center justify-center gap-s md:justify-start">
                 <Sparkles className="h-4 w-4 text-primary" aria-hidden />
                 <h3 className="text-lg font-semibold text-text-primary">{feature.title}</h3>
               </div>

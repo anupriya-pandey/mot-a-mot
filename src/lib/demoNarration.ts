@@ -1,3 +1,4 @@
+import { speakTtsSequence, stopTtsAudio } from './ttsAudio';
 import { pickFrenchVoice } from './frenchSpeech';
 
 export type NarrationSegment =
@@ -54,7 +55,7 @@ function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
 }
 
 export function preloadDemoNarration(): Promise<void> {
-  return waitForVoices().then(() => undefined);
+  return Promise.resolve();
 }
 
 function pickFriendlyEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
@@ -129,7 +130,6 @@ export function parseDemoNarration(text: string): NarrationSegment[] {
   return segments.length > 0 ? segments : [{ kind: 'en', text }];
 }
 
-/** One rate/pitch for every segment so pacing never jumps between EN, FR, and brand. */
 const NARRATOR_RATE = 1.05;
 const NARRATOR_PITCH = 1.12;
 const BRAND_SPEECH = 'Mot à mot';
@@ -180,6 +180,20 @@ function buildSegmentSpeech(
   };
 }
 
+function segmentToTts(segment: NarrationSegment): { text: string; lang: 'fr' | 'en' } | null {
+  if (segment.kind === 'brand') {
+    return { text: BRAND_SPEECH, lang: 'fr' };
+  }
+
+  if (segment.kind === 'fr') {
+    const text = segment.text.trim();
+    return text ? { text, lang: 'fr' } : null;
+  }
+
+  const text = segment.text.trim();
+  return text ? { text, lang: 'en' } : null;
+}
+
 function speakSegment(
   speech: SegmentSpeech,
   generation: number,
@@ -210,10 +224,9 @@ function speakSegment(
   });
 }
 
-export async function speakDemoNarration(text: string): Promise<void> {
+async function speakDemoNarrationWithBrowser(text: string, generation: number): Promise<void> {
   if (!('speechSynthesis' in window)) return;
 
-  const generation = narrationGeneration;
   const voices = await waitForVoices();
   if (generation !== narrationGeneration) return;
 
@@ -233,8 +246,28 @@ export async function speakDemoNarration(text: string): Promise<void> {
   }
 }
 
+export async function speakDemoNarration(text: string): Promise<void> {
+  const generation = narrationGeneration;
+  const segments = parseDemoNarration(text)
+    .map(segmentToTts)
+    .filter((segment): segment is { text: string; lang: 'fr' | 'en' } => Boolean(segment));
+
+  if (segments.length === 0) return;
+
+  stopTtsAudio();
+
+  const played = await speakTtsSequence(segments);
+
+  if (generation !== narrationGeneration) return;
+
+  if (!played) {
+    await speakDemoNarrationWithBrowser(text, generation);
+  }
+}
+
 export function stopDemoNarration(): void {
   narrationGeneration += 1;
+  stopTtsAudio();
   window.speechSynthesis?.cancel();
 }
 

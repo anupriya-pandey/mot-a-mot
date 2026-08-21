@@ -243,7 +243,7 @@ export function ImportReviewScreen({
             type="button"
             id="already-in"
             onClick={() => setShowExisting((open) => !open)}
-            className="flex w-full items-center justify-between rounded-card bg-surface px-m py-s text-left shadow-card"
+            className="flex w-full items-center justify-between rounded-card bg-surface px-m py-s text-center shadow-card md:text-left"
           >
             <span className="font-semibold text-text-primary">
               Already in Toolbox ({review.alreadyIn.length})

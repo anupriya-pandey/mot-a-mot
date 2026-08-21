@@ -6,4 +6,21 @@
   body {
     @apply bg-background text-text-primary font-sans antialiased;
   }
+
+  @media (max-width: 767px) {
+    .max-w-content {
+      text-align: center;
+    }
+
+    .max-w-content input:not([type='checkbox']):not([type='radio']),
+    .max-w-content textarea,
+    .max-w-content select {
+      text-align: left;
+    }
+
+    .max-w-content table th,
+    .max-w-content table td {
+      text-align: center;
+    }
+  }
 }

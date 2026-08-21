@@ -66,7 +66,7 @@ export function FrenchToolboxDashboard({
               type="button"
               onClick={() => onSelectCategory(category)}
               data-demo-target={category === 'Nouns' ? 'toolbox-category-nouns' : undefined}
-              className="rounded-card bg-surface p-m text-left shadow-card transition-colors hover:bg-primary-light"
+              className="rounded-card bg-surface p-m text-center shadow-card transition-colors hover:bg-primary-light md:text-left"
             >
               <span className="font-medium text-text-primary">{category}</span>
               <span className="ml-s text-text-secondary">({count})</span>

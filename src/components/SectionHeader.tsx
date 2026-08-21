@@ -6,7 +6,7 @@ interface SectionHeaderProps {
 export function SectionHeader({ icon, title }: SectionHeaderProps) {
   return (
     <div className="mb-m">
-      <div className="mb-s flex items-center gap-s">
+      <div className="mb-s flex items-center justify-center gap-s md:justify-start">
         {icon && <span className="text-lg">{icon}</span>}
         <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
       </div>

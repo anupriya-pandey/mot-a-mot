@@ -42,7 +42,7 @@ export function HistoryScreen({ entries, onSelectEntry }: HistoryScreenProps) {
                 type="button"
                 onClick={() => onSelectEntry(entry)}
                 data-demo-target={index === 0 ? 'history-entry' : undefined}
-                className="flex w-full items-center gap-m rounded-card bg-surface p-l text-left shadow-card transition-colors hover:bg-primary-light"
+                className="flex w-full items-center gap-m rounded-card bg-surface p-l text-center shadow-card transition-colors hover:bg-primary-light md:text-left"
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-text-primary">

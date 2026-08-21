@@ -145,7 +145,7 @@ export function ToolboxStretchWords({
       aria-labelledby="toolbox-grow"
       data-demo-target="toolbox-recommendations"
     >
-      <div className="flex flex-wrap items-start justify-between gap-s">
+      <div className="flex flex-wrap items-start justify-center gap-s md:justify-between">
         <div>
           <h2 id="toolbox-grow" className="text-lg font-semibold text-text-primary">
             {TOOLBOX_GROW_TITLE}

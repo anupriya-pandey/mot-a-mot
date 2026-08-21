@@ -101,7 +101,7 @@ export function ToolboxScreen({
           <div className="absolute left-0 right-0 z-10 mt-s rounded-card border border-border bg-surface p-s shadow-card">
             <button
               type="button"
-              className="block w-full rounded-button px-m py-2 text-left text-sm hover:bg-primary-light"
+              className="block w-full rounded-button px-m py-2 text-center text-sm hover:bg-primary-light md:text-left"
               onClick={() => {
                 exportToolboxToExcel(entries);
                 setExportMenuOpen(false);
@@ -111,7 +111,7 @@ export function ToolboxScreen({
             </button>
             <button
               type="button"
-              className="mt-xs block w-full rounded-button px-m py-2 text-left text-sm hover:bg-primary-light"
+              className="mt-xs block w-full rounded-button px-m py-2 text-center text-sm hover:bg-primary-light md:text-left"
               onClick={() => {
                 exportToolboxToPdf(entries);
                 setExportMenuOpen(false);

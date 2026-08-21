@@ -47,7 +47,7 @@ function FormsTable({
             {headers.map((header) => (
               <th
                 key={header}
-                className="border-b border-border px-s py-xs text-left font-medium text-text-secondary"
+                className="border-b border-border px-s py-xs text-center font-medium text-text-secondary md:text-left"
               >
                 {header}
               </th>
